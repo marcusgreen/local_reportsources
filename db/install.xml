@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="local/reportsources/db" VERSION="20260507" COMMENT="Ad-hoc reports schema"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
+>
+  <TABLES>
+    <TABLE NAME="local_reportsources_query" COMMENT="Saved ad-hoc SQL queries.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="description" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="querysql" TYPE="text" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="ownerid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="draft" SEQUENCE="false"
+               COMMENT="draft|published|disabled"/>
+        <FIELD NAME="viewname" TYPE="char" LENGTH="64" NOTNULL="false" SEQUENCE="false"
+               COMMENT="DB view name (without prefix) when published"/>
+        <FIELD NAME="columnsmeta" TYPE="text" NOTNULL="false" SEQUENCE="false"
+               COMMENT="JSON cache of introspected column types"/>
+        <FIELD NAME="reportid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"
+               COMMENT="FK into reportbuilder_report once published"/>
+        <FIELD NAME="rowcap" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="5000" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="ownerid" TYPE="foreign" FIELDS="ownerid" REFTABLE="user" REFFIELDS="id"/>
+        <KEY NAME="reportid" TYPE="foreign" FIELDS="reportid" REFTABLE="reportbuilder_report" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="status" UNIQUE="false" FIELDS="status"/>
+        <INDEX NAME="viewname" UNIQUE="true" FIELDS="viewname"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_reportsources_log" COMMENT="Audit of ad-hoc report executions.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="queryid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="action" TYPE="char" LENGTH="32" NOTNULL="true" SEQUENCE="false"
+               COMMENT="validate|preview|publish|drop|run"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="16" NOTNULL="true" SEQUENCE="false"
+               COMMENT="ok|denied|error|timeout"/>
+        <FIELD NAME="durationms" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="errortext" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="timeexecuted" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="queryid" TYPE="foreign" FIELDS="queryid" REFTABLE="local_reportsources_query" REFFIELDS="id"/>
+        <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="timeexecuted" UNIQUE="false" FIELDS="timeexecuted"/>
+      </INDEXES>
+    </TABLE>
+  </TABLES>
+</XMLDB>
