@@ -33,7 +33,7 @@ function xmldb_local_reportsources_install(): void {
     // Migrate data from local_adhocreports if it was installed on this site.
     if ($DB->get_manager()->table_exists('local_adhocreports_query')) {
         $oldsource = 'local_adhocreports\\reportbuilder\\datasource\\adhoc_query';
-        $newsource = 'local_reportsources\\reportbuilder\\datasource\\adhoc_query';
+        $newsource = 'local_reportsources\\reportbuilder\\source\\adhoc_query';
 
         $oldrecords = $DB->get_records('local_adhocreports_query');
         foreach ($oldrecords as $rec) {

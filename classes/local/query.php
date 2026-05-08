@@ -159,7 +159,7 @@ class query {
         if (!$reportid) {
             $reportmodel = reporthelper::create_report((object) [
                 'name'   => $this->name(),
-                'source' => \local_reportsources\reportbuilder\datasource\adhoc_query::class,
+                'source' => \local_reportsources\reportbuilder\source\adhoc_query::class,
             ], false);
             $reportid = (int) $reportmodel->get('id');
         }
@@ -179,7 +179,7 @@ class query {
 
         // Hydrate default columns / filters / conditions now that the datasource can resolve them.
         $reportpersistent = report_model::get_record(['id' => $reportid], MUST_EXIST);
-        $datasourceclass = \local_reportsources\reportbuilder\datasource\adhoc_query::class;
+        $datasourceclass = \local_reportsources\reportbuilder\source\adhoc_query::class;
         /** @var \core_reportbuilder\datasource $datasource */
         $datasource = new $datasourceclass($reportpersistent);
         $existingcolumns = \core_reportbuilder\local\models\column::get_records(['reportid' => $reportid]);
@@ -225,7 +225,7 @@ class query {
 
         $reportmodel = reporthelper::create_report((object) [
             'name'   => $this->name(),
-            'source' => \local_reportsources\reportbuilder\datasource\adhoc_query::class,
+            'source' => \local_reportsources\reportbuilder\source\adhoc_query::class,
         ], false);
         $reportid = (int) $reportmodel->get('id');
 

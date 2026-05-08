@@ -16,7 +16,7 @@
 
 declare(strict_types=1);
 
-namespace local_reportsources\reportbuilder\datasource;
+namespace local_reportsources\reportbuilder\source;
 
 use core_reportbuilder\datasource;
 use local_reportsources\local\query;
@@ -27,6 +27,10 @@ use local_reportsources\reportbuilder\local\entities\adhoc_view;
  *
  * One Reportbuilder report is created per saved query at publish time. The report's id is mapped
  * back to the query id via plugin config (`queryid_for_report_<reportid>`).
+ *
+ * Intentionally placed outside the `reportbuilder\datasource` namespace so Moodle's auto-discovery
+ * does not surface it in the "new report" source dropdown — reports are created exclusively by the
+ * plugin's own publish workflow.
  *
  * @package   local_reportsources
  * @copyright 2026 Marcus Green
