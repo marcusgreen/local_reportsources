@@ -54,7 +54,8 @@ export const init = (targetid) => {
         }
     }
 
-    const tables = Object.keys(schema).map(name => ({label: name, apply: `{${name}}`}));
+    // Bare table name — server auto-wraps it in {} on save, so the user never types braces.
+    const tables = Object.keys(schema).map(name => ({label: name}));
 
     // SQL keywords that can follow FROM/JOIN and must not be treated as aliases.
     const aliasSkip = new Set([

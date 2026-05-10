@@ -66,7 +66,7 @@ class adhoc_query extends datasource {
             return;
         }
 
-        $entity = new adhoc_view($viewname, $meta);
+        $entity = new adhoc_view($viewname, $meta, $query->name());
         $alias  = $entity->get_table_alias($viewname);
         $this->set_main_table($viewname, $alias);
         $this->add_entity($entity);

@@ -42,6 +42,16 @@ class edit_query_form extends moodleform {
         $mform->addElement('hidden', 'id');
         $mform->setType('id', PARAM_INT);
 
+        $mform->addElement('hidden', 'courseid');
+        $mform->setType('courseid', PARAM_INT);
+        $mform->setDefault('courseid', 0);
+
+        $mform->addElement('advcheckbox', 'visible',
+            get_string('visible', 'local_reportsources'),
+            get_string('visible_help', 'local_reportsources'),
+            null, [0, 1]);
+        $mform->setDefault('visible', 1);
+
         $mform->addElement('text', 'name', get_string('name', 'local_reportsources'), ['size' => 60]);
         $mform->setType('name', PARAM_TEXT);
         $mform->addRule('name', null, 'required', null, 'client');

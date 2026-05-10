@@ -25,29 +25,48 @@ require(__DIR__ . '/../../config.php');
 
 use local_reportsources\local\query;
 
-require_login();
+$courseid = optional_param('courseid', 0, PARAM_INT);
 
-$context = context_system::instance();
-require_capability('local/reportsources:view', $context);
+if ($courseid) {
+    require_login($courseid);
+    $context = context_course::instance($courseid);
+    if (!has_capability('local/reportsources:view', $context) &&
+        !has_capability('local/reportsources:viewown', $context) &&
+        !has_capability('local/reportsources:author', context_system::instance()) &&
+        !has_capability('local/reportsources:viewall', context_system::instance())) {
+        require_capability('local/reportsources:view', $context);
+    }
+} else {
+    require_login();
+    $context = context_system::instance();
+    if (!has_capability('local/reportsources:viewall', $context) &&
+        !has_capability('local/reportsources:author', $context) &&
+        !has_capability('local/reportsources:view', $context)) {
+        require_capability('local/reportsources:view', $context);
+    }
+}
 
 $PAGE->set_context($context);
-$PAGE->set_url(new moodle_url('/local/reportsources/index.php'));
-$PAGE->set_pagelayout('admin');
+$PAGE->set_url(new moodle_url('/local/reportsources/index.php',
+    $courseid ? ['courseid' => $courseid] : []));
+$PAGE->set_pagelayout($courseid ? 'incourse' : 'admin');
 $PAGE->set_title(get_string('queries', 'local_reportsources'));
 $PAGE->set_heading(get_string('reportsources', 'local_reportsources'));
 
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('queries', 'local_reportsources'));
 
-if (has_capability('local/reportsources:author', $context)) {
+$syscontext = context_system::instance();
+if (has_capability('local/reportsources:author', $syscontext)) {
     echo $OUTPUT->single_button(
-        new moodle_url('/local/reportsources/edit.php'),
+        new moodle_url('/local/reportsources/edit.php',
+            $courseid ? ['courseid' => $courseid] : []),
         get_string('addnew', 'local_reportsources'),
         'get'
     );
 }
 
-$queries = query::visible_to_current_user();
+$queries = query::visible_to_current_user($courseid);
 if (!$queries) {
     echo $OUTPUT->notification(get_string('noqueries', 'local_reportsources'), 'info');
     echo $OUTPUT->footer();
@@ -66,9 +85,10 @@ foreach ($queries as $rec) {
     $owner = core_user::get_user($rec->ownerid);
     $statuskey = 'status_' . $rec->status;
     $actions = [];
-    if (has_capability('local/reportsources:author', $context)) {
+    if (has_capability('local/reportsources:author', $syscontext)) {
         $actions[] = html_writer::link(
-            new moodle_url('/local/reportsources/edit.php', ['id' => $rec->id]),
+            new moodle_url('/local/reportsources/edit.php',
+                ['id' => $rec->id] + ($courseid ? ['courseid' => $courseid] : [])),
             get_string('edit', 'local_reportsources')
         );
     }
@@ -77,36 +97,36 @@ foreach ($queries as $rec) {
             new moodle_url('/reportbuilder/view.php', ['id' => $rec->reportid]),
             get_string('runreport', 'local_reportsources')
         );
-        if (has_capability('moodle/reportbuilder:edit', $context)) {
+        if (has_capability('moodle/reportbuilder:edit', $syscontext)) {
             $actions[] = html_writer::link(
                 new moodle_url('/reportbuilder/edit.php', ['id' => $rec->reportid]),
                 get_string('editreport', 'local_reportsources')
             );
         }
     }
-    if ($rec->status === query::STATUS_PUBLISHED && has_capability('local/reportsources:approve', $context)) {
+    if ($rec->status === query::STATUS_PUBLISHED && has_capability('local/reportsources:approve', $syscontext)) {
         $actions[] = html_writer::link(
             new moodle_url('/local/reportsources/run.php',
                 ['id' => $rec->id, 'action' => 'newreport', 'sesskey' => sesskey()]),
             get_string('newreport', 'local_reportsources')
         );
     }
-    if ($rec->status === query::STATUS_DRAFT && has_capability('local/reportsources:approve', $context)) {
+    if ($rec->status === query::STATUS_DRAFT && has_capability('local/reportsources:approve', $syscontext)) {
         $actions[] = html_writer::link(
             new moodle_url('/local/reportsources/run.php',
                 ['id' => $rec->id, 'action' => 'publish', 'sesskey' => sesskey()]),
             get_string('publish', 'local_reportsources')
         );
     }
-    if ($rec->status === query::STATUS_PUBLISHED && has_capability('local/reportsources:approve', $context)) {
+    if ($rec->status === query::STATUS_PUBLISHED && has_capability('local/reportsources:approve', $syscontext)) {
         $actions[] = html_writer::link(
             new moodle_url('/local/reportsources/run.php',
                 ['id' => $rec->id, 'action' => 'unpublish', 'sesskey' => sesskey()]),
             get_string('unpublish', 'local_reportsources')
         );
     }
-    if (has_capability('local/reportsources:author', $context) &&
-        ($rec->ownerid == $USER->id || has_capability('local/reportsources:viewall', $context))) {
+    if (has_capability('local/reportsources:author', $syscontext) &&
+        ($rec->ownerid == $USER->id || has_capability('local/reportsources:viewall', $syscontext))) {
         $actions[] = html_writer::link(
             new moodle_url('/local/reportsources/delete.php', ['id' => $rec->id, 'sesskey' => sesskey()]),
             get_string('delete', 'local_reportsources'),

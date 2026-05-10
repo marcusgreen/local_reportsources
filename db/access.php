@@ -43,9 +43,19 @@ $capabilities = [
     ],
     'local/reportsources:view' => [
         'captype'     => 'read',
-        'contextlevel' => CONTEXT_SYSTEM,
+        'contextlevel' => CONTEXT_COURSE,
         'archetypes'  => [
-            'user' => CAP_ALLOW,
+            'user'           => CAP_ALLOW,
+            'editingteacher' => CAP_ALLOW,
+            'teacher'        => CAP_ALLOW,
+        ],
+    ],
+    'local/reportsources:viewown' => [
+        'captype'     => 'read',
+        'contextlevel' => CONTEXT_COURSE,
+        'archetypes'  => [
+            'editingteacher' => CAP_ALLOW,
+            'teacher'        => CAP_ALLOW,
         ],
     ],
     'local/reportsources:viewall' => [

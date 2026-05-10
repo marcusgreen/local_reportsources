@@ -92,5 +92,9 @@ $string['reportsources:author'] = 'Author SQL report views';
 $string['reportsources:approve'] = 'Approve and publish report views';
 $string['reportsources:view'] = 'Run published report views';
 $string['reportsources:viewall'] = 'View all report views regardless of audience';
+$string['reportsources:viewown'] = 'Run report views in own course';
+
+$string['visible'] = 'Visible';
+$string['visible_help'] = 'Hidden views do not appear in the per-course list.';
 
 $string['cleanuplogs'] = 'Clean up report sources execution log';

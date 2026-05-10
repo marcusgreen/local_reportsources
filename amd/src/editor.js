@@ -42,7 +42,7 @@ define("local_reportsources/editor", ["exports", "./codemirror-lazy"], (function
             }
         }
 
-        const tables = Object.keys(schema).map(name => ({label: name, apply: "{" + name + "}"}));
+        const tables = Object.keys(schema).map(name => ({label: name}));
 
         const aliasSkip = new Set([
             "where", "on", "set", "inner", "outer", "left", "right",

@@ -83,6 +83,14 @@ class query {
         return $this->record->reportid ? (int) $this->record->reportid : null;
     }
 
+    public function courseid(): int {
+        return (int) ($this->record->courseid ?? 0);
+    }
+
+    public function visible(): bool {
+        return (int) ($this->record->visible ?? 1) === 1;
+    }
+
     /**
      * Decoded column metadata cached on save (introspected from the live VIEW).
      *
@@ -111,6 +119,8 @@ class query {
             'description'  => (string) ($data->description ?? ''),
             'querysql'     => $sql,
             'rowcap'       => (int) ($data->rowcap ?? get_config('local_reportsources', 'rowcapdefault') ?: 5000),
+            'courseid'     => (int) ($data->courseid ?? 0),
+            'visible'      => isset($data->visible) ? (int) (bool) $data->visible : 1,
             'timemodified' => $now,
         ];
 
@@ -301,24 +311,68 @@ class query {
     }
 
     /**
-     * List queries visible to the current user.
+     * List queries visible to the current user, optionally scoped to a course.
      *
+     * - viewall (system): all queries.
+     * - author (system): own queries plus published queries; scoped by courseid when supplied.
+     * - view (system or course): published + visible queries; if a course is given, only those
+     *   bound to that course or to the site (courseid = 0).
+     * - viewown (course): same as view, restricted to the supplied course.
+     *
+     * @param int $courseid Course id to scope to. 0 means site-wide list (only callable with system caps).
      * @return \stdClass[]
      */
-    public static function visible_to_current_user(): array {
+    public static function visible_to_current_user(int $courseid = 0): array {
         global $DB, $USER;
-        $context = \context_system::instance();
-        if (has_capability('local/reportsources:viewall', $context)) {
+
+        $syscontext = \context_system::instance();
+        $coursecontext = $courseid ? \context_course::instance($courseid) : $syscontext;
+
+        if (has_capability('local/reportsources:viewall', $syscontext)) {
+            if ($courseid) {
+                return $DB->get_records_select(
+                    self::TABLE,
+                    'courseid = :c OR courseid = 0',
+                    ['c' => $courseid],
+                    'timemodified DESC'
+                );
+            }
             return $DB->get_records(self::TABLE, null, 'timemodified DESC');
         }
-        if (has_capability('local/reportsources:author', $context)) {
+
+        if (has_capability('local/reportsources:author', $syscontext)) {
+            $params = ['u' => $USER->id, 'p' => self::STATUS_PUBLISHED, 'v' => 1];
+            $where  = '(ownerid = :u OR (status = :p AND visible = :v))';
+            if ($courseid) {
+                $where .= ' AND (courseid = :c OR courseid = 0)';
+                $params['c'] = $courseid;
+            }
+            return $DB->get_records_select(self::TABLE, $where, $params, 'timemodified DESC');
+        }
+
+        // Course-level viewer (teacher) — must supply courseid and have view/viewown there.
+        if ($courseid && (
+            has_capability('local/reportsources:view', $coursecontext) ||
+            has_capability('local/reportsources:viewown', $coursecontext)
+        )) {
             return $DB->get_records_select(
                 self::TABLE,
-                'ownerid = :u OR status = :p',
-                ['u' => $USER->id, 'p' => self::STATUS_PUBLISHED],
+                'status = :p AND visible = :v AND (courseid = :c OR courseid = 0)',
+                ['p' => self::STATUS_PUBLISHED, 'v' => 1, 'c' => $courseid],
                 'timemodified DESC'
             );
         }
-        return $DB->get_records(self::TABLE, ['status' => self::STATUS_PUBLISHED], 'timemodified DESC');
+
+        // System view fallback (e.g. admins without viewall): published + visible only, site-wide.
+        if (has_capability('local/reportsources:view', $syscontext)) {
+            return $DB->get_records_select(
+                self::TABLE,
+                'status = :p AND visible = :v AND courseid = 0',
+                ['p' => self::STATUS_PUBLISHED, 'v' => 1],
+                'timemodified DESC'
+            );
+        }
+
+        return [];
     }
 }

@@ -20,6 +20,10 @@
         <FIELD NAME="reportid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"
                COMMENT="FK into reportbuilder_report once published"/>
         <FIELD NAME="rowcap" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="5000" SEQUENCE="false"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
+               COMMENT="Course this query is bound to; 0 means site-wide."/>
+        <FIELD NAME="visible" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false"
+               COMMENT="Hidden queries are excluded from the per-course list."/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
       </FIELDS>
@@ -31,6 +35,7 @@
       <INDEXES>
         <INDEX NAME="status" UNIQUE="false" FIELDS="status"/>
         <INDEX NAME="viewname" UNIQUE="true" FIELDS="viewname"/>
+        <INDEX NAME="courseid" UNIQUE="false" FIELDS="courseid"/>
       </INDEXES>
     </TABLE>
     <TABLE NAME="local_reportsources_log" COMMENT="Audit of ad-hoc report executions.">

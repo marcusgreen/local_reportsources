@@ -44,13 +44,18 @@ class adhoc_view extends base {
     /** @var string VIEW name (without Moodle prefix). */
     private string $viewname;
 
+    /** @var string Display title for the entity (defaults to the query name). */
+    private string $title;
+
     /**
      * @param string $viewname
      * @param array  $columnsmeta
+     * @param string $title Display title shown as the column-picker group heading.
      */
-    public function __construct(string $viewname, array $columnsmeta) {
+    public function __construct(string $viewname, array $columnsmeta, string $title = '') {
         $this->viewname = $viewname;
         $this->columnsmeta = $columnsmeta;
+        $this->title = $title;
         $this->set_entity_name(self::ENTITY);
     }
 
@@ -59,6 +64,9 @@ class adhoc_view extends base {
     }
 
     protected function get_default_entity_title(): lang_string {
+        if ($this->title !== '') {
+            return new lang_string('reportsourceheader', 'local_reportsources', $this->title);
+        }
         return new lang_string('reportsource', 'local_reportsources');
     }
 

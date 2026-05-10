@@ -45,36 +45,34 @@ function local_reportsources_extend_navigation(global_navigation $navigation): v
 }
 
 /**
- * Inject an "Ad-hoc reports" link into the primary navbar.
+ * Add a "Report sources" link to the course "More" (secondary) menu for users with
+ * author or view capability in the course context.
  *
- * Moodle core calls every plugin's `*_render_navbar_output` and concatenates
- * the returned HTML into the top navbar. Used here because Boost no longer
- * renders nodes added via {@see local_reportsources_extend_navigation()}.
- *
- * @param renderer_base $renderer
- * @return string HTML for the navbar, or empty string if the user has no access.
+ * @param navigation_node $parentnode
+ * @param stdClass $course
+ * @param context_course $context
  */
-function local_reportsources_render_navbar_output(\renderer_base $renderer): string {
+function local_reportsources_extend_navigation_course(
+    navigation_node $parentnode,
+    stdClass $course,
+    context_course $context
+): void {
     global $USER;
 
     if (!isloggedin() || isguestuser()) {
-        return '';
+        return;
     }
-
-    $context = context_system::instance();
     if (!has_capability('local/reportsources:author', $context, $USER) &&
         !has_capability('local/reportsources:view', $context, $USER)) {
-        return '';
+        return;
     }
 
-    $url   = new moodle_url('/local/reportsources/index.php');
-    $label = get_string('reportsources', 'local_reportsources');
-
-    return html_writer::div(
-        html_writer::link($url, $label, [
-            'class' => 'nav-link',
-            'title' => $label,
-        ]),
-        'popover-region nav-item local_reportsources-navbar'
+    $parentnode->add(
+        get_string('reportsources', 'local_reportsources'),
+        new moodle_url('/local/reportsources/index.php', ['courseid' => $course->id]),
+        navigation_node::TYPE_SETTING,
+        null,
+        'local_reportsources',
+        new pix_icon('i/report', '')
     );
 }

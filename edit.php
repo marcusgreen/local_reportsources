@@ -25,15 +25,17 @@ require(__DIR__ . '/../../config.php');
 
 use local_reportsources\form\edit_query_form;
 use local_reportsources\local\query;
+use local_reportsources\local\sql\validator;
 
 require_login();
 
 $id = optional_param('id', 0, PARAM_INT);
+$courseid = optional_param('courseid', 0, PARAM_INT);
 $context = context_system::instance();
 require_capability('local/reportsources:author', $context);
 
 $PAGE->set_context($context);
-$PAGE->set_url(new moodle_url('/local/reportsources/edit.php', ['id' => $id]));
+$PAGE->set_url(new moodle_url('/local/reportsources/edit.php', ['id' => $id, 'courseid' => $courseid]));
 $PAGE->set_pagelayout('admin');
 $PAGE->set_title(get_string('addnew', 'local_reportsources'));
 $PAGE->set_heading(get_string('reportsources', 'local_reportsources'));
@@ -50,15 +52,22 @@ if ($id) {
 
 $mform = new edit_query_form();
 if ($existing) {
+    // Display SQL without {} table braces; auto_brace() re-adds them on save.
+    $existing->querysql = validator::strip_braces((string) $existing->querysql);
     $mform->set_data($existing);
+} else if ($courseid) {
+    $mform->set_data((object) ['courseid' => $courseid]);
 }
 
+$returnurl = new moodle_url('/local/reportsources/index.php',
+    $courseid ? ['courseid' => $courseid] : []);
+
 if ($mform->is_cancelled()) {
-    redirect(new moodle_url('/local/reportsources/index.php'));
+    redirect($returnurl);
 } else if ($data = $mform->get_data()) {
     $newid = query::save($data);
     redirect(
-        new moodle_url('/local/reportsources/index.php'),
+        $returnurl,
         get_string('changessaved'),
         null,
         \core\output\notification::NOTIFY_SUCCESS

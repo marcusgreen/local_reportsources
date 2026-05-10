@@ -59,6 +59,9 @@ class validator {
             throw new \moodle_exception('errnotselect', 'local_reportsources');
         }
 
+        // Wrap bare table references in {}-placeholders so users do not need to type them.
+        $sql = self::auto_brace($sql);
+
         $stripped = self::strip_comments_and_strings($sql);
 
         // Single statement.
@@ -107,6 +110,153 @@ class validator {
         $sql = preg_replace("/'(?:[^']|'')*'/", "''", $sql) ?? '';
         $sql = preg_replace('/"(?:[^"]|"")*"/', '""', $sql) ?? '';
         return $sql;
+    }
+
+    /**
+     * Wrap bare table references with Moodle's `{tablename}` syntax when the user omits the braces.
+     *
+     * Walks the SQL once with a tokenising regex that ignores strings, comments and already-braced
+     * names. Tables are only braced when they appear in a position where a table is expected
+     * (immediately after FROM or JOIN, or after a comma inside a FROM-list). Subqueries push and
+     * pop their own table-list state on parentheses so an outer FROM does not leak into them.
+     *
+     * @param string $sql Raw SQL.
+     * @return string SQL with bare table references braced.
+     */
+    public static function auto_brace(string $sql): string {
+        global $DB;
+        try {
+            $tables = $DB->get_tables();
+        } catch (\Throwable $e) {
+            return $sql;
+        }
+        if (!$tables) {
+            return $sql;
+        }
+        $tableset = array_flip(array_map('strtolower', $tables));
+
+        $pattern = '/'
+            . '(?P<str>\'(?:[^\']|\'\')*\')'
+            . '|(?P<dstr>"(?:[^"]|"")*")'
+            . '|(?P<lcmt>--[^\n]*)'
+            . '|(?P<hcmt>\#[^\n]*)'
+            . '|(?P<bcmt>\/\*[\s\S]*?\*\/)'
+            . '|(?P<braced>\{[a-z0-9_]+\})'
+            . '|(?P<lparen>\()'
+            . '|(?P<rparen>\))'
+            . '|(?P<comma>,)'
+            . '|(?P<id>[A-Za-z_][A-Za-z0-9_]*)'
+            . '/s';
+
+        $clauseend = ['where', 'group', 'order', 'having', 'limit',
+            'on', 'using', 'union', 'except', 'intersect'];
+
+        $expecting = false;
+        $infromlist = false;
+        $stack = [];
+
+        $result = preg_replace_callback(
+            $pattern,
+            static function (array $m) use ($tableset, $clauseend, &$expecting, &$infromlist, &$stack): string {
+                if (isset($m['str']) && $m['str'] !== '') {
+                    return $m['str'];
+                }
+                if (isset($m['dstr']) && $m['dstr'] !== '') {
+                    return $m['dstr'];
+                }
+                if (isset($m['lcmt']) && $m['lcmt'] !== '') {
+                    return $m['lcmt'];
+                }
+                if (isset($m['hcmt']) && $m['hcmt'] !== '') {
+                    return $m['hcmt'];
+                }
+                if (isset($m['bcmt']) && $m['bcmt'] !== '') {
+                    return $m['bcmt'];
+                }
+                if (isset($m['braced']) && $m['braced'] !== '') {
+                    if ($expecting) {
+                        $expecting = false;
+                        $infromlist = true;
+                    }
+                    return $m['braced'];
+                }
+                if (isset($m['lparen']) && $m['lparen'] !== '') {
+                    $stack[] = [$expecting, $infromlist];
+                    $expecting = false;
+                    $infromlist = false;
+                    return '(';
+                }
+                if (isset($m['rparen']) && $m['rparen'] !== '') {
+                    if ($stack) {
+                        [$expecting, $infromlist] = array_pop($stack);
+                    }
+                    return ')';
+                }
+                if (isset($m['comma']) && $m['comma'] !== '') {
+                    if ($infromlist) {
+                        $expecting = true;
+                    }
+                    return ',';
+                }
+                $id = $m['id'];
+                $idl = strtolower($id);
+
+                if ($expecting && isset($tableset[$idl])) {
+                    $expecting = false;
+                    $infromlist = true;
+                    return '{' . $id . '}';
+                }
+
+                if ($idl === 'from' || $idl === 'join') {
+                    $expecting = true;
+                    $infromlist = true;
+                } else if (in_array($idl, $clauseend, true)) {
+                    $expecting = false;
+                    $infromlist = false;
+                } else {
+                    $expecting = false;
+                }
+                return $id;
+            },
+            $sql
+        );
+        return $result ?? $sql;
+    }
+
+    /**
+     * Strip Moodle `{tablename}` braces for display, leaving string/comment contents untouched.
+     *
+     * @param string $sql Stored SQL.
+     * @return string SQL with braces removed around table references.
+     */
+    public static function strip_braces(string $sql): string {
+        $pattern = '/'
+            . '(?P<str>\'(?:[^\']|\'\')*\')'
+            . '|(?P<dstr>"(?:[^"]|"")*")'
+            . '|(?P<lcmt>--[^\n]*)'
+            . '|(?P<hcmt>\#[^\n]*)'
+            . '|(?P<bcmt>\/\*[\s\S]*?\*\/)'
+            . '|\{(?P<tbl>[a-z0-9_]+)\}'
+            . '/is';
+        $result = preg_replace_callback($pattern, static function (array $m): string {
+            if (isset($m['str']) && $m['str'] !== '') {
+                return $m['str'];
+            }
+            if (isset($m['dstr']) && $m['dstr'] !== '') {
+                return $m['dstr'];
+            }
+            if (isset($m['lcmt']) && $m['lcmt'] !== '') {
+                return $m['lcmt'];
+            }
+            if (isset($m['hcmt']) && $m['hcmt'] !== '') {
+                return $m['hcmt'];
+            }
+            if (isset($m['bcmt']) && $m['bcmt'] !== '') {
+                return $m['bcmt'];
+            }
+            return $m['tbl'];
+        }, $sql);
+        return $result ?? $sql;
     }
 
     /**

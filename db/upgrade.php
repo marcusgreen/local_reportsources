@@ -41,5 +41,27 @@ function xmldb_local_reportsources_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026050902, 'local', 'reportsources');
     }
 
+    if ($oldversion < 2026050904) {
+        $dbman = $DB->get_manager();
+        $table = new xmldb_table('local_reportsources_query');
+
+        $field = new xmldb_field('courseid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'rowcap');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        $field = new xmldb_field('visible', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '1', 'courseid');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        $index = new xmldb_index('courseid', XMLDB_INDEX_NOTUNIQUE, ['courseid']);
+        if (!$dbman->index_exists($table, $index)) {
+            $dbman->add_index($table, $index);
+        }
+
+        upgrade_plugin_savepoint(true, 2026050904, 'local', 'reportsources');
+    }
+
     return true;
 }
