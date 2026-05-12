@@ -260,6 +260,27 @@ class validator {
     }
 
     /**
+     * Strip DB-server internals from an error message before showing it to a user.
+     *
+     * MySQL embeds the schema name and Moodle table prefix in error strings, e.g.
+     * "Table 'mdl52.mdl_xuser' doesn't exist". Strip both so the user sees
+     * "Table 'xuser' doesn't exist".
+     *
+     * @param string $msg Raw error from dml_exception.
+     * @return string Cleaned message.
+     */
+    public static function clean_error(string $msg): string {
+        global $CFG;
+        if (!empty($CFG->dbname)) {
+            $msg = str_replace($CFG->dbname . '.', '', $msg);
+        }
+        if (!empty($CFG->prefix)) {
+            $msg = preg_replace('/\b' . preg_quote($CFG->prefix, '/') . '/', '', $msg);
+        }
+        return $msg;
+    }
+
+    /**
      * Extract the names of named placeholders (:name) appearing in the SQL.
      *
      * @param string $sql

@@ -75,7 +75,7 @@ class validate_sql extends external_api {
             $DB->get_records_sql("{$resolved} LIMIT 0", []);
         } catch (\dml_exception $e) {
             $detail = $e->error ?: ($e->debuginfo ?: $e->getMessage());
-            return ['ok' => false, 'error' => $detail];
+            return ['ok' => false, 'error' => validator::clean_error($detail)];
         }
 
         // View-compatibility check — creating a VIEW enforces unique column names,

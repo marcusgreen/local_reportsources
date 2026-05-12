@@ -63,7 +63,7 @@ class view {
         try {
             $DB->change_database_structure($ddl);
         } catch (\dml_exception $e) {
-            $detail = $e->error ?: ($e->debuginfo ?: $e->getMessage());
+            $detail = validator::clean_error($e->error ?: ($e->debuginfo ?: $e->getMessage()));
             if (stripos($detail, 'Duplicate column name') !== false) {
                 throw new \moodle_exception('errcreateview', 'local_reportsources', '',
                     get_string('errduplicatecolumn', 'local_reportsources'));
