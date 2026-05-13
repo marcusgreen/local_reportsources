@@ -20,6 +20,7 @@ namespace local_reportsources\external;
 
 use core_external\external_api;
 use core_external\external_function_parameters;
+use core_external\external_multiple_structure;
 use core_external\external_single_structure;
 use core_external\external_value;
 use local_reportsources\local\sql\validator;
@@ -93,7 +94,7 @@ class validate_sql extends external_api {
             // Other DDL error — not fatal for save, only warn.
         }
 
-        return ['ok' => true, 'error' => ''];
+        return ['ok' => true, 'error' => '', 'warnings' => validator::get_warnings()];
     }
 
     /**
@@ -101,8 +102,13 @@ class validate_sql extends external_api {
      */
     public static function execute_returns(): external_single_structure {
         return new external_single_structure([
-            'ok'    => new external_value(PARAM_BOOL, 'True if SQL is valid'),
-            'error' => new external_value(PARAM_TEXT, 'Error message, empty on success'),
+            'ok'       => new external_value(PARAM_BOOL, 'True if SQL is valid'),
+            'error'    => new external_value(PARAM_TEXT, 'Error message, empty on success'),
+            'warnings' => new external_multiple_structure(
+                new external_value(PARAM_TEXT, 'Warning message'),
+                'Non-fatal warnings (e.g. portability issues)',
+                VALUE_OPTIONAL
+            ),
         ]);
     }
 }

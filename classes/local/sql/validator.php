@@ -28,6 +28,21 @@ namespace local_reportsources\local\sql;
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class validator {
+    /** @var string[] MySQL-specific date functions that will fail on PostgreSQL. */
+    private const MYSQL_DATE_FUNCTIONS = [
+        'DATE_FORMAT', 'STR_TO_DATE', 'DATE_ADD', 'DATE_SUB',
+        'DATEDIFF', 'UNIX_TIMESTAMP', 'FROM_UNIXTIME',
+    ];
+
+    /** @var string[] PostgreSQL-specific date/time functions that will fail on MySQL. */
+    private const PGSQL_DATE_FUNCTIONS = [
+        'TO_TIMESTAMP', 'TO_CHAR', 'DATE_TRUNC', 'EXTRACT', 'AGE',
+        'NOW', 'CLOCK_TIMESTAMP', 'TIMEOFDAY', 'MAKE_DATE', 'MAKE_TIME',
+        'MAKE_TIMESTAMP', 'MAKE_TIMESTAMPTZ',
+    ];
+
+    /** @var string[] Warnings from the most recent validate() call. */
+    private static array $warnings = [];
 
     /** @var string[] Forbidden SQL keywords. Matched as whole tokens after comment/string stripping. */
     private const DENY_KEYWORDS = [
@@ -47,6 +62,15 @@ class validator {
     ];
 
     /**
+     * Return warnings accumulated during the most recent validate() call.
+     *
+     * @return string[]
+     */
+    public static function get_warnings(): array {
+        return self::$warnings;
+    }
+
+    /**
      * Validate user-supplied SQL.
      *
      * @param string $sql Raw SQL.
@@ -54,6 +78,7 @@ class validator {
      * @throws \moodle_exception when the SQL is rejected.
      */
     public static function validate(string $sql): string {
+        self::$warnings = [];
         $sql = trim($sql);
         if ($sql === '') {
             throw new \moodle_exception('errnotselect', 'local_reportsources');
@@ -86,6 +111,27 @@ class validator {
             foreach ($matches[1] as $table) {
                 if (in_array(strtolower($table), self::DENY_TABLES, true)) {
                     throw new \moodle_exception('errdeniedtable', 'local_reportsources', '', $table);
+                }
+            }
+        }
+
+        global $CFG;
+        $dbtype = $CFG->dbtype ?? 'mysqli';
+
+        // Warn about MySQL-specific date functions that will fail on PostgreSQL.
+        if ($dbtype === 'pgsql') {
+            foreach (self::MYSQL_DATE_FUNCTIONS as $fn) {
+                if (preg_match('/\b' . $fn . '\s*\(/i', $stripped)) {
+                    self::$warnings[] = get_string('warnmysqldatefn', 'local_reportsources', $fn);
+                }
+            }
+        }
+
+        // Error on PostgreSQL-specific date/time functions when running MySQL/MariaDB.
+        if ($dbtype !== 'pgsql') {
+            foreach (self::PGSQL_DATE_FUNCTIONS as $fn) {
+                if (preg_match('/\b' . preg_quote($fn, '/') . '\s*\(/i', $stripped)) {
+                    throw new \moodle_exception('errpgsqldatefn', 'local_reportsources', '', $fn);
                 }
             }
         }

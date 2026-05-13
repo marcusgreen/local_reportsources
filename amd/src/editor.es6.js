@@ -152,6 +152,11 @@ export const init = (targetid) => {
     errorBanner.style.display = 'none';
     container.after(errorBanner);
 
+    const warningBanner = document.createElement('div');
+    warningBanner.className = 'alert alert-warning mt-1';
+    warningBanner.style.display = 'none';
+    errorBanner.after(warningBanner);
+
     const denyKeywords = [
         'INSERT', 'UPDATE', 'DELETE', 'DROP', 'TRUNCATE', 'ALTER', 'CREATE',
         'GRANT', 'REVOKE', 'REPLACE', 'CALL', 'LOAD', 'HANDLER', 'LOCK',
@@ -239,6 +244,13 @@ export const init = (targetid) => {
                 } else {
                     serverValidated = true;
                     errorBanner.style.display = 'none';
+                    const warns = result.data && result.data.warnings;
+                    if (warns && warns.length) {
+                        warningBanner.textContent = warns.join('\n');
+                        warningBanner.style.display = '';
+                    } else {
+                        warningBanner.style.display = 'none';
+                    }
                     textarea.form.requestSubmit();
                 }
             })
@@ -251,6 +263,7 @@ export const init = (targetid) => {
         view.dom.addEventListener('keydown', () => {
             serverValidated = false;
             errorBanner.style.display = 'none';
+            warningBanner.style.display = 'none';
         });
     }
 };
