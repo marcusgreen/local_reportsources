@@ -97,6 +97,6 @@ $string['reportsources:viewall'] = 'View all report views regardless of audience
 $string['reportsources:viewown'] = 'Run report views in own course';
 
 $string['visible'] = 'Visible';
-$string['visible_help'] = 'Hidden views do not appear in the per-course list.';
+$string['visible_help'] = 'Controls whether this published report appears in the query listing page. When unchecked, users with the view capability cannot see it. The underlying database view and report still exist — administrators and authors with the viewall capability can still see it.';
 
 $string['cleanuplogs'] = 'Clean up report sources execution log';
