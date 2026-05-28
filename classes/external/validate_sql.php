@@ -72,8 +72,10 @@ class validate_sql extends external_api {
 
         // Syntax/table/column check — LIMIT 0 returns no rows and avoids the
         // "Duplicate column name" false-positive that the VIEW wrapper triggers.
+        // Strip any existing LIMIT (and optional OFFSET) so we don't produce "LIMIT n LIMIT 0".
+        $dryrunsql = preg_replace('/\bLIMIT\s+\d+(\s+OFFSET\s+\d+)?\s*$/i', '', trim($resolved));
         try {
-            $DB->get_records_sql("{$resolved} LIMIT 0", []);
+            $DB->get_records_sql("{$dryrunsql} LIMIT 0", []);
         } catch (\dml_exception $e) {
             $detail = $e->error ?: ($e->debuginfo ?: $e->getMessage());
             return ['ok' => false, 'error' => validator::clean_error($detail)];

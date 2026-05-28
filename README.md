@@ -1,69 +1,91 @@
-# local_reportsources — Report Sources
+# Report Sources
 
-A Moodle local plugin that turns a SQL `SELECT` query into a Moodle Report Builder data source. Write SQL, publish it as a database view, then build and share fully-customisable reports without touching PHP.
+**Report Sources** lets you turn a SQL query into a fully configurable Moodle report — no programming required. Write your query, click **Publish**, and the plugin creates a Report Builder report your colleagues can run, filter, and export.
 
 ## Requirements
 
 - Moodle 4.5 – 5.0
-- The Moodle database user must have `CREATE VIEW` and `DROP` privileges on the schema.
+- Your Moodle database account needs permission to create and drop database views.
 
-Verify the privilege from **Site admin → Local plugins → Report sources → Run database view privilege test**, or grant it manually:
-
-```sql
--- MySQL / MariaDB
-GRANT CREATE VIEW, DROP ON moodle.* TO 'mdluser'@'localhost';
-```
+Your site administrator can check this from **Site admin → Local plugins → Report sources → Run database view privilege test**.
 
 ## Installation
 
-1. Copy the `reportsources` directory to `<moodleroot>/local/`.
-2. Visit **Site admin → Notifications** to run the installer.
-3. Run the privilege test (above) to confirm view creation works.
+1. Copy the `reportsources` folder into `<moodleroot>/local/`.
+2. Go to **Site admin → Notifications** to complete the install.
+3. Run the privilege test above to confirm everything is working.
 
-## Capabilities
+## Who can do what
 
-| Capability | Default role | Purpose |
-|---|---|---|
-| `local/reportsources:author` | Manager | Write and save SQL queries |
-| `local/reportsources:approve` | Manager | Publish / unpublish views |
-| `local/reportsources:view` | Authenticated user | Run published reports |
-| `local/reportsources:viewall` | Manager | See all queries regardless of ownership |
+| Role | What they can do |
+|---|---|
+| **Manager** (site-wide) | Write queries, publish/unpublish reports, see all reports |
+| **Authenticated user** | Run published reports they have been given access to |
+| **Teacher** (within a course) | Run reports that have been published for their course |
 
-Assign via **Site admin → Users → Permissions → Define roles**.
+Permissions are assigned at **Site admin → Users → Permissions → Define roles**.
 
-## Usage
+## How to create a report
 
-### 1. Create a report view
+### Step 1 — Write your query
 
-Navigate to **Report sources** and click **New report view**. Provide:
+Go to **Report sources** in the site navigation (or open a course and look under the **More** menu for course-specific reports), then click **New report view**.
 
-- **Name** — shown as the report title in Report Builder.
-- **Description** — optional notes.
-- **SQL** — a single `SELECT` or `WITH … SELECT` (see [Writing SQL](#writing-sql)).
-- **Row cap** — maximum rows displayed.
+Fill in:
 
-### 2. Publish
+- **Name** — the title that will appear on the finished report.
+- **Description** — optional notes for yourself or other authors.
+- **SQL** — your query (see [Writing queries](#writing-queries) below). If the **AI SQL generation** feature is enabled, you can describe the report you want in plain English and have the SQL written for you — see [Generating SQL with AI](#generating-sql-with-ai).
+- **Row cap** — the maximum number of rows to display. Prevents accidental very large result sets.
+- **Visible** — when ticked, the report appears in the listing for anyone with access. Unticking hides it from the list without deleting it — useful while you are still refining the query. Administrators and managers can always see hidden reports.
 
-Click **Publish** on a draft query. This creates a database view, introspects its columns, and generates a Report Builder custom report bound to that view.
+Click **Save** to store it as a draft.
 
-### 3. Build in Report Builder
+### Step 2 — Publish
 
-After publishing, use the action links:
+When you are happy with the query, click **Publish**. The plugin runs the query, checks the columns, and creates a Report Builder report automatically.
 
-- **Edit in Report Builder** — add columns, filters, sorting, audiences, and scheduled exports.
-- **Run report** — open the report in viewer mode.
-- **New report from this view** — create an additional Report Builder report backed by the same view.
+> If the query has an error, you will see a message explaining what to fix before you can publish.
 
-### 4. Unpublish
+### Step 3 — Configure in Report Builder
 
-Click **Unpublish** to drop the database view and remove bound Report Builder reports. The SQL is preserved as a draft.
+After publishing, three action links appear:
 
-## Writing SQL
+- **Edit in Report Builder** — choose which columns to show, add filters, set sort order, and control who can see the report using the **Audiences** tab.
+- **Run report** — open the report as your users will see it.
+- **New report from this view** — create a second Report Builder report from the same underlying data (useful for different audiences or layouts).
 
-- Single `SELECT` or `WITH … SELECT` only. No `INSERT`, `UPDATE`, `DELETE`, semicolons, or multiple statements.
-- Use Moodle table syntax: `{tablename}` (e.g. `{user}`, `{course}`).
-- Always alias tables — `{user}` resolves to `mdl_user` at runtime.
-- Avoid `SELECT *` across joins; duplicate column names (both tables have `id`) cause publish to fail. Use explicit aliases instead:
+### Step 4 — Unpublish or edit
+
+- **Unpublish** removes the live report. Your SQL is kept as a draft so you can re-publish later.
+- Editing the SQL of a published report unpublishes it first — re-publish when you are ready to go live again.
+
+## Generating SQL with AI
+
+If your administrator has installed the **local_sqlchat** plugin and turned on **AI SQL generation** in Report Sources settings, a **Generate SQL with AI** panel appears at the top of the query editor.
+
+Type a plain-English description of the data you want — for example:
+
+> *Show all students enrolled in more than 3 courses*
+
+Click **Generate SQL** and the AI writes a query for you. The result is loaded straight into the SQL editor so you can review and adjust it before saving. Always check the generated SQL makes sense for your data before publishing.
+
+To enable this feature: install [local_sqlchat](https://github.com/marcusgreen/moodle-local_sqlchat), configure it with an API key, then go to **Site admin → Local plugins → Report sources** and turn on **AI SQL generation**.
+
+---
+
+## Writing queries
+
+Queries must be a single `SELECT` (or `WITH … SELECT`). Updates, deletes, and multiple statements are not allowed.
+
+**Table names** — you can write table names with or without braces. Both of these work:
+
+```sql
+SELECT * FROM user          -- braces added automatically on save
+SELECT * FROM {user}        -- explicit braces also fine
+```
+
+**Joining tables** — always give tables a short alias, and name your columns explicitly when joining. If two tables both have a column called `id`, you must alias at least one of them or the report will fail to publish:
 
 ```sql
 SELECT
@@ -72,24 +94,29 @@ SELECT
     u.lastname,
     c.id        AS courseid,
     c.fullname  AS coursename
-FROM {user} u
-JOIN {user_enrolments} ue ON ue.userid = u.id
-JOIN {enrol} e            ON e.id = ue.enrolid
-JOIN {course} c           ON c.id = e.courseid
+FROM user u
+JOIN user_enrolments ue ON ue.userid = u.id
+JOIN enrol e            ON e.id = ue.enrolid
+JOIN course c           ON c.id = e.courseid
 WHERE u.deleted = 0
 ```
 
-The ER diagram for the Moodle database schema is at [examulator.com/er](https://www.examulator.com/er).
+A searchable map of all Moodle database tables is at [examulator.com/er](https://www.examulator.com/er).
+
+### Date function warnings
+
+If you use date functions that only work on MySQL (e.g. `DATE_FORMAT`, `DAYOFWEEK`) or only on PostgreSQL (e.g. `DATE_TRUNC`), you will see a warning. The query will still save, but it may stop working if your site ever moves to a different database engine. The warning is a heads-up, not a block.
 
 ## Admin settings
 
 **Site admin → Local plugins → Report sources**
 
-| Setting | Description | Default |
+| Setting | What it does | Default |
 |---|---|---|
-| Default row cap | Default maximum rows for new queries | 5000 |
-| Sensitive column denylist | Comma-separated column names stripped from introspection | `password,secret,sesskey` |
-| SQL syntax highlight | Enable CodeMirror 6 editor with SQL autocomplete | On |
+| Default row cap | Starting limit for new queries | 5000 |
+| Sensitive column block list | Column names never exposed in reports (comma-separated) | `password,secret,sesskey` |
+| SQL syntax highlight | Enables the code editor with SQL colouring and autocomplete | On |
+| AI SQL generation | Shows the AI query-generation panel on the edit form. Requires the **local_sqlchat** plugin to be installed and configured. | Off |
 
 ## License
 

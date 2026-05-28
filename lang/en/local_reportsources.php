@@ -81,6 +81,8 @@ $string['settings:denycolumns'] = 'Sensitive column denylist';
 $string['settings:denycolumns_desc'] = 'Comma-separated list of column names that will be stripped from any introspected SELECT result.';
 $string['settings:syntaxhighlight'] = 'SQL syntax highlight and autocomplete';
 $string['settings:syntaxhighlight_desc'] = 'Enable a CodeMirror 6 SQL editor on the query form. Suggests SQL keywords plus Moodle table and column names from the live database.';
+$string['settings:aigenerate'] = 'AI SQL generation';
+$string['settings:aigenerate_desc'] = 'Show an AI question box on the query edit form. Requires the local_sqlchat plugin to be installed and configured.';
 
 $string['install:privilegeok'] = 'Report sources: the database user can create and drop views.';
 $string['install:privilegefail'] = 'Report sources installed, but the database user cannot create or drop views. Publishing queries will fail until the grants are fixed. Error: {$a}';
@@ -102,3 +104,9 @@ $string['visible_help'] = 'Controls whether this published report appears in the
 For finer-grained access control, use the Audiences feature in Report Builder after publishing: open the report, go to the Audience tab, and restrict by cohort, role, or individual user.';
 
 $string['cleanuplogs'] = 'Clean up report sources execution log';
+
+$string['ai:heading'] = 'Generate SQL with AI';
+$string['ai:question'] = 'Describe the data you want';
+$string['ai:placeholder'] = 'e.g. Show all students enrolled in more than 3 courses';
+$string['ai:generate'] = 'Generate SQL';
+$string['ai:latency'] = 'Generated in {$a} ms — review the SQL before saving.';

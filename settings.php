@@ -49,6 +49,13 @@ if ($hassiteconfig) {
         1
     ));
 
+    $settings->add(new admin_setting_configcheckbox(
+        'local_reportsources/aigenerate',
+        get_string('settings:aigenerate', 'local_reportsources'),
+        get_string('settings:aigenerate_desc', 'local_reportsources'),
+        0
+    ));
+
     $settings->add(new admin_setting_description(
         'local_reportsources/testviewlink',
         get_string('testview:title', 'local_reportsources'),
