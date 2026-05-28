@@ -72,6 +72,9 @@ class edit_query_form extends moodleform {
             }
             $mform->addElement('hidden', 'tablejson', json_encode($tableobject), ['id' => 'tablejson']);
             $mform->setType('tablejson', PARAM_RAW);
+
+            $mform->addElement('hidden', 'fkjson', json_encode(self::build_fk_map()), ['id' => 'fkjson']);
+            $mform->setType('fkjson', PARAM_RAW);
         }
 
         $mform->addElement('textarea', 'querysql',
@@ -88,6 +91,73 @@ class edit_query_form extends moodleform {
         $mform->addHelpButton('rowcap', 'rowcap', 'local_reportsources');
 
         $this->add_action_buttons(true, get_string('savechanges'));
+    }
+
+    /**
+     * Build a FK map from all installed plugin install.xml files.
+     *
+     * Returns: ['tablename' => ['colname' => ['reftable' => '...', 'refcol' => '...'], ...], ...]
+     * Result is cached in config keyed by Moodle version and invalidated on upgrade.
+     */
+    private static function build_fk_map(): array {
+        global $CFG;
+
+        $cachedver = get_config('local_reportsources', 'fkmapcache_ver');
+        if ($cachedver == $CFG->version) {
+            $cached = get_config('local_reportsources', 'fkmapcache');
+            if ($cached !== false) {
+                return json_decode($cached, true) ?? [];
+            }
+        }
+
+        $map = [];
+        $xmlfiles = [];
+
+        $corefile = $CFG->libdir . '/db/install.xml';
+        if (file_exists($corefile)) {
+            $xmlfiles[] = $corefile;
+        }
+
+        foreach (\core_component::get_plugin_types() as $type => $unused) {
+            foreach (\core_component::get_plugin_list($type) as $plugin => $plugindir) {
+                $xmlfile = $plugindir . '/db/install.xml';
+                if (file_exists($xmlfile)) {
+                    $xmlfiles[] = $xmlfile;
+                }
+            }
+        }
+
+        foreach ($xmlfiles as $file) {
+            $xml = @simplexml_load_file($file);
+            if (!$xml || !isset($xml->TABLES)) {
+                continue;
+            }
+            foreach ($xml->TABLES->TABLE as $table) {
+                $tablename = strtolower((string) $table['NAME']);
+                if (!isset($table->KEYS)) {
+                    continue;
+                }
+                foreach ($table->KEYS->KEY as $key) {
+                    if (strtolower((string) $key['TYPE']) !== 'foreign') {
+                        continue;
+                    }
+                    $fields = array_map('trim', explode(',', strtolower((string) $key['FIELDS'])));
+                    $reftable = strtolower((string) $key['REFTABLE']);
+                    $reffields = array_map('trim', explode(',', strtolower((string) $key['REFFIELDS'])));
+                    foreach ($fields as $i => $field) {
+                        $map[$tablename][$field] = [
+                            'reftable' => $reftable,
+                            'refcol'   => $reffields[$i] ?? $reffields[0],
+                        ];
+                    }
+                }
+            }
+        }
+
+        set_config('fkmapcache', json_encode($map), 'local_reportsources');
+        set_config('fkmapcache_ver', $CFG->version, 'local_reportsources');
+
+        return $map;
     }
 
     public function validation($data, $files): array {

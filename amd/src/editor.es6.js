@@ -54,6 +54,16 @@ export const init = (targetid) => {
         }
     }
 
+    const fkElement = document.getElementById('fkjson');
+    let fkMap = {};
+    if (fkElement) {
+        try {
+            fkMap = JSON.parse(fkElement.value);
+        } catch (e) {
+            // FK map unavailable; column FK annotations won't show.
+        }
+    }
+
     // Bare table name — server auto-wraps it in {} on save, so the user never types braces.
     const tables = Object.keys(schema).map(name => ({label: name}));
 
@@ -65,7 +75,7 @@ export const init = (targetid) => {
     ]);
 
     /**
-     * Parse FROM/JOIN clauses and return a map of alias → column array.
+     * Parse FROM/JOIN clauses and return a map of alias → {table, cols}.
      *
      * @param {string} docText
      * @returns {Object}
@@ -75,15 +85,15 @@ export const init = (targetid) => {
         const re = /\b(?:FROM|JOIN)\s+\{?(\w+)\}?\s+(?:AS\s+)?(\w+)/gi;
         let m;
         while ((m = re.exec(docText)) !== null) {
-            const table = m[1].toLowerCase();
+            const raw = m[1].toLowerCase();
             const alias = m[2].toLowerCase();
             if (aliasSkip.has(alias)) {
                 continue;
             }
-            const cols = schema[table]
-                ?? schema[Object.keys(schema).find(k => k.toLowerCase() === table) ?? ''];
+            const resolvedTable = Object.keys(schema).find(k => k.toLowerCase() === raw) ?? raw;
+            const cols = schema[resolvedTable];
             if (cols) {
-                map[alias] = cols;
+                map[alias] = {table: resolvedTable, cols};
             }
         }
         return map;
@@ -91,6 +101,7 @@ export const init = (targetid) => {
 
     /**
      * CompletionSource that resolves alias.column completions live from the doc.
+     * FK columns are annotated with "→ reftable.refcol" in the detail field.
      *
      * @param {CompletionContext} context
      * @returns {CompletionResult|null}
@@ -106,13 +117,21 @@ export const init = (targetid) => {
             return null; // real table name — built-in source handles it
         }
         const aliasMap = parseAliases(context.state.doc.toString());
-        const cols = aliasMap[alias];
-        if (!cols || !cols.length) {
+        const entry = aliasMap[alias];
+        if (!entry || !entry.cols.length) {
             return null;
         }
+        const tableFkMap = fkMap[entry.table] || {};
         return {
             from: before.from + dotIdx + 1,
-            options: cols.map(col => ({label: col, type: 'property'})),
+            options: entry.cols.map(col => {
+                const fk = tableFkMap[col];
+                return {
+                    label: col,
+                    type: 'property',
+                    ...(fk ? {detail: `→ ${fk.reftable}.${fk.refcol}`} : {}),
+                };
+            }),
             validFor: /^\w*$/,
         };
     }
@@ -164,6 +183,13 @@ export const init = (targetid) => {
         'EXEC', 'EXECUTE', 'INTO', 'OUTFILE', 'COPY', 'VACUUM', 'MERGE',
     ];
 
+    /**
+     * Remove SQL comments and string literals so keyword scanning cannot be fooled
+     * by embedded denylist words inside quoted values or comment blocks.
+     *
+     * @param {string} sql - Raw SQL text.
+     * @returns {string} SQL with comments replaced by spaces and string contents blanked.
+     */
     function stripCommentsAndStrings(sql) {
         sql = sql.replace(/\/\*[\s\S]*?\*\//g, ' ');
         sql = sql.replace(/--[^\n]*/g, ' ');
@@ -173,6 +199,14 @@ export const init = (targetid) => {
         return sql;
     }
 
+    /**
+     * Client-side static SQL validation — mirrors the server-side denylist in
+     * classes/local/sql/validator.php so obvious errors surface instantly without
+     * a round-trip.
+     *
+     * @param {string} sql - SQL text from the editor.
+     * @returns {string|null} Error message string, or null if validation passes.
+     */
     function validateSql(sql) {
         sql = sql.trim();
         if (!sql) {
