@@ -35,7 +35,9 @@ $string['querysql_help'] = 'A single SELECT or WITH...SELECT statement. Use Mood
 
 Always alias tables (e.g. FROM {user} u) since {user} resolves to mdl_user at runtime.
 
-For the Moodle database schema see <a href="https://www.examulator.com/er" target="_blank">examulator.com/er</a>.';
+For the Moodle database schema see <a href="https://www.examulator.com/er/output/index.html" target="_blank">examulator.com/er</a>.
+
+For sample queries and inspiration see <a href="https://docs.moodle.org/502/en/ad-hoc_contributed_reports" target="_blank">Moodle ad-hoc contributed reports</a>.';
 $string['rowcap'] = 'Row cap';
 $string['rowcap_help'] = 'Maximum rows the report will display.';
 $string['status'] = 'Status';
