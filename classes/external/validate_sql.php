@@ -51,7 +51,7 @@ class validate_sql extends external_api {
      * @return array{ok: bool, error: string}
      */
     public static function execute(string $sql): array {
-        global $DB;
+        global $DB, $CFG;
 
         ['sql' => $sql] = self::validate_parameters(self::execute_parameters(), ['sql' => $sql]);
 
@@ -83,17 +83,20 @@ class validate_sql extends external_api {
 
         // View-compatibility check — creating a VIEW enforces unique column names,
         // so test that now before the user hits it at publish time.
+        // change_database_structure() throws ddl_change_structure_exception (a moodle_exception
+        // subclass, not a dml_exception), so we catch the broader moodle_exception here.
         $testview = $CFG->prefix . \local_reportsources\local\sql\privilege_check::PROBE_NAME . '_col';
         try {
             $DB->change_database_structure("CREATE OR REPLACE VIEW {$testview} AS {$resolved}");
             $DB->change_database_structure("DROP VIEW IF EXISTS {$testview}");
-        } catch (\dml_exception $e) {
-            $detail = $e->error ?: ($e->debuginfo ?: $e->getMessage());
+        } catch (\moodle_exception $e) {
+            $detail = $e->debuginfo ?: $e->getMessage();
             if (stripos($detail, 'Duplicate column name') !== false) {
                 return ['ok' => false, 'error' =>
                     get_string('errduplicatecolumn', 'local_reportsources')];
             }
-            // Other DDL error — not fatal for save, only warn.
+            // Any other DDL error (syntax error, multiple statements, etc.) is also fatal.
+            return ['ok' => false, 'error' => validator::clean_error($detail)];
         }
 
         return ['ok' => true, 'error' => '', 'warnings' => validator::get_warnings()];

@@ -124,16 +124,32 @@ class query {
             'timemodified' => $now,
         ];
 
+        if (isset($data->chart_type)) {
+            $allowedtypes = ['none', 'bar', 'line', 'pie', 'doughnut'];
+            $record->chartmeta = json_encode([
+                'type'     => in_array($data->chart_type, $allowedtypes, true) ? $data->chart_type : 'none',
+                'xcol'     => clean_param((string) ($data->chart_xcol ?? ''), PARAM_ALPHANUMEXT),
+                'ycol'     => clean_param((string) ($data->chart_ycol ?? ''), PARAM_ALPHANUMEXT),
+                'rowlimit' => max(1, min(5000, (int) ($data->chart_rowlimit ?? 200))),
+            ]);
+        }
+
         if (!empty($data->id)) {
             $record->id = (int) $data->id;
             $existing = $DB->get_record(self::TABLE, ['id' => $record->id], '*', MUST_EXIST);
             // SQL change while published: drop view + report so they get rebuilt on next publish.
+            // Wrap in a transaction so a failed update_record doesn't leave the record claiming
+            // published status after the view and RB report have already been destroyed.
             if ($existing->status === self::STATUS_PUBLISHED && $existing->querysql !== $sql) {
+                $transaction = $DB->start_delegated_transaction();
                 self::tear_down((int) $existing->id, $existing);
-                $record->status   = self::STATUS_DRAFT;
-                $record->viewname = null;
-                $record->reportid = null;
+                $record->status      = self::STATUS_DRAFT;
+                $record->viewname    = null;
+                $record->reportid    = null;
                 $record->columnsmeta = null;
+                $DB->update_record(self::TABLE, $record);
+                $transaction->allow_commit();
+                return $record->id;
             }
             $DB->update_record(self::TABLE, $record);
             return $record->id;

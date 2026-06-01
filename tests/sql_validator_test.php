@@ -36,6 +36,11 @@ final class sql_validator_test extends \advanced_testcase {
             'WITH CTE'      => ['WITH x AS (SELECT id FROM {course}) SELECT * FROM x'],
             'aggregate'     => ['SELECT COUNT(*) c FROM {user}'],
             'trailing semi' => ['SELECT 1;'],
+            'JOIN with ON'  => ['SELECT u.id FROM {user} u JOIN {user_enrolments} ue ON ue.userid = u.id'],
+            'LEFT JOIN ON'  => ['SELECT u.id FROM {user} u LEFT JOIN {role} r ON r.id = u.id'],
+            'CROSS JOIN'    => ['SELECT a.id FROM {course} a CROSS JOIN {user} b'],
+            'comma join'    => ['SELECT a.id FROM {course} a, {user} b WHERE a.id = b.id'],
+            'JOIN USING'    => ['SELECT u.id FROM {user} u JOIN {role} r USING (id)'],
         ];
     }
 
@@ -58,6 +63,8 @@ final class sql_validator_test extends \advanced_testcase {
             'denied table'    => ['SELECT * FROM {config}'],
             'EXECUTE'         => ['EXECUTE my_proc'],
             'CREATE VIEW'     => ['CREATE VIEW foo AS SELECT 1'],
+            'JOIN missing ON' => ['SELECT u.firstname FROM {user} u JOIN {user_enrolments} ue.userid = u.id'],
+            'LEFT JOIN no ON' => ['SELECT u.id FROM {user} u LEFT JOIN {role} r'],
         ];
     }
 
@@ -77,6 +84,14 @@ final class sql_validator_test extends \advanced_testcase {
     public function test_string_literal_does_not_evade_keyword_scan(): void {
         // String literals are blanked before scan, so "DROP" inside a literal won't trigger.
         $this->assertNotEmpty(validator::validate("SELECT 'DROP TABLE x' AS s"));
+    }
+
+    public function test_join_without_on_reports_specific_error(): void {
+        // A JOIN missing its ON condition should raise the dedicated, friendly message
+        // rather than letting the DB return an opaque syntax error.
+        $this->expectException(\moodle_exception::class);
+        $this->expectExceptionMessage(get_string('errjoinnoon', 'local_reportsources'));
+        validator::validate('SELECT u.firstname FROM {user} u JOIN {user_enrolments} ue.userid = u.id');
     }
 
     public function test_placeholders(): void {

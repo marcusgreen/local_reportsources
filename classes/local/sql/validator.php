@@ -36,8 +36,8 @@ class validator {
 
     /** @var string[] PostgreSQL-specific date/time functions that will fail on MySQL. */
     private const PGSQL_DATE_FUNCTIONS = [
-        'TO_TIMESTAMP', 'TO_CHAR', 'DATE_TRUNC', 'EXTRACT', 'AGE',
-        'NOW', 'CLOCK_TIMESTAMP', 'TIMEOFDAY', 'MAKE_DATE', 'MAKE_TIME',
+        'TO_TIMESTAMP', 'TO_CHAR', 'DATE_TRUNC', 'AGE',
+        'CLOCK_TIMESTAMP', 'TIMEOFDAY', 'MAKE_DATE', 'MAKE_TIME',
         'MAKE_TIMESTAMP', 'MAKE_TIMESTAMPTZ',
     ];
 
@@ -89,17 +89,36 @@ class validator {
 
         $stripped = self::strip_comments_and_strings($sql);
 
-        // Single statement.
+        // ? inside string literals (e.g. URL query strings like view.php?id=) are treated as
+        // positional DML parameters by Moodle's database layer, causing "Expected N, got 0" errors.
+        if (strpos($sql, '?') !== false) {
+            throw new \moodle_exception('errquestionmark', 'local_reportsources');
+        }
+
+        // Unfilled placeholder artifacts copied from ad-hoc report templates (e.g. ## or
+        // %%FILTER_USERS%%) reach the DB as broken SQL. ## also starts a MySQL comment, truncating
+        // the statement into a cryptic syntax error. Catch these and name the offending token.
+        if (preg_match('/##+|%%[^%\n]*%%/', $sql, $m)) {
+            throw new \moodle_exception('errplaceholder', 'local_reportsources', '', $m[0]);
+        }
+
+        // Single statement — reject both semicolon-separated and bare multi-statement SQL.
         if (str_contains(rtrim($stripped, "; \t\n\r"), ';')) {
             throw new \moodle_exception('errmultistatement', 'local_reportsources');
         }
-
-        // Leading keyword must be SELECT or WITH.
-        if (!preg_match('/^\s*(SELECT|WITH)\b/i', $stripped)) {
-            throw new \moodle_exception('errnotselect', 'local_reportsources');
+        if (self::count_top_level_selects($stripped) > 1) {
+            throw new \moodle_exception('errmultistatement', 'local_reportsources');
         }
 
-        // Token denylist.
+        // Parse the query. greenlion's parser does not understand Moodle's {table} braces,
+        // so feed it a brace-stripped copy. The parse tree drives the statement-type and
+        // JOIN-condition checks below; the denylists that follow are kept as defence-in-depth.
+        $tree = self::parse(self::strip_braces(rtrim($sql, "; \t\n\r")));
+
+        // Statement type: top-level keys must describe a SELECT/WITH/UNION read query only.
+        self::check_statement_type($tree);
+
+        // Token denylist (defence-in-depth — the parser alone does not block, e.g., INTO OUTFILE).
         foreach (self::DENY_KEYWORDS as $kw) {
             if (preg_match('/\b' . preg_quote($kw, '/') . '\b/i', $stripped)) {
                 throw new \moodle_exception('errdeniedkeyword', 'local_reportsources', '', $kw);
@@ -114,6 +133,10 @@ class validator {
                 }
             }
         }
+
+        // Each JOIN needs an ON/USING condition — catch the common mistake before the
+        // DB returns a cryptic syntax error.
+        self::check_join_conditions($tree, $stripped);
 
         global $CFG;
         $dbtype = $CFG->dbtype ?? 'mysqli';
@@ -137,6 +160,109 @@ class validator {
         }
 
         return rtrim($sql, "; \t\n\r");
+    }
+
+    /**
+     * Parse SQL into greenlion's parse tree, lazily loading the bundled library.
+     *
+     * @param string $sql Brace-stripped SQL (the parser does not understand {table} syntax).
+     * @return array Parse tree keyed by clause (SELECT, FROM, WHERE, ...).
+     * @throws \moodle_exception when the SQL cannot be parsed.
+     */
+    private static function parse(string $sql): array {
+        global $CFG;
+
+        if (!class_exists(\PHPSQLParser\PHPSQLParser::class)) {
+            require_once($CFG->dirroot . '/local/reportsources/lib/php-sql-parser/vendor/autoload.php');
+        }
+
+        try {
+            $parser = new \PHPSQLParser\PHPSQLParser($sql);
+            $tree = $parser->parsed;
+        } catch (\Throwable $e) {
+            throw new \moodle_exception('errparse', 'local_reportsources', '', $e->getMessage());
+        }
+
+        if (!is_array($tree) || $tree === []) {
+            throw new \moodle_exception('errnotselect', 'local_reportsources');
+        }
+        return $tree;
+    }
+
+    /**
+     * Confirm the parsed statement is a read-only SELECT/WITH/UNION query.
+     *
+     * The parse tree's top-level keys name the statement: a SELECT yields SELECT/FROM/WHERE/...,
+     * whereas INSERT/UPDATE/DELETE/DROP/etc. surface their own keyword as a top-level key. Any
+     * key outside the read-only whitelist rejects the query.
+     *
+     * @param array $tree Parse tree from {@see self::parse()}.
+     * @return void
+     * @throws \moodle_exception when the statement is not a pure read query.
+     */
+    private static function check_statement_type(array $tree): void {
+        $allowed = [
+            'SELECT', 'FROM', 'WHERE', 'GROUP', 'HAVING', 'ORDER', 'LIMIT', 'OFFSET',
+            'WITH', 'UNION', 'UNION ALL', 'EXCEPT', 'INTERSECT', 'BRACKET', 'OPTIONS',
+        ];
+        $keys = array_map('strtoupper', array_keys($tree));
+
+        foreach ($keys as $key) {
+            if (!in_array($key, $allowed, true)) {
+                throw new \moodle_exception('errnotselect', 'local_reportsources');
+            }
+        }
+
+        // Must actually be a query that returns rows, not just clause fragments.
+        $reads = ['SELECT', 'WITH', 'UNION', 'UNION ALL', 'EXCEPT', 'INTERSECT', 'BRACKET'];
+        if (!array_intersect($reads, $keys)) {
+            throw new \moodle_exception('errnotselect', 'local_reportsources');
+        }
+    }
+
+    /**
+     * Reject JOINs that have no ON or USING condition.
+     *
+     * Without this the DB returns an opaque syntax error (e.g. "...near '.userid = u.id'")
+     * for a JOIN like `JOIN user_enrolments ue.userid = u.id` where the author forgot ON.
+     * Walks the parse tree's FROM list: the first table is the base (no condition); each
+     * subsequent table must carry a ref_type (ON/USING). CROSS and NATURAL joins legitimately
+     * omit the condition. The parser collapses CROSS JOIN to join_type=JOIN, so when an explicit
+     * CROSS JOIN appears we skip the JOIN-typed checks rather than risk a false positive — the
+     * live DB dry-run remains the final gate.
+     *
+     * @param array $tree Parse tree from {@see self::parse()}.
+     * @param string $stripped SQL with comments and string literals already removed.
+     * @return void
+     * @throws \moodle_exception when a JOIN lacks an ON/USING condition.
+     */
+    private static function check_join_conditions(array $tree, string $stripped): void {
+        if (empty($tree['FROM']) || !is_array($tree['FROM'])) {
+            return;
+        }
+
+        $hascrossjoin = (bool) preg_match('/\bCROSS\s+JOIN\b/i', $stripped);
+
+        foreach ($tree['FROM'] as $i => $from) {
+            if ($i === 0) {
+                continue; // Base table — no join condition expected.
+            }
+            // greenlion uses false (not null) for absent values, so cast before strtoupper.
+            $jointype = strtoupper((string) ($from['join_type'] ?? ''));
+            $reftype = strtoupper((string) ($from['ref_type'] ?? ''));
+
+            if ($reftype !== '') {
+                continue; // Has ON/USING.
+            }
+            if (in_array($jointype, ['CROSS', 'NATURAL'], true)) {
+                continue; // Conditionless join by design.
+            }
+            // join_type=JOIN also covers an explicit CROSS JOIN; stay lenient if one is present.
+            if ($jointype === 'JOIN' && $hascrossjoin) {
+                continue;
+            }
+            throw new \moodle_exception('errjoinnoon', 'local_reportsources');
+        }
     }
 
     /**
@@ -170,7 +296,7 @@ class validator {
      * @return string SQL with bare table references braced.
      */
     public static function auto_brace(string $sql): string {
-        global $DB;
+        global $DB, $CFG;
         try {
             $tables = $DB->get_tables();
         } catch (\Throwable $e) {
@@ -179,7 +305,8 @@ class validator {
         if (!$tables) {
             return $sql;
         }
-        $tableset = array_flip(array_map('strtolower', $tables));
+        $tableset  = array_flip(array_map('strtolower', $tables));
+        $dbprefix  = strtolower($CFG->prefix ?? '');
 
         $pattern = '/'
             . '(?P<str>\'(?:[^\']|\'\')*\')'
@@ -203,7 +330,7 @@ class validator {
 
         $result = preg_replace_callback(
             $pattern,
-            static function (array $m) use ($tableset, $clauseend, &$expecting, &$infromlist, &$stack): string {
+            static function (array $m) use ($tableset, $dbprefix, $clauseend, &$expecting, &$infromlist, &$stack): string {
                 if (isset($m['str']) && $m['str'] !== '') {
                     return $m['str'];
                 }
@@ -247,10 +374,28 @@ class validator {
                 $id = $m['id'];
                 $idl = strtolower($id);
 
+                // Strip "prefix_" or the actual configured DB prefix (e.g. "mdl_") so users can
+                // paste SQL from tools that output fully-prefixed names. This runs regardless of
+                // position so qualified column references (e.g. prefix_user.deleted) are rewritten
+                // to {user}.deleted too, not just the table reference after FROM/JOIN.
+                $stripped = null;
+                if (str_starts_with($idl, 'prefix_')) {
+                    $stripped = substr($idl, 7);
+                } else if ($dbprefix !== '' && str_starts_with($idl, $dbprefix)) {
+                    $stripped = substr($idl, strlen($dbprefix));
+                }
+                if ($stripped !== null && isset($tableset[$stripped])) {
+                    if ($expecting) {
+                        $expecting = false;
+                        $infromlist = true;
+                    }
+                    return '{' . $stripped . '}';
+                }
+
                 if ($expecting && isset($tableset[$idl])) {
                     $expecting = false;
                     $infromlist = true;
-                    return '{' . $id . '}';
+                    return '{' . $idl . '}';
                 }
 
                 if ($idl === 'from' || $idl === 'join') {
@@ -303,6 +448,30 @@ class validator {
             return $m['tbl'];
         }, $sql);
         return $result ?? $sql;
+    }
+
+    /**
+     * Count SELECT keywords at parenthesis depth 0 to detect bare multi-statement SQL
+     * (two SELECTs with no semicolon separator).
+     *
+     * @param string $stripped SQL with comments and string literals already removed.
+     * @return int
+     */
+    private static function count_top_level_selects(string $stripped): int {
+        $depth = 0;
+        $count = 0;
+        $tokens = preg_split('/(\(|\)|\bSELECT\b)/i', $stripped, -1,
+            PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
+        foreach ($tokens as $tok) {
+            if ($tok === '(') {
+                $depth++;
+            } else if ($tok === ')') {
+                $depth--;
+            } else if (strcasecmp($tok, 'SELECT') === 0 && $depth === 0) {
+                $count++;
+            }
+        }
+        return $count;
     }
 
     /**

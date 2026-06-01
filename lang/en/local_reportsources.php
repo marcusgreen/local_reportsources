@@ -56,6 +56,8 @@ $string['queries'] = 'Saved report views';
 $string['noqueries'] = 'No report views yet.';
 
 $string['errnotselect'] = 'Only SELECT queries are allowed.';
+$string['errplaceholder'] = 'The SQL contains an unfilled placeholder "{$a}". Replace it with a real value before saving — e.g. change "l.userid = ##" to "l.userid = 2".';
+$string['errquestionmark'] = 'SQL contains a ? character, which the database layer treats as a query parameter placeholder. If ? appears inside a URL string, replace it with CHAR(63) — e.g. CONCAT(\'…/view.php\', CHAR(63), \'id=\', course.id).';
 $string['errmultistatement'] = 'Multiple statements are not allowed.';
 $string['errdeniedkeyword'] = 'Disallowed keyword: {$a}';
 $string['errdeniedtable'] = 'Disallowed table: {$a}';
@@ -63,6 +65,8 @@ $string['warnmysqldatefn'] = 'MySQL-only function {$a} may not work on PostgreSQ
 $string['errpgsqldatefn'] = 'PostgreSQL-only function {$a} is not supported by MySQL. Use a cross-database equivalent.';
 $string['errcreateview'] = 'Could not create database view: {$a}';
 $string['errduplicatecolumn'] = 'Joined tables share duplicate column names (e.g. both have "id"). Replace SELECT * with explicit column aliases: SELECT u.id AS userid, fp.id AS postid, ...';
+$string['errjoinnoon'] = 'A JOIN is missing its ON (or USING) condition. Each JOIN needs a join condition, e.g. JOIN {user_enrolments} ue ON ue.userid = u.id';
+$string['errparse'] = 'The SQL could not be parsed: {$a}';
 $string['errdropview'] = 'Could not drop database view: {$a}';
 
 $string['runreport'] = 'Open report';
@@ -106,6 +110,28 @@ $string['visible_help'] = 'Controls whether this published report appears in the
 For finer-grained access control, use the Audiences feature in Report Builder after publishing: open the report, go to the Audience tab, and restrict by cohort, role, or individual user.';
 
 $string['cleanuplogs'] = 'Clean up report sources execution log';
+
+$string['chartsettings'] = 'Chart settings';
+$string['chartpublishrequired'] = 'Publish this query first to enable chart configuration.';
+$string['charttype'] = 'Chart type';
+$string['chartnone'] = 'No chart';
+$string['chartbar'] = 'Bar chart';
+$string['chartline'] = 'Line chart';
+$string['chartpie'] = 'Pie chart';
+$string['chartdoughnut'] = 'Doughnut chart';
+$string['chartxcol'] = 'Label column (X axis / slices)';
+$string['chartxcol_help'] = 'Column whose values label each bar, point, or pie slice.';
+$string['chartycol'] = 'Value column (Y axis)';
+$string['chartycol_help'] = 'Column whose values are plotted. Must contain numeric data.';
+$string['chartrowlimit'] = 'Chart row limit';
+$string['chartrowlimit_help'] = 'Maximum rows to plot. Keep small (≤ 200) for readable charts.';
+$string['selectcolumn'] = '(select column)';
+$string['viewchart'] = 'View chart';
+$string['chartexportcsv'] = 'Export CSV';
+$string['chartdownloadpng'] = 'Download PNG';
+$string['chartprint'] = 'Print';
+$string['errchartnotpublished'] = 'This query is not published. Publish it first before viewing the chart.';
+$string['errchartnotconfigured'] = 'No chart is configured for this query. Edit the query to add chart settings.';
 
 $string['ai:heading'] = 'Generate SQL with AI';
 $string['ai:question'] = 'Describe the data you want';

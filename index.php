@@ -93,6 +93,13 @@ foreach ($queries as $rec) {
         );
     }
     if ($rec->status === query::STATUS_PUBLISHED && $rec->reportid) {
+        $chartmeta = $rec->chartmeta ? json_decode($rec->chartmeta, true) : [];
+        if (!empty($chartmeta['type']) && $chartmeta['type'] !== 'none') {
+            $actions[] = html_writer::link(
+                new moodle_url('/local/reportsources/chart.php', ['id' => $rec->id]),
+                get_string('viewchart', 'local_reportsources')
+            );
+        }
         $actions[] = html_writer::link(
             new moodle_url('/reportbuilder/view.php', ['id' => $rec->reportid]),
             get_string('runreport', 'local_reportsources')

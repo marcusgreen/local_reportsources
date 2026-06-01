@@ -227,6 +227,22 @@ export const init = (targetid) => {
         return null;
     }
 
+    /**
+     * If the AI generation field is present, pre-fill it with the broken SQL and
+     * a description of the error so the user can ask the AI to fix it.
+     *
+     * @param {string} sql - The SQL that failed validation.
+     * @param {string} errorMsg - The validation error message.
+     */
+    function feedAiField(sql, errorMsg) {
+        const aiField = document.getElementById('rs-ai-question');
+        if (!aiField) {
+            return;
+        }
+        aiField.value = 'Fix this SQL error: ' + errorMsg + '\n\n' + sql;
+        aiField.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+    }
+
     let serverValidated = false;
 
     if (textarea.form) {
@@ -268,13 +284,17 @@ export const init = (targetid) => {
             .then(data => {
                 const result = Array.isArray(data) ? data[0] : data;
                 if (result.error) {
+                    const msg = result.error.message || JSON.stringify(result.error);
                     errorBanner.className = 'alert alert-danger mt-1';
-                    errorBanner.textContent = result.error.message || JSON.stringify(result.error);
+                    errorBanner.textContent = msg;
                     errorBanner.style.display = '';
+                    feedAiField(textarea.value, msg);
                 } else if (result.data && !result.data.ok) {
+                    const msg = result.data.error || 'Query validation failed.';
                     errorBanner.className = 'alert alert-danger mt-1';
-                    errorBanner.textContent = result.data.error || 'Query validation failed.';
+                    errorBanner.textContent = msg;
                     errorBanner.style.display = '';
+                    feedAiField(textarea.value, msg);
                 } else {
                     serverValidated = true;
                     errorBanner.style.display = 'none';

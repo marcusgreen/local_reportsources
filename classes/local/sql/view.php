@@ -18,6 +18,8 @@ declare(strict_types=1);
 
 namespace local_reportsources\local\sql;
 
+use local_reportsources\local\sql\validator;
+
 /**
  * Manages database VIEWs that back published ad-hoc queries.
  *
@@ -56,7 +58,7 @@ class view {
 
         $viewname = self::name_for($queryid);
         $fullname = $CFG->prefix . $viewname;
-        $resolved = self::resolve_placeholders($validatedsql);
+        $resolved = self::normalise_aliases(self::resolve_placeholders($validatedsql));
 
         $ddl = "CREATE OR REPLACE VIEW {$fullname} AS {$resolved}";
 
@@ -90,6 +92,23 @@ class view {
             $detail = $e->error ?: ($e->debuginfo ?: $e->getMessage());
             throw new \moodle_exception('errdropview', 'local_reportsources', '', $detail);
         }
+    }
+
+    /**
+     * Replace spaces with underscores in quoted column aliases so the resulting VIEW has
+     * identifier-safe column names. Operates on both double-quoted and backtick-quoted aliases.
+     *
+     * e.g.  AS "Common world format"  →  AS "Common_world_format"
+     *
+     * @param string $sql
+     * @return string
+     */
+    public static function normalise_aliases(string $sql): string {
+        return preg_replace_callback(
+            '/\bAS\s+(["`])([^"`]+)\1/i',
+            static fn(array $m): string => 'AS ' . $m[1] . str_replace(' ', '_', $m[2]) . $m[1],
+            $sql
+        ) ?? $sql;
     }
 
     /**

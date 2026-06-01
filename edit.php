@@ -69,6 +69,10 @@ $aierror  = null;
 $aisqlchatavailable = class_exists('\local_sqlchat\api')
     && (bool) get_config('local_reportsources', 'aigenerate');
 
+if ($aisqlchatavailable && get_config('local_reportsources', 'syntaxhighlight')) {
+    $PAGE->requires->js_call_amd('local_reportsources/ai_feedback', 'init');
+}
+
 if ($aisqlchatavailable && $aiaction === 'generate' && $aiquestion !== '') {
     require_sesskey();
     try {
@@ -91,6 +95,15 @@ $returnurl = new moodle_url('/local/reportsources/index.php',
 if ($mform->is_cancelled()) {
     redirect($returnurl);
 } else if ($data = $mform->get_data()) {
+    // Prevent an author from scoping a query to a course they have no access to.
+    if (!empty($data->courseid)) {
+        $coursecontext = context_course::instance((int) $data->courseid);
+        if (!has_capability('local/reportsources:viewall', $context) &&
+            !has_capability('local/reportsources:view', $coursecontext) &&
+            !has_capability('local/reportsources:viewown', $coursecontext)) {
+            throw new required_capability_exception($coursecontext, 'local/reportsources:view', 'nopermissions', '');
+        }
+    }
     $newid = query::save($data);
     redirect(
         $returnurl,

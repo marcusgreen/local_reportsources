@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<libraries>
+  <library>
+    <location>lib/php-sql-parser</location>
+    <name>PHP-SQL-Parser</name>
+    <description>Pure-PHP SQL parser used to validate that author-supplied report queries are read-only and well-formed before they reach the database.</description>
+    <version>4.7.0</version>
+    <license>BSD-3-Clause</license>
+    <licenseversion>3-Clause</licenseversion>
+    <repository>https://github.com/greenlion/PHP-SQL-Parser</repository>
+    <copyrights>
+      <copyright>2014 Justin Swanhart &lt;greenlion@gmail.com&gt; and André Rothe &lt;phosco@gmx.de&gt;</copyright>
+    </copyrights>
+  </library>
+</libraries>

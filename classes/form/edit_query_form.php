@@ -70,16 +70,17 @@ class edit_query_form extends moodleform {
             foreach ($DB->get_tables() as $table) {
                 $tableobject->$table = array_keys($DB->get_columns($table));
             }
-            $mform->addElement('hidden', 'tablejson', json_encode($tableobject), ['id' => 'tablejson']);
+            $jsonflags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
+            $mform->addElement('hidden', 'tablejson', json_encode($tableobject, $jsonflags), ['id' => 'tablejson']);
             $mform->setType('tablejson', PARAM_RAW);
 
-            $mform->addElement('hidden', 'fkjson', json_encode(self::build_fk_map()), ['id' => 'fkjson']);
+            $mform->addElement('hidden', 'fkjson', json_encode(self::build_fk_map(), $jsonflags), ['id' => 'fkjson']);
             $mform->setType('fkjson', PARAM_RAW);
         }
 
         $mform->addElement('textarea', 'querysql',
             get_string('querysql', 'local_reportsources'),
-            ['rows' => 14, 'cols' => 80, 'class' => 'local-reportsources-sql']);
+            ['rows' => 10, 'cols' => 80, 'class' => 'local-reportsources-sql']);
         $mform->setType('querysql', PARAM_RAW);
         $mform->addRule('querysql', null, 'required', null, 'client');
         $mform->addHelpButton('querysql', 'querysql', 'local_reportsources');
@@ -158,6 +159,71 @@ class edit_query_form extends moodleform {
         set_config('fkmapcache_ver', $CFG->version, 'local_reportsources');
 
         return $map;
+    }
+
+    /**
+     * Add chart configuration fields once column metadata is available (published queries only).
+     */
+    public function definition_after_data() {
+        global $DB;
+
+        $mform  = $this->_form;
+        $idval  = $mform->getElementValue('id');
+        $id     = is_array($idval) ? (int) $idval[0] : (int) $idval;
+        if (!$id) {
+            return;
+        }
+
+        $record = $DB->get_record('local_reportsources_query', ['id' => $id]);
+        if (!$record || empty($record->columnsmeta)) {
+            if ($record) {
+                $mform->addElement('header', 'chartheader', get_string('chartsettings', 'local_reportsources'));
+                $mform->addElement('static', 'chart_unpublished_note', '',
+                    \html_writer::span(
+                        get_string('chartpublishrequired', 'local_reportsources'),
+                        'text-muted'
+                    )
+                );
+            }
+            return;
+        }
+
+        $meta = json_decode($record->columnsmeta, true);
+        if (!is_array($meta) || !$meta) {
+            return;
+        }
+
+        $chartmeta = $record->chartmeta ? json_decode($record->chartmeta, true) : [];
+        $colnames  = array_keys($meta);
+        $colopts   = array_combine($colnames, $colnames);
+        $xopts     = ['' => get_string('selectcolumn', 'local_reportsources')] + $colopts;
+
+        $mform->addElement('header', 'chartheader', get_string('chartsettings', 'local_reportsources'));
+
+        $mform->addElement('select', 'chart_type', get_string('charttype', 'local_reportsources'), [
+            'none'     => get_string('chartnone', 'local_reportsources'),
+            'bar'      => get_string('chartbar', 'local_reportsources'),
+            'line'     => get_string('chartline', 'local_reportsources'),
+            'pie'      => get_string('chartpie', 'local_reportsources'),
+            'doughnut' => get_string('chartdoughnut', 'local_reportsources'),
+        ]);
+        $mform->setType('chart_type', PARAM_ALPHA);
+        $mform->setDefault('chart_type', $chartmeta['type'] ?? 'none');
+
+        $mform->addElement('select', 'chart_xcol', get_string('chartxcol', 'local_reportsources'), $xopts);
+        $mform->setType('chart_xcol', PARAM_ALPHANUMEXT);
+        $mform->setDefault('chart_xcol', $chartmeta['xcol'] ?? '');
+        $mform->addHelpButton('chart_xcol', 'chartxcol', 'local_reportsources');
+
+        $mform->addElement('select', 'chart_ycol', get_string('chartycol', 'local_reportsources'), $xopts);
+        $mform->setType('chart_ycol', PARAM_ALPHANUMEXT);
+        $mform->setDefault('chart_ycol', $chartmeta['ycol'] ?? '');
+        $mform->addHelpButton('chart_ycol', 'chartycol', 'local_reportsources');
+
+        $mform->addElement('text', 'chart_rowlimit', get_string('chartrowlimit', 'local_reportsources'), ['size' => 6]);
+        $mform->setType('chart_rowlimit', PARAM_INT);
+        $mform->setDefault('chart_rowlimit', (int) ($chartmeta['rowlimit'] ?? 200));
+        $mform->addHelpButton('chart_rowlimit', 'chartrowlimit', 'local_reportsources');
     }
 
     public function validation($data, $files): array {

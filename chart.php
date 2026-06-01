@@ -1,0 +1,148 @@
+<?php
+// This file is part of Moodle - https://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+
+/**
+ * Render a chart for a published ad-hoc query.
+ *
+ * @package   local_reportsources
+ * @copyright 2026 Marcus Green
+ * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
+require(__DIR__ . '/../../config.php');
+
+use local_reportsources\local\query;
+
+$id       = required_param('id', PARAM_INT);
+$courseid = optional_param('courseid', 0, PARAM_INT);
+$format   = optional_param('format', '', PARAM_ALPHA);
+
+if ($courseid) {
+    require_login($courseid);
+    $context = context_course::instance($courseid);
+} else {
+    require_login();
+    $context = context_system::instance();
+}
+
+$PAGE->set_context($context);
+
+if ($courseid) {
+    if (!has_capability('local/reportsources:view', $context) &&
+        !has_capability('local/reportsources:viewown', $context) &&
+        !has_capability('local/reportsources:author', context_system::instance()) &&
+        !has_capability('local/reportsources:viewall', context_system::instance())) {
+        require_capability('local/reportsources:view', $context);
+    }
+} else {
+    if (!has_capability('local/reportsources:viewall', $context) &&
+        !has_capability('local/reportsources:author', $context) &&
+        !has_capability('local/reportsources:view', $context)) {
+        require_capability('local/reportsources:view', $context);
+    }
+}
+
+$q   = query::get($id);
+$rec = $q->record();
+
+if ($rec->status !== query::STATUS_PUBLISHED) {
+    throw new moodle_exception('errchartnotpublished', 'local_reportsources');
+}
+
+$chartmeta = $rec->chartmeta ? json_decode($rec->chartmeta, true) : [];
+if (empty($chartmeta['type']) || $chartmeta['type'] === 'none') {
+    throw new moodle_exception('errchartnotconfigured', 'local_reportsources');
+}
+
+$xcol     = (string) ($chartmeta['xcol'] ?? '');
+$ycol     = (string) ($chartmeta['ycol'] ?? '');
+$rowlimit = max(1, min(5000, (int) ($chartmeta['rowlimit'] ?? 200)));
+$type     = $chartmeta['type'];
+
+// Fetch all columns for CSV; chart only needs xcol/ycol but CSV exports everything.
+$rows = [];
+try {
+    $rs = $DB->get_recordset($rec->viewname, null, '', '*', 0, $rowlimit);
+    foreach ($rs as $row) {
+        $rows[] = (array) $row;
+    }
+    $rs->close();
+} catch (\dml_exception $e) {
+    throw new moodle_exception('errcreateview', 'local_reportsources', '', $e->getMessage());
+}
+
+// CSV export — stream and exit before any HTML output.
+if ($format === 'csv') {
+    $filename = clean_filename($rec->name) . '.csv';
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    $out = fopen('php://output', 'w');
+    if ($rows) {
+        fputcsv($out, array_keys($rows[0]));
+        foreach ($rows as $row) {
+            fputcsv($out, $row);
+        }
+    }
+    fclose($out);
+    exit;
+}
+
+$labels = [];
+$values = [];
+foreach ($rows as $row) {
+    $labels[] = (string) ($row[$xcol] ?? '');
+    $values[] = (float) ($row[$ycol] ?? 0);
+}
+
+$chart = match ($type) {
+    'line'     => new \core\chart_line(),
+    'pie'      => new \core\chart_pie(),
+    'doughnut' => (function () { $c = new \core\chart_pie(); $c->set_doughnut(true); return $c; })(),
+    default    => new \core\chart_bar(),
+};
+
+$series = new \core\chart_series($ycol, $values);
+$chart->add_series($series);
+$chart->set_labels($labels);
+$chart->set_title(format_string($rec->name));
+
+$PAGE->set_url(new moodle_url('/local/reportsources/chart.php',
+    ['id' => $id] + ($courseid ? ['courseid' => $courseid] : [])));
+$PAGE->set_pagelayout($courseid ? 'incourse' : 'admin');
+$PAGE->set_title($rec->name);
+$PAGE->set_heading($rec->name);
+
+$indexurl = new moodle_url('/local/reportsources/index.php', $courseid ? ['courseid' => $courseid] : []);
+$csvurl   = new moodle_url('/local/reportsources/chart.php',
+    ['id' => $id, 'format' => 'csv'] + ($courseid ? ['courseid' => $courseid] : []));
+
+echo $OUTPUT->header();
+echo $OUTPUT->heading(format_string($rec->name));
+echo $OUTPUT->render_chart($chart, false);
+
+$PAGE->requires->js_call_amd('local_reportsources/chart_download', 'init', [clean_filename($rec->name)]);
+
+$actions = html_writer::link($csvurl, get_string('chartexportcsv', 'local_reportsources'),
+    ['class' => 'btn btn-secondary btn-sm mr-2']);
+$actions .= html_writer::tag('button', get_string('chartdownloadpng', 'local_reportsources'),
+    ['id' => 'local-reportsources-download-png', 'class' => 'btn btn-secondary btn-sm mr-2']);
+$actions .= html_writer::tag('button', get_string('chartprint', 'local_reportsources'),
+    ['class' => 'btn btn-secondary btn-sm mr-2', 'onclick' => 'window.print(); return false;']);
+$actions .= html_writer::link($indexurl, get_string('back'));
+
+echo html_writer::div($actions, 'mt-3 noprint');
+
+echo $OUTPUT->footer();
