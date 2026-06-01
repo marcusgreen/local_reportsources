@@ -31,6 +31,8 @@ Permissions are assigned at **Site admin → Users → Permissions → Define ro
 
 Go to **Report sources** in the site navigation (or open a course and look under the **More** menu for course-specific reports), then click **New report view**.
 
+![The query edit form](docs/editform.png)
+
 Fill in:
 
 - **Name** — the title that will appear on the finished report.
