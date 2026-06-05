@@ -53,6 +53,16 @@ try {
             $reportid = $query->create_additional_report();
             redirect(new moodle_url('/reportbuilder/edit.php', ['id' => $reportid]));
             break;
+        case 'copy':
+            require_capability('local/reportsources:author', $context);
+            $newid = $query->duplicate();
+            redirect(
+                new moodle_url('/local/reportsources/edit.php', ['id' => $newid]),
+                get_string('copysuccess', 'local_reportsources'),
+                null,
+                \core\output\notification::NOTIFY_SUCCESS
+            );
+            break;
         default:
             throw new moodle_exception('invalidaction');
     }

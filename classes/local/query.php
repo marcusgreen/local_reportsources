@@ -271,6 +271,39 @@ class query {
     }
 
     /**
+     * Duplicate this query as a new draft owned by the current user.
+     *
+     * Copies the SQL, description, row cap, course scope, visibility and chart
+     * settings. The copy starts as a draft: no VIEW, report or column metadata
+     * is carried over (those are rebuilt on publish).
+     *
+     * @return int New query id.
+     */
+    public function duplicate(): int {
+        global $DB, $USER;
+
+        $now = time();
+        $copy = (object) [
+            'name'         => get_string('copyof', 'local_reportsources', $this->name()),
+            'description'  => (string) ($this->record->description ?? ''),
+            'querysql'     => $this->sql(),
+            'rowcap'       => (int) ($this->record->rowcap ?? get_config('local_reportsources', 'rowcapdefault') ?: 5000),
+            'courseid'     => $this->courseid(),
+            'visible'      => (int) ($this->record->visible ?? 1),
+            'chartmeta'    => $this->record->chartmeta ?: null,
+            'ownerid'      => (int) $USER->id,
+            'status'       => self::STATUS_DRAFT,
+            'viewname'     => null,
+            'reportid'     => null,
+            'columnsmeta'  => null,
+            'timecreated'  => $now,
+            'timemodified' => $now,
+        ];
+
+        return $DB->insert_record(self::TABLE, $copy);
+    }
+
+    /**
      * Tear down view + reportbuilder report for a record.
      *
      * @param int $queryid

@@ -132,6 +132,13 @@ foreach ($queries as $rec) {
             get_string('unpublish', 'local_reportsources')
         );
     }
+    if (has_capability('local/reportsources:author', $syscontext)) {
+        $actions[] = html_writer::link(
+            new moodle_url('/local/reportsources/run.php',
+                ['id' => $rec->id, 'action' => 'copy', 'sesskey' => sesskey()]),
+            get_string('copy', 'local_reportsources')
+        );
+    }
     if (has_capability('local/reportsources:author', $syscontext) &&
         ($rec->ownerid == $USER->id || has_capability('local/reportsources:viewall', $syscontext))) {
         $actions[] = html_writer::link(
