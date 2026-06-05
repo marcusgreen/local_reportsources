@@ -97,7 +97,8 @@ foreach ($queries as $rec) {
         if (!empty($chartmeta['type']) && $chartmeta['type'] !== 'none') {
             $actions[] = html_writer::link(
                 new moodle_url('/local/reportsources/chart.php', ['id' => $rec->id]),
-                get_string('viewchart', 'local_reportsources')
+                $OUTPUT->pix_icon('i/chartbar', '', 'moodle', ['class' => 'iconsmall me-1']) .
+                    get_string('viewchart', 'local_reportsources')
             );
         }
         $actions[] = html_writer::link(
