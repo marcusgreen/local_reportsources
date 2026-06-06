@@ -54,7 +54,8 @@ $PAGE->set_title(get_string('queries', 'local_reportsources'));
 $PAGE->set_heading(get_string('reportsources', 'local_reportsources'));
 
 echo $OUTPUT->header();
-echo $OUTPUT->heading(get_string('queries', 'local_reportsources'));
+echo $OUTPUT->heading(get_string('queries', 'local_reportsources') .
+    $OUTPUT->help_icon('pluginexplained', 'local_reportsources'));
 
 $syscontext = context_system::instance();
 if (has_capability('local/reportsources:author', $syscontext)) {

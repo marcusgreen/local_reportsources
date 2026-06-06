@@ -58,6 +58,13 @@ $string['owner'] = 'Owner';
 $string['queries'] = 'Saved report views';
 $string['noqueries'] = 'No report views yet.';
 
+$string['pluginexplained'] = 'About report sources';
+$string['pluginexplained_help'] = 'This plugin lets you write a SQL SELECT query and publish it as a fully-configurable Report Builder report — no PHP required.
+
+When you publish a query, the plugin creates a database VIEW from your SQL, reads its columns, and registers a Report Builder datasource pointing at that view. You can then build, filter and share the report like any other Report Builder report.
+
+Only SELECT queries are allowed, and a denylist blocks access to sensitive tables. Editing the SQL of a published query rebuilds the view and report on the next publish.';
+
 $string['errnotselect'] = 'Only SELECT queries are allowed.';
 $string['errplaceholder'] = 'The SQL contains an unfilled placeholder "{$a}". Replace it with a real value before saving — e.g. change "l.userid = ##" to "l.userid = 2".';
 $string['errquestionmark'] = 'SQL contains a ? character, which the database layer treats as a query parameter placeholder. If ? appears inside a URL string, replace it with CHAR(63) — e.g. CONCAT(\'…/view.php\', CHAR(63), \'id=\', course.id).';
