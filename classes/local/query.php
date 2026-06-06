@@ -67,6 +67,37 @@ class query {
         return (string) $this->record->name;
     }
 
+    /**
+     * Derive a concise, human-readable query name from a natural-language question.
+     *
+     * Used when AI generation produces SQL for a query that has no name yet, so the generated
+     * query is immediately saveable (name is a required field). Takes the first sentence, collapses
+     * whitespace, trims to ~60 chars on a word boundary and capitalises the first letter.
+     *
+     * @param string $question The natural-language prompt the user typed.
+     * @return string A non-empty query name.
+     */
+    public static function name_from_question(string $question): string {
+        $text = trim((string) preg_replace('/\s+/', ' ', $question));
+        if (preg_match('/^(.*?[.?!])(\s|$)/u', $text, $m)) {
+            $text = $m[1];
+        }
+        $text = rtrim($text, " \t\n\r\0\x0B.?!,;:");
+
+        $max = 60;
+        if (\core_text::strlen($text) > $max) {
+            $truncated = \core_text::substr($text, 0, $max);
+            $space = \core_text::strrpos($truncated, ' ');
+            $text = $space > 0 ? \core_text::substr($truncated, 0, (int) $space) : $truncated;
+            $text = rtrim($text);
+        }
+
+        if ($text === '') {
+            return get_string('ai:generatedname', 'local_reportsources');
+        }
+        return \core_text::strtoupper(\core_text::substr($text, 0, 1)) . \core_text::substr($text, 1);
+    }
+
     public function sql(): string {
         return (string) $this->record->querysql;
     }

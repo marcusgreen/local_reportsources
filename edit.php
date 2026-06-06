@@ -79,6 +79,14 @@ if ($aisqlchatavailable && $aiaction === 'generate' && $aiquestion !== '') {
         $airesult = \local_sqlchat\api::generate_sql($aiquestion, $context->id);
         $mergedata = $formdefaults ? (array) $formdefaults : [];
         $mergedata['querysql'] = validator::strip_braces($airesult->sql);
+        // Make up a name/description from the question when none exist yet, so the generated
+        // query is immediately saveable (name is a required field).
+        if (trim((string) ($mergedata['name'] ?? '')) === '') {
+            $mergedata['name'] = query::name_from_question($aiquestion);
+        }
+        if (trim((string) ($mergedata['description'] ?? '')) === '') {
+            $mergedata['description'] = $aiquestion;
+        }
         $formdefaults = (object) $mergedata;
     } catch (\Throwable $e) {
         $aierror = $e->getMessage();
