@@ -128,15 +128,24 @@ class view {
     }
 
     /**
-     * Inspect the view's columns. Wraps {@see \moodle_database::get_columns()} so we can post-filter
-     * sensitive column names according to the admin denylist.
+     * Inspect the view's columns, post-filtering sensitive column names according to the admin
+     * denylist.
      *
-     * @param string $viewname
-     * @return array<string, \database_column_info>
+     * On the Postgres family this cannot use {@see \moodle_database::get_columns()}: Moodle core's
+     * pgsql implementation is hard-filtered to `relkind = 'r'` (ordinary tables), so it returns
+     * nothing for a VIEW. We introspect `information_schema.columns` instead, which lists view
+     * columns on both Postgres and MySQL. Other families keep the native get_columns() path.
+     *
+     * The returned objects expose a `meta_type` property so callers can map types uniformly.
+     *
+     * @param string $viewname View name without the Moodle prefix.
+     * @return array<string, object> Keyed by column name; each value has a `meta_type` property.
      */
     public static function columns(string $viewname): array {
         global $DB;
-        $columns = $DB->get_columns($viewname, false);
+        $columns = $DB->get_dbfamily() === 'postgres'
+            ? self::pg_view_columns($viewname)
+            : $DB->get_columns($viewname, false);
         $deny = self::denylist();
         if ($deny) {
             $columns = array_filter(
@@ -146,6 +155,44 @@ class view {
             );
         }
         return $columns;
+    }
+
+    /**
+     * Introspect a VIEW's columns on Postgres via information_schema.
+     *
+     * @param string $viewname View name without the Moodle prefix.
+     * @return array<string, object> Keyed by column name; each value has a `meta_type` property.
+     */
+    private static function pg_view_columns(string $viewname): array {
+        global $DB, $CFG;
+        $fullname = $CFG->prefix . $viewname;
+        $sql = "SELECT column_name, data_type
+                  FROM information_schema.columns
+                 WHERE table_schema = current_schema()
+                   AND table_name = ?
+              ORDER BY ordinal_position";
+        $rows = $DB->get_records_sql($sql, [$fullname]);
+        $columns = [];
+        foreach ($rows as $row) {
+            $columns[$row->column_name] = (object) ['meta_type' => self::pg_meta_type($row->data_type)];
+        }
+        return $columns;
+    }
+
+    /**
+     * Map a Postgres information_schema `data_type` to a Moodle meta_type char, mirroring the codes
+     * {@see \local_reportsources\local\query::map_db_type()} consumes.
+     *
+     * @param string $datatype
+     * @return string One of Moodle's meta_type chars: I, N, L, X.
+     */
+    private static function pg_meta_type(string $datatype): string {
+        return match (strtolower($datatype)) {
+            'smallint', 'integer', 'bigint' => 'I',
+            'numeric', 'decimal', 'real', 'double precision' => 'N',
+            'boolean' => 'L',
+            default => 'X',
+        };
     }
 
     /**
