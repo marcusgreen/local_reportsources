@@ -247,6 +247,11 @@ export const init = (targetid) => {
 
     if (textarea.form) {
         textarea.form.addEventListener('submit', (e) => {
+            // Cancel must always return to the index page, even with empty/invalid SQL.
+            if (e.submitter && e.submitter.name === 'cancel') {
+                return;
+            }
+
             textarea.value = view.state.doc.toString();
 
             const staticErr = validateSql(textarea.value);

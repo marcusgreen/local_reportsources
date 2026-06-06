@@ -211,6 +211,11 @@ define("local_reportsources/editor", ["exports", "./codemirror-lazy"], (function
 
         if (textarea.form) {
             textarea.form.addEventListener("submit", (e) => {
+                // Cancel must always return to the index page, even with empty/invalid SQL.
+                if (e.submitter && e.submitter.name === "cancel") {
+                    return;
+                }
+
                 textarea.value = view.state.doc.toString();
 
                 // Static check first — instant, no round-trip.
