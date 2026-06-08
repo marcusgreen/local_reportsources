@@ -67,9 +67,31 @@ if (has_capability('local/reportsources:author', $syscontext)) {
     );
 }
 
+/**
+ * Render the Export / Import buttons shown at the foot of the listing.
+ */
+$rendertransferbuttons = function() use ($OUTPUT, $syscontext) {
+    if (!has_capability('local/reportsources:author', $syscontext)) {
+        return;
+    }
+    echo html_writer::start_div('d-flex flex-wrap gap-2 mt-4');
+    echo $OUTPUT->single_button(
+        new moodle_url('/local/reportsources/export.php'),
+        get_string('export', 'local_reportsources'),
+        'get'
+    );
+    echo $OUTPUT->single_button(
+        new moodle_url('/local/reportsources/import.php'),
+        get_string('import', 'local_reportsources'),
+        'get'
+    );
+    echo html_writer::end_div();
+};
+
 $queries = query::visible_to_current_user($courseid);
 if (!$queries) {
     echo $OUTPUT->notification(get_string('noqueries', 'local_reportsources'), 'info');
+    $rendertransferbuttons();
     echo $OUTPUT->footer();
     exit;
 }
@@ -158,4 +180,5 @@ foreach ($queries as $rec) {
 }
 
 echo html_writer::table($table);
+$rendertransferbuttons();
 echo $OUTPUT->footer();

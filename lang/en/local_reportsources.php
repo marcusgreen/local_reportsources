@@ -58,6 +58,22 @@ $string['owner'] = 'Owner';
 $string['queries'] = 'Saved report views';
 $string['noqueries'] = 'No report views yet.';
 
+$string['export'] = 'Export';
+$string['exportselected'] = 'Export selected';
+$string['exportselecthelp'] = 'Tick the report views to include in the export file, then download the JSON.';
+$string['errnoexportselection'] = 'Select at least one report view to export.';
+$string['import'] = 'Import';
+$string['importfile'] = 'Export file';
+$string['importupload'] = 'Upload and choose';
+$string['importuploadhelp'] = 'Upload a JSON file previously produced by the Export action. You will then choose which report views to import.';
+$string['importselected'] = 'Import selected';
+$string['importselecthelp'] = 'Tick the report views to import. Each is created as a new draft owned by you and must be published before use.';
+$string['importdone'] = 'Imported {$a} report view(s) as drafts.';
+$string['importskipped'] = 'Skipped (failed SQL validation): {$a}.';
+$string['errnoimportselection'] = 'Select at least one report view to import.';
+$string['errimportformat'] = 'This file is not a valid Report sources export.';
+$string['errimportempty'] = 'The export file contains no report views.';
+
 $string['pluginexplained'] = 'About report sources';
 $string['pluginexplained_help'] = 'This plugin lets you write a SQL SELECT query and publish it as a fully-configurable Report Builder report — no PHP required.
 
@@ -149,3 +165,6 @@ $string['ai:placeholder'] = 'e.g. Show all students enrolled in more than 3 cour
 $string['ai:generate'] = 'Generate SQL';
 $string['ai:latency'] = 'Generated in {$a} ms — review the SQL before saving.';
 $string['ai:generatedname'] = 'Generated query';
+$string['ai:sqlname'] = '{$a} report';
+$string['ai:sqldescription'] = 'Selects {$a->columns} from {$a->tables}.';
+$string['ai:sqldescriptionnocols'] = 'Report over {$a}.';
