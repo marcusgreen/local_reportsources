@@ -69,6 +69,10 @@ After publishing, three action links appear:
 - **Run report** — open the report as your users will see it.
 - **New report from this view** — create a second Report Builder report from the same underlying data (useful for different audiences or layouts).
 
+#### Restricting a report to a role (e.g. Teacher)
+
+To limit a report to a specific role, open **Edit in Report Builder → Audiences**, click **Add audience**, choose **Role**, and pick the role (for example **Teacher**). Only users holding that role will be able to open the report. Remember that re-publishing the report view (or editing its SQL) resets the audience to the default — re-apply the role restriction afterwards.
+
 ### Step 4 — Unpublish or edit
 
 - **Unpublish** removes the live report. Your SQL is kept as a draft so you can re-publish later.
