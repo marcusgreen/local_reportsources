@@ -1,4 +1,6 @@
-# Report Sources
+# Report Sources or
+
+Reportbuilder ... the Sequel (Thanks to Adam Jenkins)
 
 **Report Sources** lets you turn a SQL query into a fully configurable Moodle report — no programming required. Write your query, click **Publish**, and the plugin creates a Report Builder report your colleagues can run, filter, and export.
 
