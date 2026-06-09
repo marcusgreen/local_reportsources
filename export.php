@@ -48,7 +48,13 @@ if (optional_param('download', 0, PARAM_INT)) {
             \core\output\notification::NOTIFY_ERROR);
     }
     $payload = transfer::export($ids);
-    $filename = clean_filename('reportsources-export-' . userdate(time(), '%Y%m%d-%H%M') . '.json');
+    // Name the file after the query when a single one is exported; otherwise fall back to a dated name.
+    if (count($payload['sources']) === 1) {
+        $base = preg_replace('/\s+/', '_', trim($payload['sources'][0]['name']));
+        $filename = clean_filename(($base !== '' ? $base : 'reportsource') . '.json');
+    } else {
+        $filename = clean_filename('reportsources-export-' . userdate(time(), '%Y%m%d-%H%M') . '.json');
+    }
     send_file(
         json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
         $filename,
@@ -84,6 +90,31 @@ echo html_writer::start_tag('form', [
 ]);
 echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
 echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'download', 'value' => 1]);
+
+// Master toggle to select / deselect every query at once.
+echo html_writer::start_div('form-check mb-2');
+echo html_writer::empty_tag('input', [
+    'type'    => 'checkbox',
+    'class'   => 'form-check-input',
+    'id'      => 'reportsources-toggleall',
+    'checked' => 'checked',
+]);
+echo html_writer::tag('label', get_string('selectall'),
+    ['class' => 'form-check-label font-weight-bold', 'for' => 'reportsources-toggleall']);
+echo html_writer::end_div();
+
+$PAGE->requires->js_amd_inline(<<<'JS'
+require(['jquery'], function($) {
+    var $master = $('#reportsources-toggleall');
+    var $items = $('input[name="queryids[]"]');
+    $master.on('change', function() {
+        $items.prop('checked', $master.prop('checked'));
+    });
+    $items.on('change', function() {
+        $master.prop('checked', $items.length === $items.filter(':checked').length);
+    });
+});
+JS);
 
 foreach ($queries as $rec) {
     $label = format_string($rec->name) .

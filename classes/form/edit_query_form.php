@@ -91,7 +91,58 @@ class edit_query_form extends moodleform {
         $mform->setDefault('rowcap', (int) (get_config('local_reportsources', 'rowcapdefault') ?: 5000));
         $mform->addHelpButton('rowcap', 'rowcap', 'local_reportsources');
 
+        $this->add_audience_elements($mform);
+
         $this->add_action_buttons(true, get_string('savechanges'));
+    }
+
+    /**
+     * Add the "who can view the report" audience picker.
+     *
+     * Course-scoped types (course participants / course roles) are only offered when the query is
+     * bound to a course (courseid passed in as custom data). The role and cohort pickers are shown
+     * conditionally via hideIf based on the selected type.
+     *
+     * @param \MoodleQuickForm $mform
+     */
+    private function add_audience_elements(\MoodleQuickForm $mform): void {
+        global $DB;
+
+        $courseid = (int) ($this->_customdata['courseid'] ?? 0);
+
+        $mform->addElement('header', 'audienceheader', get_string('audiencesettings', 'local_reportsources'));
+
+        $typeopts = ['default' => get_string('audiencedefault', 'local_reportsources')];
+        if ($courseid > 0) {
+            $typeopts['courseparticipant'] = get_string('audiencecourseparticipant', 'local_reportsources');
+            $typeopts['courserole'] = get_string('audiencecourserole', 'local_reportsources');
+        }
+        $typeopts['allusers'] = get_string('audienceallusers', 'local_reportsources');
+        $typeopts['cohort']   = get_string('audiencecohort', 'local_reportsources');
+        $typeopts['none']     = get_string('audiencenone', 'local_reportsources');
+
+        $mform->addElement('select', 'audiencetype',
+            get_string('audiencetype', 'local_reportsources'), $typeopts);
+        $mform->setType('audiencetype', PARAM_ALPHA);
+        $mform->setDefault('audiencetype', 'default');
+        $mform->addHelpButton('audiencetype', 'audiencetype', 'local_reportsources');
+
+        if ($courseid > 0) {
+            $roleopts = [];
+            foreach (role_fix_names(get_all_roles(), \context_course::instance($courseid), ROLENAME_BOTH) as $role) {
+                $roleopts[$role->id] = $role->localname;
+            }
+            $mform->addElement('autocomplete', 'audienceroles',
+                get_string('audienceroles', 'local_reportsources'), $roleopts, ['multiple' => true]);
+            $mform->setType('audienceroles', PARAM_INT);
+            $mform->hideIf('audienceroles', 'audiencetype', 'neq', 'courserole');
+        }
+
+        $cohortopts = $DB->get_records_menu('cohort', null, 'name', 'id, name');
+        $mform->addElement('autocomplete', 'audiencecohorts',
+            get_string('audiencecohorts', 'local_reportsources'), $cohortopts, ['multiple' => true]);
+        $mform->setType('audiencecohorts', PARAM_INT);
+        $mform->hideIf('audiencecohorts', 'audiencetype', 'neq', 'cohort');
     }
 
     /**
@@ -233,6 +284,15 @@ class edit_query_form extends moodleform {
         } catch (\moodle_exception $e) {
             $errors['querysql'] = $e->getMessage();
         }
+
+        $audiencetype = (string) ($data['audiencetype'] ?? 'default');
+        if ($audiencetype === 'courserole' && empty($data['audienceroles'])) {
+            $errors['audienceroles'] = get_string('erraudiencerolesempty', 'local_reportsources');
+        }
+        if ($audiencetype === 'cohort' && empty($data['audiencecohorts'])) {
+            $errors['audiencecohorts'] = get_string('erraudiencecohortsempty', 'local_reportsources');
+        }
+
         return $errors;
     }
 }

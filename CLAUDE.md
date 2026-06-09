@@ -46,8 +46,9 @@ The central flow lives in `classes/local/query.php → query::publish()`:
 4. `reporthelper::create_report()` — creates a `reportbuilder_report` row with source `adhoc_query`
 5. `set_config('queryid_for_report_<reportid>', $queryid)` — the binding key (see below)
 6. `adhoc_query::add_default_columns/filters()` — hydrates RB defaults using the bound query
+7. `apply_report_visibility()` — sets the report's RB **context** and **audience** from the query's scope/visibility (see below)
 
-Unpublish / SQL edit reverses steps 2-6 via `query::tear_down()`.
+Unpublish / SQL edit reverses steps 2-6 via `query::tear_down()` (which deletes the report, cascading its audiences).
 
 ### Report Builder binding
 
@@ -61,6 +62,23 @@ $queryid = get_config('local_reportsources', 'queryid_for_report_' . $reportid);
 If that config key is absent the datasource falls back to a placeholder (single dummy column) so RB validation doesn't crash.
 
 Column/filter objects are built dynamically in `classes/reportbuilder/local/entities/adhoc_view.php` from `columnsmeta` — a JSON blob cached on the query record at publish time. Type mapping: `R/I→int`, `N/D→float`, `L→bool`, `T→timestamp`, everything else `→text`.
+
+### Report visibility (who can open the report)
+
+The plugin's `visible_to_current_user()` only gates the **plugin's own** index/run pages. The actual report data lives at `/reportbuilder/view.php?id=<reportid>`, gated by **core RB** `permission::can_view_report()`:
+
+```
+moodle/reportbuilder:view at report context  AND  (viewall  OR  can_edit  OR  user ∈ audience)
+```
+
+`apply_report_visibility()` (called from `publish()` and `create_additional_report()`) drives the two core levers from existing query fields — no extra config:
+
+- **Context** — `courseid > 0` places the report in that course context (so `reportbuilder:view` is evaluated there); site-wide queries stay at system context.
+- **Audience** — `visible = 0` → none (owner + `reportbuilder:viewall` only); `courseid > 0` → a `courseparticipant` audience (active enrolments in that course); visible site-wide → `allusers`.
+
+The method is **idempotent**: it deletes existing audiences for the report before re-adding, so re-publishing or toggling visibility never accumulates duplicates. These reports are created solely by this plugin, so wiping their audiences is safe.
+
+`courseparticipant` (`classes/reportbuilder/audience/courseparticipant.php`) is a custom RB audience — core ships no "enrolled in course X" audience. It carries the bound course id in `configdata` (`['courseid' => int]`) and is generated programmatically only, never offered in the RB audience UI.
 
 ### SQL validation — two layers
 
@@ -93,9 +111,11 @@ The `queryid_for_report_<id>` config entries in `config_plugins` are the foreign
 | `view` | system or course | See published queries |
 | `viewown` | course | Course-level teacher view |
 
-`query::visible_to_current_user()` implements all five visibility rules.
+`query::visible_to_current_user()` implements all five visibility rules — but only for the plugin's own pages. Who can open the generated RB report is enforced separately by core RB's context + audience, set at publish via `apply_report_visibility()` (see [Report visibility](#report-visibility-who-can-open-the-report)).
 
 ## Key constraints
+
+- The plugin's capabilities gate the **plugin UI only**; the RB report viewer (`/reportbuilder/view.php`) is gated by core RB context + audience, set at publish from `courseid`/`visible`. A query hidden at the plugin level but published with a wide audience would still be reachable via RB — keep the two in sync through `apply_report_visibility()`
 
 - DB user needs `CREATE VIEW` and `DROP` privileges — `privilege_check::probe()` tests this; run it from **Site admin → Local plugins → Report sources → Run database view privilege test**
 - `SELECT *` across joins fails at publish time (duplicate column names in VIEWs); the validator's live check catches this before saving

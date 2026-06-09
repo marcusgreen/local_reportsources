@@ -19,7 +19,12 @@ declare(strict_types=1);
 namespace local_reportsources\local;
 
 use core_reportbuilder\local\models\report as report_model;
+use core_reportbuilder\local\models\audience as audience_model;
 use core_reportbuilder\local\helpers\report as reporthelper;
+use core_reportbuilder\reportbuilder\audience\allusers;
+use core_cohort\reportbuilder\audience\cohortmember;
+use local_reportsources\reportbuilder\audience\courseparticipant;
+use local_reportsources\reportbuilder\audience\courserole;
 use local_reportsources\local\sql\validator;
 use local_reportsources\local\sql\view;
 
@@ -37,6 +42,14 @@ class query {
     public const STATUS_DRAFT = 'draft';
     public const STATUS_PUBLISHED = 'published';
     public const STATUS_DISABLED = 'disabled';
+
+    /** Audience picker tokens (stored in audiencemeta.type; DEFAULT means derive automatically). */
+    public const AUDIENCE_DEFAULT = 'default';
+    public const AUDIENCE_ALLUSERS = 'allusers';
+    public const AUDIENCE_COURSEPARTICIPANT = 'courseparticipant';
+    public const AUDIENCE_COURSEROLE = 'courserole';
+    public const AUDIENCE_COHORT = 'cohort';
+    public const AUDIENCE_NONE = 'none';
 
     /** @var \stdClass */
     private \stdClass $record;
@@ -98,6 +111,122 @@ class query {
         return \core_text::strtoupper(\core_text::substr($text, 0, 1)) . \core_text::substr($text, 1);
     }
 
+    /**
+     * Whether an AI question is an "fix this SQL error" style prompt rather than a real description
+     * of the wanted data. Such prompts (e.g. the one {@see editor.es6.js} pre-fills on a validation
+     * failure) make for useless query names, so callers derive the name/description from the
+     * generated SQL instead.
+     *
+     * @param string $question
+     * @return bool
+     */
+    public static function is_error_fix_prompt(string $question): bool {
+        return (bool) preg_match('/^\s*fix\b/i', $question)
+            && (bool) preg_match('/\berror\b/i', $question);
+    }
+
+    /**
+     * Derive a query name from the meaning of a SQL statement: the tables it reads from.
+     *
+     * @param string $sql
+     * @return string A non-empty query name.
+     */
+    public static function name_from_sql(string $sql): string {
+        $tables = self::extract_tables($sql);
+        if (!$tables) {
+            return get_string('ai:generatedname', 'local_reportsources');
+        }
+        $names = array_map(static fn(string $t): string => ucfirst($t), $tables);
+        if (count($names) === 1) {
+            $label = $names[0];
+        } else if (count($names) === 2) {
+            $label = $names[0] . ' & ' . $names[1];
+        } else {
+            $label = $names[0] . ', ' . $names[1] . ' +' . (count($names) - 2);
+        }
+        return \core_text::substr(get_string('ai:sqlname', 'local_reportsources', $label), 0, 60);
+    }
+
+    /**
+     * Derive a query description from the meaning of a SQL statement: the columns it selects and
+     * the tables it reads from.
+     *
+     * @param string $sql
+     * @return string
+     */
+    public static function description_from_sql(string $sql): string {
+        $tables = self::extract_tables($sql);
+        if (!$tables) {
+            return get_string('ai:generatedname', 'local_reportsources');
+        }
+        $tablelist = implode(', ', $tables);
+        $cols = self::extract_select_columns($sql);
+        if ($cols) {
+            return get_string('ai:sqldescription', 'local_reportsources',
+                (object) ['columns' => implode(', ', $cols), 'tables' => $tablelist]);
+        }
+        return get_string('ai:sqldescriptionnocols', 'local_reportsources', $tablelist);
+    }
+
+    /**
+     * Extract distinct table names referenced in FROM/JOIN clauses, stripped of `{}` braces and the
+     * Moodle table prefix.
+     *
+     * @param string $sql
+     * @return string[]
+     */
+    private static function extract_tables(string $sql): array {
+        global $CFG;
+        $tables = [];
+        if (preg_match_all('/\b(?:FROM|JOIN)\s+\{?([a-z][a-z0-9_]*)\}?/i', $sql, $m)) {
+            $prefix = strtolower((string) $CFG->prefix);
+            foreach ($m[1] as $raw) {
+                $t = strtolower($raw);
+                if ($prefix !== '' && strpos($t, $prefix) === 0) {
+                    $t = substr($t, strlen($prefix));
+                }
+                if ($t !== '' && !in_array($t, $tables, true)) {
+                    $tables[] = $t;
+                }
+            }
+        }
+        return $tables;
+    }
+
+    /**
+     * Best-effort extraction of selected column names from a SELECT list, capped at six. Returns an
+     * empty array for `SELECT *` or any list containing parentheses (functions/subqueries), where a
+     * naive comma split would be unreliable.
+     *
+     * @param string $sql
+     * @return string[]
+     */
+    private static function extract_select_columns(string $sql): array {
+        if (!preg_match('/\bSELECT\b\s+(?:DISTINCT\s+)?(.*?)\s+\bFROM\b/is', $sql, $m)) {
+            return [];
+        }
+        $list = trim($m[1]);
+        if ($list === '' || strpos($list, '*') !== false || strpos($list, '(') !== false) {
+            return [];
+        }
+        $cols = [];
+        foreach (explode(',', $list) as $part) {
+            $part = trim($part);
+            if (preg_match('/\bAS\s+["`]?([a-z0-9_ ]+)["`]?$/i', $part, $am)) {
+                $cols[] = trim($am[1]);
+            } else {
+                $tokens = preg_split('/\s+/', $part) ?: [$part];
+                $last = (string) end($tokens);
+                $last = preg_replace('/^.*\./', '', $last);
+                $cols[] = trim((string) $last, '"`');
+            }
+            if (count($cols) >= 6) {
+                break;
+            }
+        }
+        return array_values(array_filter($cols, static fn(string $c): bool => $c !== ''));
+    }
+
     public function sql(): string {
         return (string) $this->record->querysql;
     }
@@ -152,6 +281,7 @@ class query {
             'rowcap'       => (int) ($data->rowcap ?? get_config('local_reportsources', 'rowcapdefault') ?: 5000),
             'courseid'     => (int) ($data->courseid ?? 0),
             'visible'      => isset($data->visible) ? (int) (bool) $data->visible : 1,
+            'audiencemeta' => self::build_audiencemeta($data),
             'timemodified' => $now,
         ];
 
@@ -183,6 +313,10 @@ class query {
                 return $record->id;
             }
             $DB->update_record(self::TABLE, $record);
+            // Audience/visibility edits on an already-published report take effect immediately.
+            if ($existing->status === self::STATUS_PUBLISHED && !empty($existing->reportid)) {
+                self::get($record->id)->apply_report_visibility((int) $existing->reportid);
+            }
             return $record->id;
         }
 
@@ -246,7 +380,162 @@ class query {
             $datasource->add_default_conditions();
         }
 
+        $this->apply_report_visibility($reportid);
+
         $this->record = $DB->get_record(self::TABLE, ['id' => $this->id()], '*', MUST_EXIST);
+    }
+
+    /**
+     * Limit who can open the RB report by setting core Report Builder's context + audience.
+     *
+     * These are the two levers of {@see \core_reportbuilder\permission::can_view_report()}:
+     *
+     * - Context: course-scoped queries (courseid > 0) place their report in that course context, so
+     *   the moodle/reportbuilder:view capability is evaluated there rather than site-wide.
+     * - Audience: taken from the query's audiencemeta picker. When that is empty (DEFAULT) the
+     *   audience is derived automatically — a hidden query (visible = 0) gets none (owner +
+     *   reportbuilder:viewall only); a course-scoped query gets {@see courseparticipant}; a visible
+     *   site-wide query gets {@see allusers}.
+     *
+     * Idempotent: existing audiences are cleared first so re-publishing, toggling visibility or
+     * changing the picker does not accumulate duplicates. These reports are created solely by this
+     * plugin, so wiping their audiences is safe.
+     *
+     * @param int $reportid
+     */
+    public function apply_report_visibility(int $reportid): void {
+        $courseid = (int) ($this->record->courseid ?? 0);
+        $visible  = (int) ($this->record->visible ?? 1);
+
+        // Context follows course scope.
+        $context = $courseid > 0
+            ? \context_course::instance($courseid)
+            : \context_system::instance();
+        $reportpersistent = report_model::get_record(['id' => $reportid], MUST_EXIST);
+        if ((int) $reportpersistent->get('contextid') !== (int) $context->id) {
+            $reportpersistent->set('contextid', $context->id);
+            $reportpersistent->save();
+        }
+
+        // Reset any audiences this plugin previously attached to the report.
+        foreach (audience_model::get_records(['reportid' => $reportid]) as $audience) {
+            $audience->delete();
+        }
+
+        $meta = $this->record->audiencemeta ? json_decode($this->record->audiencemeta, true) : null;
+        $type = is_array($meta) ? ($meta['type'] ?? self::AUDIENCE_DEFAULT) : self::AUDIENCE_DEFAULT;
+
+        // Automatic: derive from scope + visibility.
+        if ($type === self::AUDIENCE_DEFAULT) {
+            if (!$visible) {
+                return;
+            }
+            if ($courseid > 0) {
+                // Course-scoped reports default to course staff (teacher / non-editing teacher /
+                // manager) rather than every enrolled user, so students do not see them unless the
+                // author explicitly chooses "Course participants". Fall back to participants only if
+                // the site somehow has no staff roles defined.
+                $roles = self::staff_role_ids();
+                if ($roles) {
+                    courserole::create($reportid, ['courseid' => $courseid, 'roles' => $roles]);
+                } else {
+                    courseparticipant::create($reportid, ['courseid' => $courseid]);
+                }
+            } else {
+                allusers::create($reportid, []);
+            }
+            return;
+        }
+
+        // Explicit picker choice.
+        switch ($type) {
+            case self::AUDIENCE_ALLUSERS:
+                allusers::create($reportid, []);
+                break;
+            case self::AUDIENCE_COURSEPARTICIPANT:
+                if ($courseid > 0) {
+                    courseparticipant::create($reportid, ['courseid' => $courseid]);
+                }
+                break;
+            case self::AUDIENCE_COURSEROLE:
+                $roles = array_values(array_filter(array_map('intval', (array) ($meta['roles'] ?? []))));
+                if ($courseid > 0 && $roles) {
+                    courserole::create($reportid, ['courseid' => $courseid, 'roles' => $roles]);
+                }
+                break;
+            case self::AUDIENCE_COHORT:
+                $cohorts = array_values(array_filter(array_map('intval', (array) ($meta['cohorts'] ?? []))));
+                if ($cohorts) {
+                    cohortmember::create($reportid, ['cohorts' => $cohorts]);
+                }
+                break;
+            case self::AUDIENCE_NONE:
+            default:
+                // No audience: owner + reportbuilder:viewall only.
+                break;
+        }
+    }
+
+    /**
+     * Role ids considered "course staff" — those with a teaching or management archetype.
+     *
+     * Used for the automatic course-scoped audience so students are excluded by default.
+     *
+     * @return int[]
+     */
+    private static function staff_role_ids(): array {
+        $roleids = [];
+        foreach (['editingteacher', 'teacher', 'manager'] as $archetype) {
+            foreach (get_archetype_roles($archetype) as $role) {
+                $roleids[(int) $role->id] = (int) $role->id;
+            }
+        }
+        return array_values($roleids);
+    }
+
+    /**
+     * Build the audiencemeta JSON blob from submitted form data.
+     *
+     * @param \stdClass $data Form data (audiencetype, audienceroles, audiencecohorts).
+     * @return string|null JSON string, or null for the automatic default.
+     */
+    private static function build_audiencemeta(\stdClass $data): ?string {
+        $type = (string) ($data->audiencetype ?? self::AUDIENCE_DEFAULT);
+        switch ($type) {
+            case self::AUDIENCE_ALLUSERS:
+                return json_encode(['type' => self::AUDIENCE_ALLUSERS]);
+            case self::AUDIENCE_COURSEPARTICIPANT:
+                return json_encode(['type' => self::AUDIENCE_COURSEPARTICIPANT]);
+            case self::AUDIENCE_COURSEROLE:
+                return json_encode([
+                    'type'  => self::AUDIENCE_COURSEROLE,
+                    'roles' => array_values(array_map('intval', (array) ($data->audienceroles ?? []))),
+                ]);
+            case self::AUDIENCE_COHORT:
+                return json_encode([
+                    'type'    => self::AUDIENCE_COHORT,
+                    'cohorts' => array_values(array_map('intval', (array) ($data->audiencecohorts ?? []))),
+                ]);
+            case self::AUDIENCE_NONE:
+                return json_encode(['type' => self::AUDIENCE_NONE]);
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * Expand a stored audiencemeta blob into flat form field values for set_data().
+     *
+     * @param string|null $json Stored audiencemeta JSON.
+     * @return array{audiencetype:string,audienceroles:int[],audiencecohorts:int[]}
+     */
+    public static function explode_audiencemeta(?string $json): array {
+        $meta = $json ? json_decode($json, true) : null;
+        return [
+            'audiencetype'    => is_array($meta) ? ($meta['type'] ?? self::AUDIENCE_DEFAULT) : self::AUDIENCE_DEFAULT,
+            'audienceroles'   => array_map('intval', (array) ($meta['roles'] ?? [])),
+            'audiencecohorts' => array_map('intval', (array) ($meta['cohorts'] ?? [])),
+        ];
     }
 
     /**
@@ -287,6 +576,8 @@ class query {
         $reportid = (int) $reportmodel->get('id');
 
         set_config('queryid_for_report_' . $reportid, $this->id(), 'local_reportsources');
+
+        $this->apply_report_visibility($reportid);
 
         return $reportid;
     }

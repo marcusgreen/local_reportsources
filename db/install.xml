@@ -19,6 +19,8 @@
                COMMENT="JSON cache of introspected column types"/>
         <FIELD NAME="chartmeta" TYPE="text" NOTNULL="false" SEQUENCE="false"
                COMMENT="JSON chart config: type, xcol, ycol, rowlimit"/>
+        <FIELD NAME="audiencemeta" TYPE="text" NOTNULL="false" SEQUENCE="false"
+               COMMENT="JSON audience choice: {type, roles?, cohorts?, users?}. NULL means auto."/>
         <FIELD NAME="reportid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"
                COMMENT="FK into reportbuilder_report once published"/>
         <FIELD NAME="rowcap" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="5000" SEQUENCE="false"/>

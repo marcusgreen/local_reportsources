@@ -115,7 +115,15 @@ foreach ($queries as $rec) {
             get_string('edit', 'local_reportsources')
         );
     }
+    // Only offer the report links if the current user can actually open the underlying RB report;
+    // its audience may exclude them even though the query is listed here.
+    $canviewreport = false;
     if ($rec->status === query::STATUS_PUBLISHED && $rec->reportid) {
+        $reportmodel = \core_reportbuilder\local\models\report::get_record(['id' => $rec->reportid]);
+        $canviewreport = $reportmodel
+            && \core_reportbuilder\permission::can_view_report($reportmodel);
+    }
+    if ($canviewreport) {
         $chartmeta = $rec->chartmeta ? json_decode($rec->chartmeta, true) : [];
         if (!empty($chartmeta['type']) && $chartmeta['type'] !== 'none') {
             $actions[] = html_writer::link(
@@ -160,7 +168,7 @@ foreach ($queries as $rec) {
         $actions[] = html_writer::link(
             new moodle_url('/local/reportsources/run.php',
                 ['id' => $rec->id, 'action' => 'copy', 'sesskey' => sesskey()]),
-            get_string('copy', 'local_reportsources')
+            get_string('duplicate', 'local_reportsources')
         );
     }
     if (has_capability('local/reportsources:author', $syscontext) &&

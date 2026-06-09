@@ -28,6 +28,27 @@ $string['reportsource'] = 'Report view';
 $string['reportsourceheader'] = '{$a}';
 
 $string['addnew'] = 'New report view';
+$string['audienceallusers'] = 'All site users';
+$string['audiencecohort'] = 'Members of cohorts';
+$string['audiencecohorts'] = 'Cohorts';
+$string['audiencecourseparticipant'] = 'Course participants';
+$string['audiencecourseparticipantdesc'] = 'Users with an active enrolment in the report\'s course.';
+$string['audiencecourserole'] = 'Users with a role in the course';
+$string['audiencecourseroledesc'] = 'Users holding one of the chosen roles in the report\'s course (or an ancestor context).';
+$string['audiencedefault'] = 'Automatic (based on course and visibility)';
+$string['audiencenone'] = 'Nobody (only you and site managers)';
+$string['audienceroles'] = 'Roles';
+$string['audiencesettings'] = 'Who can view the report';
+$string['audiencetype'] = 'Audience';
+$string['audiencetype_help'] = 'Controls who can open the published Report Builder report.
+
+* **Automatic** — derived from the settings above: a course-scoped report is shown to that course\'s participants, a site-wide report to all users, and a hidden report only to you and site managers.
+* **Course participants / Users with a role in the course** — available when the report is bound to a course.
+* **All site users**, **Members of cohorts**, **Nobody** — apply site-wide.
+
+You can refine the audience further on the Audiences tab in Report Builder, but re-publishing the report resets it to this choice.';
+$string['erraudiencecohortsempty'] = 'Choose at least one cohort.';
+$string['erraudiencerolesempty'] = 'Choose at least one role.';
 $string['name'] = 'Name';
 $string['description'] = 'Description';
 $string['querysql'] = 'SQL (SELECT only)';
@@ -48,7 +69,7 @@ $string['status_disabled'] = 'Disabled';
 $string['publish'] = 'Publish';
 $string['unpublish'] = 'Unpublish';
 $string['delete'] = 'Delete';
-$string['copy'] = 'Copy';
+$string['duplicate'] = 'Duplicate';
 $string['copyof'] = 'Copy of {$a}';
 $string['copysuccess'] = 'Report view copied. You are now editing the copy.';
 $string['edit'] = 'Edit';

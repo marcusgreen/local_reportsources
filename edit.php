@@ -52,13 +52,19 @@ if ($id) {
     }
 }
 
-$mform = new edit_query_form();
+// The audience picker offers course-scoped options only when the query is bound to a course.
+$formcourseid = $existing ? (int) $existing->courseid : $courseid;
+$mform = new edit_query_form(null, ['courseid' => $formcourseid]);
 
 // Consolidate form defaults into one object so AI generation can override querysql.
 $formdefaults = null;
 if ($existing) {
     // Display SQL without {} table braces; auto_brace() re-adds them on save.
     $existing->querysql = validator::strip_braces((string) $existing->querysql);
+    // Expand the stored audience choice into the flat form fields.
+    foreach (query::explode_audiencemeta($existing->audiencemeta ?? null) as $key => $value) {
+        $existing->$key = $value;
+    }
     $formdefaults = $existing;
 } else if ($courseid) {
     $formdefaults = (object) ['courseid' => $courseid];
@@ -79,13 +85,19 @@ if ($aisqlchatavailable && $aiaction === 'generate' && $aiquestion !== '') {
         $airesult = \local_sqlchat\api::generate_sql($aiquestion, $context->id);
         $mergedata = $formdefaults ? (array) $formdefaults : [];
         $mergedata['querysql'] = validator::strip_braces($airesult->sql);
-        // Make up a name/description from the question when none exist yet, so the generated
-        // query is immediately saveable (name is a required field).
+        // Make up a name/description when none exist yet, so the generated query is immediately
+        // saveable (name is a required field). A "fix this SQL error" prompt is meaningless as a
+        // name, so in that case derive both from the meaning of the generated SQL instead.
+        $fromsql = query::is_error_fix_prompt($aiquestion);
         if (trim((string) ($mergedata['name'] ?? '')) === '') {
-            $mergedata['name'] = query::name_from_question($aiquestion);
+            $mergedata['name'] = $fromsql
+                ? query::name_from_sql($airesult->sql)
+                : query::name_from_question($aiquestion);
         }
         if (trim((string) ($mergedata['description'] ?? '')) === '') {
-            $mergedata['description'] = $aiquestion;
+            $mergedata['description'] = $fromsql
+                ? query::description_from_sql($airesult->sql)
+                : $aiquestion;
         }
         $formdefaults = (object) $mergedata;
     } catch (\Throwable $e) {

@@ -75,5 +75,35 @@ function xmldb_local_reportsources_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026052900, 'local', 'reportsources');
     }
 
+    if ($oldversion < 2026060901) {
+        $dbman = $DB->get_manager();
+        $table = new xmldb_table('local_reportsources_query');
+
+        $field = new xmldb_field('audiencemeta', XMLDB_TYPE_TEXT, null, null, null, null, null, 'chartmeta');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Backfill: reports published before audience support sit in the system context with no
+        // audience, so only managers can open them. Re-apply visibility so course teachers / site
+        // users regain access under the automatic rules.
+        $published = $DB->get_records('local_reportsources_query',
+            ['status' => \local_reportsources\local\query::STATUS_PUBLISHED]);
+        foreach ($published as $rec) {
+            if (empty($rec->reportid)) {
+                continue;
+            }
+            try {
+                \local_reportsources\local\query::get((int) $rec->id)
+                    ->apply_report_visibility((int) $rec->reportid);
+            } catch (\Throwable $e) {
+                debugging('local_reportsources: visibility backfill failed for query ' .
+                    $rec->id . ': ' . $e->getMessage());
+            }
+        }
+
+        upgrade_plugin_savepoint(true, 2026060901, 'local', 'reportsources');
+    }
+
     return true;
 }

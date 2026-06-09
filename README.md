@@ -49,6 +49,16 @@ When you are happy with the query, click **Publish**. The plugin runs the query,
 
 > If the query has an error, you will see a message explaining what to fix before you can publish.
 
+**Who can see the published report** is set for you at publish time, based on the report view's scope and the **Visible** setting:
+
+| Report view | Who can open the report |
+|---|---|
+| Tied to a course | Participants enrolled in that course |
+| Site-wide, Visible | All users on the site |
+| Not visible (hidden) | Only you and site managers |
+
+You can refine this any time on the **Audiences** tab in Report Builder (see Step 3) — for example to restrict a site-wide report to a specific role or cohort. Note that re-publishing the report view (or editing its SQL) resets the audience back to the default above, so re-apply any manual changes afterwards.
+
 ### Step 3 — Configure in Report Builder
 
 After publishing, three action links appear:
