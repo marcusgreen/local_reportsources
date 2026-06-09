@@ -104,6 +104,10 @@ $table->head = [
     get_string('actions', 'local_reportsources'),
 ];
 
+// Audience-allowed report ids for the current user, fetched once. can_view_report() would run this
+// same query per row, so we hoist it and do the remaining (cheap, cached) capability checks inline.
+$allowedreports = \core_reportbuilder\local\helpers\audience::user_reports_list();
+
 foreach ($queries as $rec) {
     $owner = core_user::get_user($rec->ownerid);
     $statuskey = 'status_' . $rec->status;
@@ -120,8 +124,15 @@ foreach ($queries as $rec) {
     $canviewreport = false;
     if ($rec->status === query::STATUS_PUBLISHED && $rec->reportid) {
         $reportmodel = \core_reportbuilder\local\models\report::get_record(['id' => $rec->reportid]);
-        $canviewreport = $reportmodel
-            && \core_reportbuilder\permission::can_view_report($reportmodel);
+        if ($reportmodel) {
+            // Mirror core_reportbuilder\permission::can_view_report() but reuse the pre-fetched
+            // audience list instead of re-querying it for every row.
+            $reportcontext = $reportmodel->get_context();
+            $canviewreport = \core_reportbuilder\permission::can_view_reports_list(null, $reportcontext)
+                && (has_capability('moodle/reportbuilder:viewall', $reportcontext)
+                    || \core_reportbuilder\permission::can_edit_report($reportmodel)
+                    || in_array((int) $reportmodel->get('id'), $allowedreports, true));
+        }
     }
     if ($canviewreport) {
         $chartmeta = $rec->chartmeta ? json_decode($rec->chartmeta, true) : [];

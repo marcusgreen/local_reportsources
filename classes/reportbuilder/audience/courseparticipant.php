@@ -60,7 +60,8 @@ class courseparticipant extends base {
 
         $join = "
             JOIN {user_enrolments} {$ue} ON {$ue}.userid = {$usertablealias}.id
-            JOIN {enrol} {$e} ON {$e}.id = {$ue}.enrolid AND {$e}.courseid = :{$paramcourseid}";
+            JOIN {enrol} {$e} ON {$e}.id = {$ue}.enrolid
+                AND {$e}.courseid = :{$paramcourseid} AND {$e}.status = 0";
         $where = "{$ue}.status = 0";
 
         return [$join, $where, [$paramcourseid => $courseid]];
