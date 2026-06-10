@@ -177,8 +177,10 @@ if ($aisqlchatavailable) {
         echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'courseid', 'value' => $courseid]);
     }
     echo html_writer::tag('button', get_string('ai:generate', 'local_reportsources'), [
-        'type'  => 'submit',
-        'class' => 'btn btn-secondary',
+        'type'            => 'submit',
+        'id'              => 'rs-ai-generate',
+        'class'           => 'btn btn-secondary',
+        'data-generating' => get_string('ai:generating', 'local_reportsources'),
     ]);
     echo html_writer::end_tag('form');
     echo html_writer::end_div(); // card-body

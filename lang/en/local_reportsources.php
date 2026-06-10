@@ -191,6 +191,7 @@ $string['ai:heading'] = 'Generate SQL with AI';
 $string['ai:question'] = 'Describe the data you want';
 $string['ai:placeholder'] = 'e.g. Show all students enrolled in more than 3 courses';
 $string['ai:generate'] = 'Generate SQL';
+$string['ai:generating'] = 'Generating…';
 $string['ai:latency'] = 'Generated in {$a} ms — review the SQL before saving.';
 $string['ai:generatedname'] = 'Generated query';
 $string['ai:sqlname'] = '{$a} report';
