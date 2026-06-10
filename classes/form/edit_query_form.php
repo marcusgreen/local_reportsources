@@ -127,9 +127,13 @@ class edit_query_form extends moodleform {
         $mform->setDefault('audiencetype', 'default');
         $mform->addHelpButton('audiencetype', 'audiencetype', 'local_reportsources');
 
-        if ($courseid > 0) {
+        // A stored courseid may point at a course that no longer exists (course deleted, or a stale
+        // id carried in from an import on another site). Skip the course-role picker rather than
+        // fatalling on context_course::instance() when loading the form.
+        $coursecontext = $courseid > 0 ? \context_course::instance($courseid, IGNORE_MISSING) : false;
+        if ($coursecontext) {
             $roleopts = [];
-            foreach (role_fix_names(get_all_roles(), \context_course::instance($courseid), ROLENAME_BOTH) as $role) {
+            foreach (role_fix_names(get_all_roles(), $coursecontext, ROLENAME_BOTH) as $role) {
                 $roleopts[$role->id] = $role->localname;
             }
             $mform->addElement('autocomplete', 'audienceroles',

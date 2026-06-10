@@ -407,10 +407,18 @@ class query {
         $courseid = (int) ($this->record->courseid ?? 0);
         $visible  = (int) ($this->record->visible ?? 1);
 
-        // Context follows course scope.
-        $context = $courseid > 0
-            ? \context_course::instance($courseid)
-            : \context_system::instance();
+        // Context follows course scope. A courseid pointing at a course that no longer exists (e.g.
+        // course deleted after scoping, or a stale id carried in from an older import) degrades to
+        // site-wide rather than fatalling on context_course::instance().
+        $context = \context_system::instance();
+        if ($courseid > 0) {
+            $coursecontext = \context_course::instance($courseid, IGNORE_MISSING);
+            if ($coursecontext) {
+                $context = $coursecontext;
+            } else {
+                $courseid = 0;
+            }
+        }
         $reportpersistent = report_model::get_record(['id' => $reportid], MUST_EXIST);
         if ((int) $reportpersistent->get('contextid') !== (int) $context->id) {
             $reportpersistent->set('contextid', $context->id);

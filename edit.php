@@ -115,10 +115,14 @@ $returnurl = new moodle_url('/local/reportsources/index.php',
 if ($mform->is_cancelled()) {
     redirect($returnurl);
 } else if ($data = $mform->get_data()) {
-    // Prevent an author from scoping a query to a course they have no access to.
+    // Prevent an author from scoping a query to a course they have no access to. A courseid that
+    // resolves to no course (e.g. stale id from an import) is demoted to site-wide rather than
+    // fatalling on context_course::instance().
     if (!empty($data->courseid)) {
-        $coursecontext = context_course::instance((int) $data->courseid);
-        if (!has_capability('local/reportsources:viewall', $context) &&
+        $coursecontext = context_course::instance((int) $data->courseid, IGNORE_MISSING);
+        if (!$coursecontext) {
+            $data->courseid = 0;
+        } else if (!has_capability('local/reportsources:viewall', $context) &&
             !has_capability('local/reportsources:view', $coursecontext) &&
             !has_capability('local/reportsources:viewown', $coursecontext)) {
             throw new required_capability_exception($coursecontext, 'local/reportsources:view', 'nopermissions', '');
