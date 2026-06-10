@@ -240,9 +240,10 @@ class edit_query_form extends moodleform {
             if ($record) {
                 $mform->addElement('header', 'chartheader', get_string('chartsettings', 'local_reportsources'));
                 $mform->addElement('static', 'chart_unpublished_note', '',
-                    \html_writer::span(
+                    \html_writer::div(
                         get_string('chartpublishrequired', 'local_reportsources'),
-                        'text-muted'
+                        'alert alert-warning',
+                        ['role' => 'alert']
                     )
                 );
             }

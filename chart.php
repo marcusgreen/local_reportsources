@@ -135,13 +135,16 @@ echo $OUTPUT->render_chart($chart, false);
 
 $PAGE->requires->js_call_amd('local_reportsources/chart_download', 'init', [clean_filename($rec->name)]);
 
-$actions = html_writer::link($csvurl, get_string('chartexportcsv', 'local_reportsources'),
+$actions = html_writer::link($indexurl,
+    html_writer::tag('i', '', ['class' => 'fa fa-arrow-left mr-1', 'aria-hidden' => 'true']) .
+        get_string('back'),
+    ['class' => 'btn btn-secondary btn-sm mr-2']);
+$actions .= html_writer::link($csvurl, get_string('chartexportcsv', 'local_reportsources'),
     ['class' => 'btn btn-secondary btn-sm mr-2']);
 $actions .= html_writer::tag('button', get_string('chartdownloadpng', 'local_reportsources'),
     ['id' => 'local-reportsources-download-png', 'class' => 'btn btn-secondary btn-sm mr-2']);
 $actions .= html_writer::tag('button', get_string('chartprint', 'local_reportsources'),
-    ['class' => 'btn btn-secondary btn-sm mr-2', 'onclick' => 'window.print(); return false;']);
-$actions .= html_writer::link($indexurl, get_string('back'));
+    ['class' => 'btn btn-secondary btn-sm', 'onclick' => 'window.print(); return false;']);
 
 echo html_writer::div($actions, 'mt-3 noprint');
 
