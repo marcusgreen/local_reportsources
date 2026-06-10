@@ -51,6 +51,12 @@ $string['erraudiencecohortsempty'] = 'Choose at least one cohort.';
 $string['erraudiencerolesempty'] = 'Choose at least one role.';
 $string['name'] = 'Name';
 $string['description'] = 'Description';
+$string['coursescope'] = 'Course scope';
+$string['coursescope_help'] = 'The course this report belongs to. Leave empty for a site-wide report.
+
+The course determines two things when the report is published: the context its "View report" permission is checked in, and its default audience (course participants for a course-scoped report, all users for a site-wide one).
+
+Change this to re-scope a query — for example an imported draft that was set site-wide because its original course did not exist on this site. The course-specific audience options refresh after you save and reopen the form. You can only choose courses you are allowed to view reports in.';
 $string['querysql'] = 'SQL (SELECT only)';
 $string['querysql_help'] = 'A single SELECT or WITH...SELECT statement. Use Moodle table syntax (e.g. {course}). The plugin creates a database VIEW from this query and exposes its columns as a Reportbuilder source.
 

@@ -42,9 +42,15 @@ class edit_query_form extends moodleform {
         $mform->addElement('hidden', 'id');
         $mform->setType('id', PARAM_INT);
 
-        $mform->addElement('hidden', 'courseid');
+        // Course scope: which course this report is bound to. Leaving it empty means site-wide
+        // (courseid 0). Authors can re-scope an existing query here — e.g. an imported draft that
+        // landed site-wide because its original course id does not exist on this site. The chosen
+        // course is access-checked on save (see edit.php), so listing all courses here is safe.
+        $mform->addElement('course', 'courseid', get_string('coursescope', 'local_reportsources'),
+            ['multiple' => false, 'includefrontpage' => false]);
         $mform->setType('courseid', PARAM_INT);
         $mform->setDefault('courseid', 0);
+        $mform->addHelpButton('courseid', 'coursescope', 'local_reportsources');
 
         $mform->addElement('advcheckbox', 'visible',
             get_string('visible', 'local_reportsources'),
