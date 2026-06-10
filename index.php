@@ -106,19 +106,17 @@ $table->head = [
 
 // Audience-allowed report ids for the current user, fetched once. can_view_report() would run this
 // same query per row, so we hoist it and do the remaining (cheap, cached) capability checks inline.
-$allowedreports = \core_reportbuilder\local\helpers\audience::user_reports_list();
+// Note: user_reports_list() returns report ids as strings; cast so the strict in_array() below matches.
+$allowedreports = array_map('intval', \core_reportbuilder\local\helpers\audience::user_reports_list());
+
+// Managers (author/approve/viewall) administer the queries themselves, so they always see every
+// listed row. A pure viewer (view/viewown only) should not see a row whose underlying RB report
+// audience excludes them — listing it leaks the query's name/owner without an openable report.
+$canmanage = has_capability('local/reportsources:author', $syscontext)
+    || has_capability('local/reportsources:approve', $syscontext)
+    || has_capability('local/reportsources:viewall', $syscontext);
 
 foreach ($queries as $rec) {
-    $owner = core_user::get_user($rec->ownerid);
-    $statuskey = 'status_' . $rec->status;
-    $actions = [];
-    if (has_capability('local/reportsources:author', $syscontext)) {
-        $actions[] = html_writer::link(
-            new moodle_url('/local/reportsources/edit.php',
-                ['id' => $rec->id] + ($courseid ? ['courseid' => $courseid] : [])),
-            get_string('edit', 'local_reportsources')
-        );
-    }
     // Only offer the report links if the current user can actually open the underlying RB report;
     // its audience may exclude them even though the query is listed here.
     $canviewreport = false;
@@ -134,11 +132,28 @@ foreach ($queries as $rec) {
                     || in_array((int) $reportmodel->get('id'), $allowedreports, true));
         }
     }
+
+    // Pure viewers see only rows they can actually open.
+    if (!$canmanage && !$canviewreport) {
+        continue;
+    }
+
+    $owner = core_user::get_user($rec->ownerid);
+    $statuskey = 'status_' . $rec->status;
+    $actions = [];
+    if (has_capability('local/reportsources:author', $syscontext)) {
+        $actions[] = html_writer::link(
+            new moodle_url('/local/reportsources/edit.php',
+                ['id' => $rec->id] + ($courseid ? ['courseid' => $courseid] : [])),
+            get_string('edit', 'local_reportsources')
+        );
+    }
     if ($canviewreport) {
         $chartmeta = $rec->chartmeta ? json_decode($rec->chartmeta, true) : [];
         if (!empty($chartmeta['type']) && $chartmeta['type'] !== 'none') {
             $actions[] = html_writer::link(
-                new moodle_url('/local/reportsources/chart.php', ['id' => $rec->id]),
+                new moodle_url('/local/reportsources/chart.php',
+                    ['id' => $rec->id] + ($courseid ? ['courseid' => $courseid] : [])),
                 $OUTPUT->pix_icon('i/chartbar', '', 'moodle', ['class' => 'iconsmall me-1']) .
                     get_string('viewchart', 'local_reportsources')
             );
@@ -198,6 +213,11 @@ foreach ($queries as $rec) {
     ];
 }
 
-echo html_writer::table($table);
+if (empty($table->data)) {
+    // Every visible query was filtered out by the per-report audience check above.
+    echo $OUTPUT->notification(get_string('noqueries', 'local_reportsources'), 'info');
+} else {
+    echo html_writer::table($table);
+}
 $rendertransferbuttons();
 echo $OUTPUT->footer();
