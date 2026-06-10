@@ -66,6 +66,10 @@ if (optional_param('doimport', 0, PARAM_INT)) {
         $message .= ' ' . get_string('importskipped', 'local_reportsources',
             implode(', ', array_keys($result['skipped'])));
     }
+    if (!empty($result['demoted'])) {
+        $message .= ' ' . get_string('importdemoted', 'local_reportsources',
+            implode(', ', array_keys($result['demoted'])));
+    }
     redirect($returnurl, $message, null, \core\output\notification::NOTIFY_SUCCESS);
 }
 

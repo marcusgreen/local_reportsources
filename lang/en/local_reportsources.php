@@ -91,6 +91,7 @@ $string['importselected'] = 'Import selected';
 $string['importselecthelp'] = 'Tick the report views to import. Each is created as a new draft owned by you and must be published before use.';
 $string['importdone'] = 'Imported {$a} report view(s) as drafts.';
 $string['importskipped'] = 'Skipped (failed SQL validation): {$a}.';
+$string['importdemoted'] = 'Set to site-wide because their course was not found on this site. Edit each draft and set its Course scope before publishing: {$a}.';
 $string['errnoimportselection'] = 'Select at least one report view to import.';
 $string['errimportformat'] = 'This file is not a valid Report sources export.';
 $string['errimportempty'] = 'The export file contains no report views.';

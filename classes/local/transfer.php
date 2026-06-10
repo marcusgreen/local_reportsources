@@ -130,9 +130,16 @@ class transfer {
      * laxer site cannot smuggle disallowed SQL past the importing site's denylist. Sources that
      * fail validation are skipped and reported back, not fatal.
      *
+     * A source's exported courseid is meaningless on a different site: the target may have no course
+     * with that id. Rather than store a dangling id that later fatals on
+     * {@see \context_course::instance()}, an unknown courseid is demoted to 0 (site-wide) and the
+     * demotion reported back. The query lands as a draft, so the owner can re-scope it via the edit
+     * form before publishing — no report exists yet, so demotion cannot over-expose data.
+     *
      * @param array<int, array<string, mixed>> $sources Parsed sources (e.g. from {@see parse()}).
      * @param int[] $selected Indexes into $sources to actually import.
-     * @return array{imported:int,skipped:array<int,string>} Count imported and name=>reason of skips.
+     * @return array{imported:int,skipped:array<int,string>,demoted:array<string,int>} Count imported,
+     *         name=>reason of skips, and name=>original courseid of sources demoted to site-wide.
      */
     public static function import(array $sources, array $selected): array {
         global $DB, $USER;
@@ -140,6 +147,7 @@ class transfer {
         $now = time();
         $imported = 0;
         $skipped = [];
+        $demoted = [];
 
         foreach ($selected as $index) {
             $index = (int) $index;
@@ -156,12 +164,19 @@ class transfer {
                 continue;
             }
 
+            // Demote a courseid that does not exist on this site to site-wide (0), and report it.
+            $courseid = (int) ($source['courseid'] ?? 0);
+            if ($courseid > 0 && !$DB->record_exists('course', ['id' => $courseid])) {
+                $demoted[$name] = $courseid;
+                $courseid = 0;
+            }
+
             $record = (object) [
                 'name'         => $name,
                 'description'  => (string) ($source['description'] ?? ''),
                 'querysql'     => $sql,
                 'rowcap'       => (int) ($source['rowcap'] ?? get_config('local_reportsources', 'rowcapdefault') ?: 5000),
-                'courseid'     => (int) ($source['courseid'] ?? 0),
+                'courseid'     => $courseid,
                 'visible'      => (int) ($source['visible'] ?? 1),
                 'chartmeta'    => !empty($source['chartmeta']) ? json_encode($source['chartmeta']) : null,
                 'ownerid'      => (int) $USER->id,
@@ -176,6 +191,6 @@ class transfer {
             $imported++;
         }
 
-        return ['imported' => $imported, 'skipped' => $skipped];
+        return ['imported' => $imported, 'skipped' => $skipped, 'demoted' => $demoted];
     }
 }
