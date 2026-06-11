@@ -45,7 +45,8 @@ class validate_sql extends external_api {
     }
 
     /**
-     * Run static validation then a zero-row dry-run to catch bad table/column names.
+     * Run static validation then a single-row dry-run to catch bad table/column
+     * names and row-dependent runtime errors in select-list expressions.
      *
      * @param string $sql
      * @return array{ok: bool, error: string}
@@ -66,16 +67,17 @@ class validate_sql extends external_api {
             return ['ok' => false, 'error' => $e->getMessage()];
         }
 
-        // Live dry-run: LIMIT 0 validates tables/columns without returning data or wrapping
+        // Live dry-run: validates tables/columns without wrapping the query
         // (wrapping causes false "Duplicate column name" errors when SELECT * joins two tables).
         $resolved = view::resolve_placeholders($validated);
 
-        // Syntax/table/column check — LIMIT 0 returns no rows and avoids the
-        // "Duplicate column name" false-positive that the VIEW wrapper triggers.
-        // Strip any existing LIMIT (and optional OFFSET) so we don't produce "LIMIT n LIMIT 0".
+        // Syntax/table/column check — LIMIT 1 fetches a single row so the select-list
+        // expressions are actually evaluated, catching row-dependent runtime errors
+        // (e.g. to_char() on a bigint with a date mask) that LIMIT 0 would let through.
+        // Strip any existing LIMIT (and optional OFFSET) so we don't produce "LIMIT n LIMIT 1".
         $dryrunsql = preg_replace('/\bLIMIT\s+\d+(\s+OFFSET\s+\d+)?\s*$/i', '', trim($resolved));
         try {
-            $DB->get_records_sql("{$dryrunsql} LIMIT 0", []);
+            $DB->get_records_sql("{$dryrunsql} LIMIT 1", []);
         } catch (\dml_exception $e) {
             $detail = $e->error ?: ($e->debuginfo ?: $e->getMessage());
             return ['ok' => false, 'error' => validator::clean_error($detail)];

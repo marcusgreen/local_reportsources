@@ -88,8 +88,8 @@ The method is **idempotent**: it deletes existing audiences for the report befor
 - `auto_brace()` wraps bare table names in `{}`—users don't need to type braces
 
 **Live** (`classes/external/validate_sql.php` AJAX endpoint):
-- First runs static validation, then `$DB->get_records_sql("... LIMIT 0")` to catch bad table/column names
-- Then issues `CREATE OR REPLACE VIEW ... / DROP VIEW` to catch duplicate column names (a VIEW constraint that `LIMIT 0` misses)
+- First runs static validation, then `$DB->get_records_sql("... LIMIT 1")` to catch bad table/column names and row-dependent runtime errors (the single fetched row forces select-list expressions to be evaluated, e.g. `to_char()` on a bigint with a date mask)
+- Then issues `CREATE OR REPLACE VIEW ... / DROP VIEW` to catch duplicate column names (a VIEW constraint that the dry-run misses)
 
 The JS editor (`amd/src/editor.es6.js`) mirrors the static denylist client-side and calls the AJAX endpoint on form submit before allowing the form through.
 
