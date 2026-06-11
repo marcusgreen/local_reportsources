@@ -66,17 +66,25 @@ class adhoc_query extends datasource {
             return;
         }
 
-        $entity = new adhoc_view($viewname, $meta, $query->name());
+        // Per-user filter: scope every row to the viewing user. The chosen column is a physical
+        // column of the view (validated at save against columnsmeta), so referencing it here is
+        // safe. The column is also withheld from the entity entirely: once filtered, its value
+        // always equals the viewer's own id, so offering it as a column or filter is pure noise.
+        // (Unless it is the only column — an entity must expose at least one.)
+        $useridcolumn = $query->useridcolumn();
+        $peruser = $useridcolumn !== '' && array_key_exists($useridcolumn, $meta);
+        $visiblemeta = ($peruser && count($meta) > 1)
+            ? array_diff_key($meta, [$useridcolumn => true])
+            : $meta;
+
+        $entity = new adhoc_view($viewname, $visiblemeta, $query->name());
         $alias  = $entity->get_table_alias($viewname);
         $this->set_main_table($viewname, $alias);
         $this->add_entity($entity);
         $this->add_all_from_entity($entity->get_entity_name());
 
-        // Per-user filter: scope every row to the viewing user. The chosen column is a physical
-        // column of the view (validated at save against columnsmeta), so referencing it here is safe.
-        global $USER;
-        $useridcolumn = $query->useridcolumn();
-        if ($useridcolumn !== '' && array_key_exists($useridcolumn, $meta)) {
+        if ($peruser) {
+            global $USER;
             $param = \core_reportbuilder\local\helpers\database::generate_param_name();
             $this->add_base_condition_sql("{$alias}.{$useridcolumn} = :{$param}", [$param => (int) $USER->id]);
         }
@@ -127,6 +135,12 @@ class adhoc_query extends datasource {
         } catch (\dml_missing_record_exception $e) {
             return [];
         }
-        return array_keys($query->columns_meta());
+        // Hide the per-user filter column from defaults, mirroring initialise().
+        $meta = $query->columns_meta();
+        $useridcolumn = $query->useridcolumn();
+        if ($useridcolumn !== '' && array_key_exists($useridcolumn, $meta) && count($meta) > 1) {
+            unset($meta[$useridcolumn]);
+        }
+        return array_keys($meta);
     }
 }

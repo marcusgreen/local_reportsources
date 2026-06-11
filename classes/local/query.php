@@ -290,6 +290,34 @@ class query {
     }
 
     /**
+     * Remove saved Reportbuilder column/filter/condition instances of the given view column from
+     * the bound report. Used when a column becomes the per-user filter: the datasource no longer
+     * exposes it, so saved instances referencing it would be orphaned.
+     *
+     * @param int $reportid Bound Reportbuilder report id.
+     * @param string $columnname View column name (entity-local, without the entity prefix).
+     */
+    private static function purge_report_column(int $reportid, string $columnname): void {
+        $unique = \local_reportsources\reportbuilder\local\entities\adhoc_view::ENTITY . ':' . $columnname;
+
+        $columns = \core_reportbuilder\local\models\column::get_records(
+            ['reportid' => $reportid, 'uniqueidentifier' => $unique]);
+        foreach ($columns as $column) {
+            \core_reportbuilder\local\helpers\report::delete_report_column($reportid, (int) $column->get('id'));
+        }
+
+        $filters = \core_reportbuilder\local\models\filter::get_records(
+            ['reportid' => $reportid, 'uniqueidentifier' => $unique]);
+        foreach ($filters as $filter) {
+            if ($filter->get('iscondition')) {
+                \core_reportbuilder\local\helpers\report::delete_report_condition($reportid, (int) $filter->get('id'));
+            } else {
+                \core_reportbuilder\local\helpers\report::delete_report_filter($reportid, (int) $filter->get('id'));
+            }
+        }
+    }
+
+    /**
      * Save (create or update) a query record. Validates the SQL before storing.
      *
      * @param \stdClass $data Form data: id?, name, description, querysql, rowcap.
@@ -345,6 +373,12 @@ class query {
             // already-published query and only when it names one of that query's output columns.
             $record->useridcolumn = self::valid_useridcolumn(
                 (string) ($data->useridcolumn ?? ''), $existing->columnsmeta);
+            // The datasource stops offering a per-user filter column; purge any saved instances
+            // of it from the report so they don't linger as stale config.
+            if ($record->useridcolumn !== null
+                    && $existing->status === self::STATUS_PUBLISHED && !empty($existing->reportid)) {
+                self::purge_report_column((int) $existing->reportid, $record->useridcolumn);
+            }
             $DB->update_record(self::TABLE, $record);
             // Audience/visibility edits on an already-published report take effect immediately.
             if ($existing->status === self::STATUS_PUBLISHED && !empty($existing->reportid)) {

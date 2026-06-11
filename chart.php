@@ -96,8 +96,6 @@ $meta = $q->columns_meta();
 if (!$meta) {
     throw new moodle_exception('errchartnotconfigured', 'local_reportsources');
 }
-$fields = implode(', ', array_keys($meta));
-
 $conditions = null;
 $useridcolumn = $q->useridcolumn();
 if ($useridcolumn !== '') {
@@ -107,7 +105,13 @@ if ($useridcolumn !== '') {
         throw new moodle_exception('errchartnotconfigured', 'local_reportsources');
     }
     $conditions = [$useridcolumn => $USER->id];
+    // Hide the filter column from chart and CSV output: after filtering, its value is always
+    // the viewer's own id. get_recordset() applies $conditions independently of $fields.
+    if (count($meta) > 1) {
+        unset($meta[$useridcolumn]);
+    }
 }
+$fields = implode(', ', array_keys($meta));
 
 $rows = [];
 try {

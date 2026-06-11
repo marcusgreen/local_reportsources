@@ -281,12 +281,21 @@ class edit_query_form extends moodleform {
         $mform->setType('chart_type', PARAM_ALPHA);
         $mform->setDefault('chart_type', $chartmeta['type'] ?? 'none');
 
-        $mform->addElement('select', 'chart_xcol', get_string('chartxcol', 'local_reportsources'), $xopts);
+        // The per-user filter column is hidden from all output (its value always equals the
+        // viewer's own id), so don't offer it as a chart axis. Based on the saved choice; a
+        // change to the filter select above takes effect after save.
+        $chartxopts = $xopts;
+        $useridcol = (string) ($record->useridcolumn ?? '');
+        if ($useridcol !== '' && count($colopts) > 1) {
+            unset($chartxopts[$useridcol]);
+        }
+
+        $mform->addElement('select', 'chart_xcol', get_string('chartxcol', 'local_reportsources'), $chartxopts);
         $mform->setType('chart_xcol', PARAM_ALPHANUMEXT);
         $mform->setDefault('chart_xcol', $chartmeta['xcol'] ?? '');
         $mform->addHelpButton('chart_xcol', 'chartxcol', 'local_reportsources');
 
-        $mform->addElement('select', 'chart_ycol', get_string('chartycol', 'local_reportsources'), $xopts);
+        $mform->addElement('select', 'chart_ycol', get_string('chartycol', 'local_reportsources'), $chartxopts);
         $mform->setType('chart_ycol', PARAM_ALPHANUMEXT);
         $mform->setDefault('chart_ycol', $chartmeta['ycol'] ?? '');
         $mform->addHelpButton('chart_ycol', 'chartycol', 'local_reportsources');
