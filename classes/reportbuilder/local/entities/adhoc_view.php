@@ -34,7 +34,6 @@ use lang_string;
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class adhoc_view extends base {
-
     /** @var string Internal entity name. */
     public const ENTITY = 'adhoc';
 

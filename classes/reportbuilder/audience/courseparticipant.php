@@ -35,7 +35,6 @@ use MoodleQuickForm;
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class courseparticipant extends base {
-
     /**
      * No interactive config: the course id is injected at publish time.
      *

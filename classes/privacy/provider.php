@@ -34,11 +34,7 @@ use core_privacy\local\request\{
  * @copyright 2026 Marcus Green
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class provider implements
-    \core_privacy\local\metadata\provider,
-    \core_privacy\local\request\plugin\provider,
-    \core_privacy\local\request\core_userlist_provider {
-
+class provider implements \core_privacy\local\metadata\provider, \core_privacy\local\request\core_userlist_provider, \core_privacy\local\request\plugin\provider {
     public static function get_metadata(collection $collection): collection {
         $collection->add_database_table('local_reportsources_query', [
             'ownerid'      => 'privacy:metadata:query:ownerid',

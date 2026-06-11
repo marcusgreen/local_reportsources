@@ -28,7 +28,6 @@ defined('MOODLE_INTERNAL') || die();
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class privilege_check {
-
     /** @var string Probe view name (without prefix). */
     public const PROBE_NAME = 'local_reportsources_probe';
 

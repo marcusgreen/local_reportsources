@@ -36,7 +36,6 @@ use local_reportsources\local\sql\view;
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class query {
-
     public const TABLE = 'local_reportsources_query';
 
     public const STATUS_DRAFT = 'draft';
@@ -162,8 +161,11 @@ class query {
         $tablelist = implode(', ', $tables);
         $cols = self::extract_select_columns($sql);
         if ($cols) {
-            return get_string('ai:sqldescription', 'local_reportsources',
-                (object) ['columns' => implode(', ', $cols), 'tables' => $tablelist]);
+            return get_string(
+                'ai:sqldescription',
+                'local_reportsources',
+                (object) ['columns' => implode(', ', $cols), 'tables' => $tablelist]
+            );
         }
         return get_string('ai:sqldescriptionnocols', 'local_reportsources', $tablelist);
     }
@@ -301,13 +303,15 @@ class query {
         $unique = \local_reportsources\reportbuilder\local\entities\adhoc_view::ENTITY . ':' . $columnname;
 
         $columns = \core_reportbuilder\local\models\column::get_records(
-            ['reportid' => $reportid, 'uniqueidentifier' => $unique]);
+            ['reportid' => $reportid, 'uniqueidentifier' => $unique]
+        );
         foreach ($columns as $column) {
             \core_reportbuilder\local\helpers\report::delete_report_column($reportid, (int) $column->get('id'));
         }
 
         $filters = \core_reportbuilder\local\models\filter::get_records(
-            ['reportid' => $reportid, 'uniqueidentifier' => $unique]);
+            ['reportid' => $reportid, 'uniqueidentifier' => $unique]
+        );
         foreach ($filters as $filter) {
             if ($filter->get('iscondition')) {
                 \core_reportbuilder\local\helpers\report::delete_report_condition($reportid, (int) $filter->get('id'));
@@ -372,11 +376,15 @@ class query {
             // The per-user column is picked from the live view's columns, so only accept it for an
             // already-published query and only when it names one of that query's output columns.
             $record->useridcolumn = self::valid_useridcolumn(
-                (string) ($data->useridcolumn ?? ''), $existing->columnsmeta);
+                (string) ($data->useridcolumn ?? ''),
+                $existing->columnsmeta
+            );
             // The datasource stops offering a per-user filter column; purge any saved instances
             // of it from the report so they don't linger as stale config.
-            if ($record->useridcolumn !== null
-                    && $existing->status === self::STATUS_PUBLISHED && !empty($existing->reportid)) {
+            if (
+                $record->useridcolumn !== null
+                    && $existing->status === self::STATUS_PUBLISHED && !empty($existing->reportid)
+            ) {
                 self::purge_report_column((int) $existing->reportid, $record->useridcolumn);
             }
             $DB->update_record(self::TABLE, $record);
@@ -797,10 +805,12 @@ class query {
         }
 
         // Course-level viewer (teacher) — must supply courseid and have view/viewown there.
-        if ($courseid && (
+        if (
+            $courseid && (
             has_capability('local/reportsources:view', $coursecontext) ||
             has_capability('local/reportsources:viewown', $coursecontext)
-        )) {
+            )
+        ) {
             return $DB->get_records_select(
                 self::TABLE,
                 'status = :p AND visible = :v AND (courseid = :c OR courseid = 0)',

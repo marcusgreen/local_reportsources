@@ -46,8 +46,10 @@ $existing = null;
 if ($id) {
     $existing = query::get_record($id);
     // Authors edit own queries; viewall can edit anything.
-    if ((int) $existing->ownerid !== (int) $USER->id &&
-        !has_capability('local/reportsources:viewall', $context)) {
+    if (
+        (int) $existing->ownerid !== (int) $USER->id &&
+        !has_capability('local/reportsources:viewall', $context)
+    ) {
         throw new required_capability_exception($context, 'local/reportsources:viewall', 'nopermissions', '');
     }
 }
@@ -109,8 +111,10 @@ if ($formdefaults !== null) {
     $mform->set_data($formdefaults);
 }
 
-$returnurl = new moodle_url('/local/reportsources/index.php',
-    $courseid ? ['courseid' => $courseid] : []);
+$returnurl = new moodle_url(
+    '/local/reportsources/index.php',
+    $courseid ? ['courseid' => $courseid] : []
+);
 
 if ($mform->is_cancelled()) {
     redirect($returnurl);
@@ -122,9 +126,11 @@ if ($mform->is_cancelled()) {
         $coursecontext = context_course::instance((int) $data->courseid, IGNORE_MISSING);
         if (!$coursecontext) {
             $data->courseid = 0;
-        } else if (!has_capability('local/reportsources:viewall', $context) &&
+        } else if (
+            !has_capability('local/reportsources:viewall', $context) &&
             !has_capability('local/reportsources:view', $coursecontext) &&
-            !has_capability('local/reportsources:viewown', $coursecontext)) {
+            !has_capability('local/reportsources:viewown', $coursecontext)
+        ) {
             throw new required_capability_exception($coursecontext, 'local/reportsources:view', 'nopermissions', '');
         }
     }
@@ -151,15 +157,19 @@ if ($aisqlchatavailable) {
         echo $OUTPUT->notification($aierror, 'error');
     }
     if ($airesult) {
-        echo html_writer::tag('p',
+        echo html_writer::tag(
+            'p',
             get_string('ai:latency', 'local_reportsources', $airesult->latency_ms),
-            ['class' => 'text-muted small mb-2']);
+            ['class' => 'text-muted small mb-2']
+        );
     }
 
     echo html_writer::start_tag('form', ['method' => 'post', 'action' => $PAGE->url->out(false)]);
-    echo html_writer::tag('label',
+    echo html_writer::tag(
+        'label',
         get_string('ai:question', 'local_reportsources'),
-        ['for' => 'rs-ai-question']);
+        ['for' => 'rs-ai-question']
+    );
     echo html_writer::tag('textarea', s($aiquestion), [
         'name'        => 'aiquestion',
         'id'          => 'rs-ai-question',

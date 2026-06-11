@@ -30,8 +30,10 @@ defined('MOODLE_INTERNAL') || die();
 function local_reportsources_extend_navigation(global_navigation $navigation): void {
     global $USER;
     if (isloggedin() && !isguestuser()) {
-        if (has_capability('local/reportsources:author', context_system::instance(), $USER) ||
-            has_capability('local/reportsources:view', context_system::instance(), $USER)) {
+        if (
+            has_capability('local/reportsources:author', context_system::instance(), $USER) ||
+            has_capability('local/reportsources:view', context_system::instance(), $USER)
+        ) {
             $node = $navigation->add(
                 get_string('reportsources', 'local_reportsources'),
                 new moodle_url('/local/reportsources/index.php'),
@@ -62,8 +64,10 @@ function local_reportsources_extend_navigation_course(
     if (!isloggedin() || isguestuser()) {
         return;
     }
-    if (!has_capability('local/reportsources:author', $context, $USER) &&
-        !has_capability('local/reportsources:view', $context, $USER)) {
+    if (
+        !has_capability('local/reportsources:author', $context, $USER) &&
+        !has_capability('local/reportsources:view', $context, $USER)
+    ) {
         return;
     }
 

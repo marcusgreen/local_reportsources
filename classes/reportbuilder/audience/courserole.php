@@ -39,7 +39,6 @@ use MoodleQuickForm;
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class courserole extends base {
-
     /**
      * No interactive config: course id and roles are injected at publish time.
      *

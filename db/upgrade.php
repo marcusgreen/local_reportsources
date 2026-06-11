@@ -87,8 +87,10 @@ function xmldb_local_reportsources_upgrade(int $oldversion): bool {
         // Backfill: reports published before audience support sit in the system context with no
         // audience, so only managers can open them. Re-apply visibility so course teachers / site
         // users regain access under the automatic rules.
-        $published = $DB->get_records('local_reportsources_query',
-            ['status' => \local_reportsources\local\query::STATUS_PUBLISHED]);
+        $published = $DB->get_records(
+            'local_reportsources_query',
+            ['status' => \local_reportsources\local\query::STATUS_PUBLISHED]
+        );
         foreach ($published as $rec) {
             if (empty($rec->reportid)) {
                 continue;

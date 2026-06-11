@@ -44,8 +44,12 @@ if (optional_param('download', 0, PARAM_INT)) {
     require_sesskey();
     $ids = optional_param_array('queryids', [], PARAM_INT);
     if (!$ids) {
-        redirect($returnurl, get_string('errnoexportselection', 'local_reportsources'), null,
-            \core\output\notification::NOTIFY_ERROR);
+        redirect(
+            $returnurl,
+            get_string('errnoexportselection', 'local_reportsources'),
+            null,
+            \core\output\notification::NOTIFY_ERROR
+        );
     }
     $payload = transfer::export($ids);
     // Name the file after the query when a single one is exported; otherwise fall back to a dated name.
@@ -99,8 +103,11 @@ echo html_writer::empty_tag('input', [
     'id'      => 'reportsources-toggleall',
     'checked' => 'checked',
 ]);
-echo html_writer::tag('label', get_string('selectall'),
-    ['class' => 'form-check-label font-weight-bold', 'for' => 'reportsources-toggleall']);
+echo html_writer::tag(
+    'label',
+    get_string('selectall'),
+    ['class' => 'form-check-label font-weight-bold', 'for' => 'reportsources-toggleall']
+);
 echo html_writer::end_div();
 
 $PAGE->requires->js_amd_inline(<<<'JS'
@@ -118,9 +125,11 @@ JS);
 
 foreach ($queries as $rec) {
     $label = format_string($rec->name) .
-        ' ' . html_writer::tag('span',
+        ' ' . html_writer::tag(
+            'span',
             get_string('status_' . $rec->status, 'local_reportsources'),
-            ['class' => 'badge badge-secondary ml-1']);
+            ['class' => 'badge badge-secondary ml-1']
+        );
     echo html_writer::start_div('form-check');
     echo html_writer::empty_tag('input', [
         'type'  => 'checkbox',

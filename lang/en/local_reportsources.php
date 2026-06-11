@@ -22,12 +22,18 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$string['pluginname'] = 'Report sources';
-$string['reportsources'] = 'Report sources';
-$string['reportsource'] = 'Report view';
-$string['reportsourceheader'] = '{$a}';
-
+$string['actions'] = 'Actions';
 $string['addnew'] = 'New report view';
+$string['ai:generate'] = 'Generate SQL';
+$string['ai:generatedname'] = 'Generated query';
+$string['ai:generating'] = 'Generating…';
+$string['ai:heading'] = 'Generate SQL with AI';
+$string['ai:latency'] = 'Generated in {$a} ms — review the SQL before saving.';
+$string['ai:placeholder'] = 'e.g. Show all students enrolled in more than 3 courses';
+$string['ai:question'] = 'Describe the data you want';
+$string['ai:sqldescription'] = 'Selects {$a->columns} from {$a->tables}.';
+$string['ai:sqldescriptionnocols'] = 'Report over {$a}.';
+$string['ai:sqlname'] = '{$a} report';
 $string['audienceallusers'] = 'All site users';
 $string['audiencecohort'] = 'Members of cohorts';
 $string['audiencecohorts'] = 'Cohorts';
@@ -47,16 +53,93 @@ $string['audiencetype_help'] = 'Controls who can open the published Report Build
 * **All site users**, **Members of cohorts**, **Nobody** — apply site-wide.
 
 You can refine the audience further on the Audiences tab in Report Builder, but re-publishing the report resets it to this choice.';
-$string['erraudiencecohortsempty'] = 'Choose at least one cohort.';
-$string['erraudiencerolesempty'] = 'Choose at least one role.';
-$string['name'] = 'Name';
-$string['description'] = 'Description';
+$string['chartbar'] = 'Bar chart';
+$string['chartdoughnut'] = 'Doughnut chart';
+$string['chartdownloadpng'] = 'Download PNG';
+$string['chartexportcsv'] = 'Export CSV';
+$string['chartline'] = 'Line chart';
+$string['chartnone'] = 'No chart';
+$string['chartpie'] = 'Pie chart';
+$string['chartprint'] = 'Print';
+$string['chartpublishrequired'] = 'Publish this query first to enable chart configuration.';
+$string['chartrowlimit'] = 'Chart row limit';
+$string['chartrowlimit_help'] = 'Maximum rows to plot. Keep small (≤ 200) for readable charts.';
+$string['chartsettings'] = 'Chart settings';
+$string['charttype'] = 'Chart type';
+$string['chartxcol'] = 'Label column (X axis / slices)';
+$string['chartxcol_help'] = 'Column whose values label each bar, point, or pie slice.';
+$string['chartycol'] = 'Value column (Y axis)';
+$string['chartycol_help'] = 'Column whose values are plotted. Must contain numeric data.';
+$string['cleanuplogs'] = 'Clean up report sources execution log';
+$string['copyof'] = 'Copy of {$a}';
+$string['copysuccess'] = 'Report view copied. You are now editing the copy.';
 $string['coursescope'] = 'Course scope';
 $string['coursescope_help'] = 'The course this report belongs to. Leave empty for a site-wide report.
 
 The course determines two things when the report is published: the context its "View report" permission is checked in, and its default audience (course participants for a course-scoped report, all users for a site-wide one).
 
 Change this to re-scope a query — for example an imported draft that was set site-wide because its original course did not exist on this site. The course-specific audience options refresh after you save and reopen the form. You can only choose courses you are allowed to view reports in.';
+$string['delete'] = 'Delete';
+$string['description'] = 'Description';
+$string['duplicate'] = 'Duplicate';
+$string['edit'] = 'Edit';
+$string['editreport'] = 'Edit in Report Builder';
+$string['erraudiencecohortsempty'] = 'Choose at least one cohort.';
+$string['erraudiencerolesempty'] = 'Choose at least one role.';
+$string['errchartdata'] = 'The report data for this chart could not be loaded. Contact the report owner if this persists.';
+$string['errchartnotconfigured'] = 'No chart is configured for this query. Edit the query to add chart settings.';
+$string['errchartnotpublished'] = 'This query is not published. Publish it first before viewing the chart.';
+$string['errcreateview'] = 'Could not create database view: {$a}';
+$string['errdeniedkeyword'] = 'Disallowed keyword: {$a}';
+$string['errdeniedtable'] = 'Disallowed table: {$a}';
+$string['errdropview'] = 'Could not drop database view: {$a}';
+$string['errduplicatecolumn'] = 'Joined tables share duplicate column names (e.g. both have "id"). Replace SELECT * with explicit column aliases: SELECT u.id AS userid, fp.id AS postid, ...';
+$string['errimportempty'] = 'The export file contains no report views.';
+$string['errimportformat'] = 'This file is not a valid Report sources export.';
+$string['errjoinnoon'] = 'A JOIN is missing its ON (or USING) condition. Each JOIN needs a join condition, e.g. JOIN {user_enrolments} ue ON ue.userid = u.id';
+$string['errmultistatement'] = 'Multiple statements are not allowed.';
+$string['errnoexportselection'] = 'Select at least one report view to export.';
+$string['errnoimportselection'] = 'Select at least one report view to import.';
+$string['errnotselect'] = 'Only SELECT queries are allowed.';
+$string['errparse'] = 'The SQL could not be parsed: {$a}';
+$string['errpgsqldatefn'] = 'PostgreSQL-only function {$a} is not supported by MySQL. Use a cross-database equivalent.';
+$string['errplaceholder'] = 'The SQL contains an unfilled placeholder "{$a}". Replace it with a real value before saving — e.g. change "l.userid = ##" to "l.userid = 2".';
+$string['errquestionmark'] = 'SQL contains a ? character, which the database layer treats as a query parameter placeholder. If ? appears inside a URL string, replace it with CHAR(63) — e.g. CONCAT(\'…/view.php\', CHAR(63), \'id=\', course.id).';
+$string['export'] = 'Export';
+$string['exportselected'] = 'Export selected';
+$string['exportselecthelp'] = 'Tick the report views to include in the export file, then download the JSON.';
+$string['formatsql'] = 'Format SQL';
+$string['import'] = 'Import';
+$string['importdemoted'] = 'Set to site-wide because their course was not found on this site. Edit each draft and set its Course scope before publishing: {$a}.';
+$string['importdone'] = 'Imported {$a} report view(s) as drafts.';
+$string['importfile'] = 'Export file';
+$string['importselected'] = 'Import selected';
+$string['importselecthelp'] = 'Tick the report views to import. Each is created as a new draft owned by you and must be published before use.';
+$string['importskipped'] = 'Skipped (failed SQL validation): {$a}.';
+$string['importupload'] = 'Upload and choose';
+$string['importuploadhelp'] = 'Upload a JSON file previously produced by the Export action. You will then choose which report views to import.';
+$string['install:privilegefail'] = 'Report sources installed, but the database user cannot create or drop views. Publishing queries will fail until the grants are fixed. Error: {$a}';
+$string['install:privilegeok'] = 'Report sources: the database user can create and drop views.';
+$string['name'] = 'Name';
+$string['newreport'] = 'New report from this view';
+$string['noqueries'] = 'No report views yet.';
+$string['owner'] = 'Owner';
+$string['pluginexplained'] = 'About report sources';
+$string['pluginexplained_help'] = 'This plugin lets you write a SQL SELECT query and publish it as a fully-configurable Report Builder report — no PHP required.
+
+When you publish a query, the plugin creates a database VIEW from your SQL, reads its columns, and registers a Report Builder datasource pointing at that view. You can then build, filter and share the report like any other Report Builder report.
+
+Only SELECT queries are allowed, and a denylist blocks access to sensitive tables. Editing the SQL of a published query rebuilds the view and report on the next publish.';
+$string['pluginname'] = 'Report sources';
+$string['privacy:metadata:log'] = 'Audit log of query executions.';
+$string['privacy:metadata:log:timeexecuted'] = 'Timestamp of the action.';
+$string['privacy:metadata:log:userid'] = 'User who ran or modified the query.';
+$string['privacy:metadata:query'] = 'Saved report views authored by users.';
+$string['privacy:metadata:query:ownerid'] = 'User who authored the query.';
+$string['privacy:metadata:query:querysql'] = 'The SQL of the query.';
+$string['privacy:metadata:query:timecreated'] = 'When the query was created.';
+$string['publish'] = 'Publish';
+$string['queries'] = 'Saved report views';
 $string['querysql'] = 'SQL (SELECT only)';
 $string['querysql_help'] = 'A single SELECT or WITH...SELECT statement. Use Moodle table syntax (e.g. {course}). The plugin creates a database VIEW from this query and exposes its columns as a Reportbuilder source.
 
@@ -65,141 +148,48 @@ Always alias tables (e.g. FROM {user} u) since {user} resolves to mdl_user at ru
 For the Moodle database schema see <a href="https://www.examulator.com/er/output/index.html" target="_blank">examulator.com/er</a>.
 
 For sample queries and inspiration see <a href="https://docs.moodle.org/502/en/ad-hoc_contributed_reports" target="_blank">Moodle ad-hoc contributed reports</a>.';
-$string['rowcap'] = 'Row cap';
-$string['rowcap_help'] = 'Maximum rows the report will display.';
-$string['status'] = 'Status';
-$string['status_draft'] = 'Draft';
-$string['status_published'] = 'Published';
-$string['status_disabled'] = 'Disabled';
+$string['reportsource'] = 'Report view';
+$string['reportsourceheader'] = '{$a}';
+$string['reportsources'] = 'Report sources';
 
-$string['publish'] = 'Publish';
-$string['unpublish'] = 'Unpublish';
-$string['delete'] = 'Delete';
-$string['duplicate'] = 'Duplicate';
-$string['copyof'] = 'Copy of {$a}';
-$string['copysuccess'] = 'Report view copied. You are now editing the copy.';
-$string['edit'] = 'Edit';
-$string['formatsql'] = 'Format SQL';
-$string['actions'] = 'Actions';
-$string['owner'] = 'Owner';
-
-$string['queries'] = 'Saved report views';
-$string['noqueries'] = 'No report views yet.';
-
-$string['export'] = 'Export';
-$string['exportselected'] = 'Export selected';
-$string['exportselecthelp'] = 'Tick the report views to include in the export file, then download the JSON.';
-$string['errnoexportselection'] = 'Select at least one report view to export.';
-$string['import'] = 'Import';
-$string['importfile'] = 'Export file';
-$string['importupload'] = 'Upload and choose';
-$string['importuploadhelp'] = 'Upload a JSON file previously produced by the Export action. You will then choose which report views to import.';
-$string['importselected'] = 'Import selected';
-$string['importselecthelp'] = 'Tick the report views to import. Each is created as a new draft owned by you and must be published before use.';
-$string['importdone'] = 'Imported {$a} report view(s) as drafts.';
-$string['importskipped'] = 'Skipped (failed SQL validation): {$a}.';
-$string['importdemoted'] = 'Set to site-wide because their course was not found on this site. Edit each draft and set its Course scope before publishing: {$a}.';
-$string['errnoimportselection'] = 'Select at least one report view to import.';
-$string['errimportformat'] = 'This file is not a valid Report sources export.';
-$string['errimportempty'] = 'The export file contains no report views.';
-
-$string['pluginexplained'] = 'About report sources';
-$string['pluginexplained_help'] = 'This plugin lets you write a SQL SELECT query and publish it as a fully-configurable Report Builder report — no PHP required.
-
-When you publish a query, the plugin creates a database VIEW from your SQL, reads its columns, and registers a Report Builder datasource pointing at that view. You can then build, filter and share the report like any other Report Builder report.
-
-Only SELECT queries are allowed, and a denylist blocks access to sensitive tables. Editing the SQL of a published query rebuilds the view and report on the next publish.';
-
-$string['errnotselect'] = 'Only SELECT queries are allowed.';
-$string['errplaceholder'] = 'The SQL contains an unfilled placeholder "{$a}". Replace it with a real value before saving — e.g. change "l.userid = ##" to "l.userid = 2".';
-$string['errquestionmark'] = 'SQL contains a ? character, which the database layer treats as a query parameter placeholder. If ? appears inside a URL string, replace it with CHAR(63) — e.g. CONCAT(\'…/view.php\', CHAR(63), \'id=\', course.id).';
-$string['errmultistatement'] = 'Multiple statements are not allowed.';
-$string['errdeniedkeyword'] = 'Disallowed keyword: {$a}';
-$string['errdeniedtable'] = 'Disallowed table: {$a}';
-$string['warnmysqldatefn'] = 'MySQL-only function {$a} may not work on PostgreSQL. Use a cross-database equivalent.';
-$string['errpgsqldatefn'] = 'PostgreSQL-only function {$a} is not supported by MySQL. Use a cross-database equivalent.';
-$string['errcreateview'] = 'Could not create database view: {$a}';
-$string['errduplicatecolumn'] = 'Joined tables share duplicate column names (e.g. both have "id"). Replace SELECT * with explicit column aliases: SELECT u.id AS userid, fp.id AS postid, ...';
-$string['errjoinnoon'] = 'A JOIN is missing its ON (or USING) condition. Each JOIN needs a join condition, e.g. JOIN {user_enrolments} ue ON ue.userid = u.id';
-$string['errparse'] = 'The SQL could not be parsed: {$a}';
-$string['errdropview'] = 'Could not drop database view: {$a}';
-
-$string['runreport'] = 'Open report';
-$string['editreport'] = 'Edit in Report Builder';
-$string['newreport'] = 'New report from this view';
-
-$string['privacy:metadata:query'] = 'Saved report views authored by users.';
-$string['privacy:metadata:query:ownerid'] = 'User who authored the query.';
-$string['privacy:metadata:query:querysql'] = 'The SQL of the query.';
-$string['privacy:metadata:query:timecreated'] = 'When the query was created.';
-$string['privacy:metadata:log'] = 'Audit log of query executions.';
-$string['privacy:metadata:log:userid'] = 'User who ran or modified the query.';
-$string['privacy:metadata:log:timeexecuted'] = 'Timestamp of the action.';
-
-$string['settings:rowcapdefault'] = 'Default row cap';
-$string['settings:rowcapdefault_desc'] = 'Default value for new queries.';
-$string['settings:denycolumns'] = 'Sensitive column denylist';
-$string['settings:denycolumns_desc'] = 'Comma-separated list of column names that will be stripped from any introspected SELECT result.';
-$string['settings:syntaxhighlight'] = 'SQL syntax highlight and autocomplete';
-$string['settings:syntaxhighlight_desc'] = 'Enable a CodeMirror 6 SQL editor on the query form. Suggests SQL keywords plus Moodle table and column names from the live database.';
-$string['settings:aigenerate'] = 'AI SQL generation';
-$string['settings:aigenerate_desc'] = 'Show an AI question box on the query edit form. Requires the local_sqlchat plugin to be installed and configured.';
-
-$string['install:privilegeok'] = 'Report sources: the database user can create and drop views.';
-$string['install:privilegefail'] = 'Report sources installed, but the database user cannot create or drop views. Publishing queries will fail until the grants are fixed. Error: {$a}';
-$string['testview:title'] = 'Database view privilege test';
-$string['testview:linklabel'] = 'Run database view privilege test';
-$string['testview:ok'] = 'The database user can create and drop views. Publishing queries should work.';
-$string['testview:fail'] = 'The database user cannot create or drop views. Error: {$a}';
-$string['testview:grantshint'] = 'Grant the Moodle database user CREATE VIEW and DROP privileges on the schema (e.g. on MySQL/MariaDB: GRANT CREATE VIEW, DROP ON moodle.* TO \'mdluser\'@\'host\';).';
-
-$string['reportsources:author'] = 'Author SQL report views';
 $string['reportsources:approve'] = 'Approve and publish report views';
+$string['reportsources:author'] = 'Author SQL report views';
 $string['reportsources:view'] = 'Run published report views';
 $string['reportsources:viewall'] = 'View all report views regardless of audience';
 $string['reportsources:viewown'] = 'Run report views in own course';
+$string['rowcap'] = 'Row cap';
+$string['rowcap_help'] = 'Maximum rows the report will display.';
+$string['runreport'] = 'Open report';
+$string['selectcolumn'] = '(select column)';
+$string['settings:aigenerate'] = 'AI SQL generation';
+$string['settings:aigenerate_desc'] = 'Show an AI question box on the query edit form. Requires the local_sqlchat plugin to be installed and configured.';
+$string['settings:denycolumns'] = 'Sensitive column denylist';
+$string['settings:denycolumns_desc'] = 'Comma-separated list of column names that will be stripped from any introspected SELECT result.';
+$string['settings:rowcapdefault'] = 'Default row cap';
+$string['settings:rowcapdefault_desc'] = 'Default value for new queries.';
+$string['settings:syntaxhighlight'] = 'SQL syntax highlight and autocomplete';
+$string['settings:syntaxhighlight_desc'] = 'Enable a CodeMirror 6 SQL editor on the query form. Suggests SQL keywords plus Moodle table and column names from the live database.';
+$string['status'] = 'Status';
+$string['status_disabled'] = 'Disabled';
+$string['status_draft'] = 'Draft';
+$string['status_published'] = 'Published';
 
+$string['testview:fail'] = 'The database user cannot create or drop views. Error: {$a}';
+$string['testview:grantshint'] = 'Grant the Moodle database user CREATE VIEW and DROP privileges on the schema (e.g. on MySQL/MariaDB: GRANT CREATE VIEW, DROP ON moodle.* TO \'mdluser\'@\'host\';).';
+$string['testview:linklabel'] = 'Run database view privilege test';
+$string['testview:ok'] = 'The database user can create and drop views. Publishing queries should work.';
+$string['testview:title'] = 'Database view privilege test';
+$string['unpublish'] = 'Unpublish';
+
+
+
+
+$string['useridcolumn'] = 'Restrict to viewing user';
+$string['useridcolumn_help'] = 'Optionally scope this report so each person sees only rows that belong to them. Pick the output column holding a user id; at view time the report shows only rows where that column equals the id of the logged-in user. Leave as "Choose a column…" to show all rows to everyone in the audience.';
+$string['useridfilter'] = 'Per-user filter';
+$string['viewchart'] = 'View chart';
 $string['visible'] = 'Visible';
 $string['visible_help'] = 'Controls whether this published report appears in the query listing page. When unchecked, users with the view capability cannot see it. The underlying database view and report still exist — administrators and authors with the viewall capability can still see it.
 
 For finer-grained access control, use the Audiences feature in Report Builder after publishing: open the report, go to the Audience tab, and restrict by cohort, role, or individual user.';
-
-$string['useridfilter'] = 'Per-user filter';
-$string['useridcolumn'] = 'Restrict to viewing user';
-$string['useridcolumn_help'] = 'Optionally scope this report so each person sees only rows that belong to them. Pick the output column holding a user id; at view time the report shows only rows where that column equals the id of the logged-in user. Leave as "Choose a column…" to show all rows to everyone in the audience.';
-
-$string['cleanuplogs'] = 'Clean up report sources execution log';
-
-$string['chartsettings'] = 'Chart settings';
-$string['chartpublishrequired'] = 'Publish this query first to enable chart configuration.';
-$string['charttype'] = 'Chart type';
-$string['chartnone'] = 'No chart';
-$string['chartbar'] = 'Bar chart';
-$string['chartline'] = 'Line chart';
-$string['chartpie'] = 'Pie chart';
-$string['chartdoughnut'] = 'Doughnut chart';
-$string['chartxcol'] = 'Label column (X axis / slices)';
-$string['chartxcol_help'] = 'Column whose values label each bar, point, or pie slice.';
-$string['chartycol'] = 'Value column (Y axis)';
-$string['chartycol_help'] = 'Column whose values are plotted. Must contain numeric data.';
-$string['chartrowlimit'] = 'Chart row limit';
-$string['chartrowlimit_help'] = 'Maximum rows to plot. Keep small (≤ 200) for readable charts.';
-$string['selectcolumn'] = '(select column)';
-$string['viewchart'] = 'View chart';
-$string['chartexportcsv'] = 'Export CSV';
-$string['chartdownloadpng'] = 'Download PNG';
-$string['chartprint'] = 'Print';
-$string['errchartnotpublished'] = 'This query is not published. Publish it first before viewing the chart.';
-$string['errchartnotconfigured'] = 'No chart is configured for this query. Edit the query to add chart settings.';
-$string['errchartdata'] = 'The report data for this chart could not be loaded. Contact the report owner if this persists.';
-
-$string['ai:heading'] = 'Generate SQL with AI';
-$string['ai:question'] = 'Describe the data you want';
-$string['ai:placeholder'] = 'e.g. Show all students enrolled in more than 3 courses';
-$string['ai:generate'] = 'Generate SQL';
-$string['ai:generating'] = 'Generating…';
-$string['ai:latency'] = 'Generated in {$a} ms — review the SQL before saving.';
-$string['ai:generatedname'] = 'Generated query';
-$string['ai:sqlname'] = '{$a} report';
-$string['ai:sqldescription'] = 'Selects {$a->columns} from {$a->tables}.';
-$string['ai:sqldescriptionnocols'] = 'Report over {$a}.';
+$string['warnmysqldatefn'] = 'MySQL-only function {$a} may not work on PostgreSQL. Use a cross-database equivalent.';

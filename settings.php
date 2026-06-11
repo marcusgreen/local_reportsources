@@ -22,8 +22,10 @@
 defined('MOODLE_INTERNAL') || die();
 
 if ($hassiteconfig) {
-    $settings = new admin_settingpage('local_reportsources',
-        get_string('pluginname', 'local_reportsources'));
+    $settings = new admin_settingpage(
+        'local_reportsources',
+        get_string('pluginname', 'local_reportsources')
+    );
     $ADMIN->add('localplugins', $settings);
 
     $settings->add(new admin_setting_configtext(

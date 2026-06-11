@@ -50,25 +50,39 @@ if (optional_param('doimport', 0, PARAM_INT)) {
 
     $json = base64_decode($payload, true);
     if ($json === false) {
-        redirect($returnurl, get_string('errimportformat', 'local_reportsources'), null,
-            \core\output\notification::NOTIFY_ERROR);
+        redirect(
+            $returnurl,
+            get_string('errimportformat', 'local_reportsources'),
+            null,
+            \core\output\notification::NOTIFY_ERROR
+        );
     }
     $sources = transfer::parse($json);
 
     if (!$selected) {
-        redirect($returnurl, get_string('errnoimportselection', 'local_reportsources'), null,
-            \core\output\notification::NOTIFY_ERROR);
+        redirect(
+            $returnurl,
+            get_string('errnoimportselection', 'local_reportsources'),
+            null,
+            \core\output\notification::NOTIFY_ERROR
+        );
     }
 
     $result = transfer::import($sources, $selected);
     $message = get_string('importdone', 'local_reportsources', $result['imported']);
     if ($result['skipped']) {
-        $message .= ' ' . get_string('importskipped', 'local_reportsources',
-            implode(', ', array_keys($result['skipped'])));
+        $message .= ' ' . get_string(
+            'importskipped',
+            'local_reportsources',
+            implode(', ', array_keys($result['skipped']))
+        );
     }
     if (!empty($result['demoted'])) {
-        $message .= ' ' . get_string('importdemoted', 'local_reportsources',
-            implode(', ', array_keys($result['demoted'])));
+        $message .= ' ' . get_string(
+            'importdemoted',
+            'local_reportsources',
+            implode(', ', array_keys($result['demoted']))
+        );
     }
     redirect($returnurl, $message, null, \core\output\notification::NOTIFY_SUCCESS);
 }
@@ -83,8 +97,12 @@ if ($mform->is_cancelled()) {
 if ($data = $mform->get_data()) {
     $json = $mform->get_file_content('importfile');
     if ($json === false) {
-        redirect($PAGE->url, get_string('errimportformat', 'local_reportsources'), null,
-            \core\output\notification::NOTIFY_ERROR);
+        redirect(
+            $PAGE->url,
+            get_string('errimportformat', 'local_reportsources'),
+            null,
+            \core\output\notification::NOTIFY_ERROR
+        );
     }
 
     $sources = transfer::parse($json);
@@ -112,8 +130,11 @@ if ($data = $mform->get_data()) {
     foreach ($sources as $index => $source) {
         $label = format_string($source['name']);
         if ($source['description'] !== '') {
-            $label .= ' ' . html_writer::tag('small',
-                shorten_text(s($source['description']), 80), ['class' => 'text-muted']);
+            $label .= ' ' . html_writer::tag(
+                'small',
+                shorten_text(s($source['description']), 80),
+                ['class' => 'text-muted']
+            );
         }
         echo html_writer::start_div('form-check');
         echo html_writer::empty_tag('input', [

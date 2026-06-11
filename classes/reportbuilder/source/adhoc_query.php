@@ -37,7 +37,6 @@ use local_reportsources\reportbuilder\local\entities\adhoc_view;
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class adhoc_query extends datasource {
-
     public static function get_name(): string {
         return get_string('reportsource', 'local_reportsources');
     }

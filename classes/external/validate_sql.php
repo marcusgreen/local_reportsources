@@ -34,7 +34,6 @@ use local_reportsources\local\sql\view;
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class validate_sql extends external_api {
-
     /**
      * @return external_function_parameters
      */

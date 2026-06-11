@@ -32,12 +32,16 @@ require_once($CFG->libdir . '/formslib.php');
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class import_form extends moodleform {
-
     protected function definition() {
         $mform = $this->_form;
 
-        $mform->addElement('filepicker', 'importfile', get_string('importfile', 'local_reportsources'),
-            null, ['accepted_types' => ['.json']]);
+        $mform->addElement(
+            'filepicker',
+            'importfile',
+            get_string('importfile', 'local_reportsources'),
+            null,
+            ['accepted_types' => ['.json']]
+        );
         $mform->addRule('importfile', null, 'required', null, 'client');
 
         $this->add_action_buttons(true, get_string('importupload', 'local_reportsources'));

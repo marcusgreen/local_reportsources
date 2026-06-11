@@ -34,8 +34,10 @@ require_capability('local/reportsources:author', $context);
 
 $query = query::get($id);
 $rec = $query->record();
-if ((int) $rec->ownerid !== (int) $USER->id &&
-    !has_capability('local/reportsources:viewall', $context)) {
+if (
+    (int) $rec->ownerid !== (int) $USER->id &&
+    !has_capability('local/reportsources:viewall', $context)
+) {
     throw new required_capability_exception($context, 'local/reportsources:viewall', 'nopermissions', '');
 }
 
@@ -60,8 +62,10 @@ if ($confirm) {
 echo $OUTPUT->header();
 echo $OUTPUT->confirm(
     get_string('delete', 'local_reportsources') . ': ' . format_string($rec->name) . '?',
-    new moodle_url('/local/reportsources/delete.php',
-        ['id' => $id, 'confirm' => 1, 'sesskey' => sesskey()]),
+    new moodle_url(
+        '/local/reportsources/delete.php',
+        ['id' => $id, 'confirm' => 1, 'sesskey' => sesskey()]
+    ),
     new moodle_url('/local/reportsources/index.php')
 );
 echo $OUTPUT->footer();

@@ -33,7 +33,6 @@ require_once($CFG->libdir . '/formslib.php');
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class edit_query_form extends moodleform {
-
     protected function definition() {
         global $DB, $PAGE;
 
@@ -46,16 +45,24 @@ class edit_query_form extends moodleform {
         // (courseid 0). Authors can re-scope an existing query here — e.g. an imported draft that
         // landed site-wide because its original course id does not exist on this site. The chosen
         // course is access-checked on save (see edit.php), so listing all courses here is safe.
-        $mform->addElement('course', 'courseid', get_string('coursescope', 'local_reportsources'),
-            ['multiple' => false, 'includefrontpage' => false]);
+        $mform->addElement(
+            'course',
+            'courseid',
+            get_string('coursescope', 'local_reportsources'),
+            ['multiple' => false, 'includefrontpage' => false]
+        );
         $mform->setType('courseid', PARAM_INT);
         $mform->setDefault('courseid', 0);
         $mform->addHelpButton('courseid', 'coursescope', 'local_reportsources');
 
-        $mform->addElement('advcheckbox', 'visible',
+        $mform->addElement(
+            'advcheckbox',
+            'visible',
             get_string('visible', 'local_reportsources'),
             ' ',
-            null, [0, 1]);
+            null,
+            [0, 1]
+        );
         $mform->setDefault('visible', 1);
         $mform->addHelpButton('visible', 'visible', 'local_reportsources');
 
@@ -63,9 +70,12 @@ class edit_query_form extends moodleform {
         $mform->setType('name', PARAM_TEXT);
         $mform->addRule('name', null, 'required', null, 'client');
 
-        $mform->addElement('textarea', 'description',
+        $mform->addElement(
+            'textarea',
+            'description',
             get_string('description', 'local_reportsources'),
-            ['rows' => 3, 'cols' => 80]);
+            ['rows' => 3, 'cols' => 80]
+        );
         $mform->setType('description', PARAM_TEXT);
 
         if (get_config('local_reportsources', 'syntaxhighlight')) {
@@ -84,15 +94,22 @@ class edit_query_form extends moodleform {
             $mform->setType('fkjson', PARAM_RAW);
         }
 
-        $mform->addElement('textarea', 'querysql',
+        $mform->addElement(
+            'textarea',
+            'querysql',
             get_string('querysql', 'local_reportsources'),
-            ['rows' => 10, 'cols' => 80, 'class' => 'local-reportsources-sql']);
+            ['rows' => 10, 'cols' => 80, 'class' => 'local-reportsources-sql']
+        );
         $mform->setType('querysql', PARAM_RAW);
         $mform->addRule('querysql', null, 'required', null, 'client');
         $mform->addHelpButton('querysql', 'querysql', 'local_reportsources');
 
-        $mform->addElement('text', 'rowcap',
-            get_string('rowcap', 'local_reportsources'), ['size' => 8]);
+        $mform->addElement(
+            'text',
+            'rowcap',
+            get_string('rowcap', 'local_reportsources'),
+            ['size' => 8]
+        );
         $mform->setType('rowcap', PARAM_INT);
         $mform->setDefault('rowcap', (int) (get_config('local_reportsources', 'rowcapdefault') ?: 5000));
         $mform->addHelpButton('rowcap', 'rowcap', 'local_reportsources');
@@ -127,8 +144,12 @@ class edit_query_form extends moodleform {
         $typeopts['cohort']   = get_string('audiencecohort', 'local_reportsources');
         $typeopts['none']     = get_string('audiencenone', 'local_reportsources');
 
-        $mform->addElement('select', 'audiencetype',
-            get_string('audiencetype', 'local_reportsources'), $typeopts);
+        $mform->addElement(
+            'select',
+            'audiencetype',
+            get_string('audiencetype', 'local_reportsources'),
+            $typeopts
+        );
         $mform->setType('audiencetype', PARAM_ALPHA);
         $mform->setDefault('audiencetype', 'default');
         $mform->addHelpButton('audiencetype', 'audiencetype', 'local_reportsources');
@@ -142,15 +163,25 @@ class edit_query_form extends moodleform {
             foreach (role_fix_names(get_all_roles(), $coursecontext, ROLENAME_BOTH) as $role) {
                 $roleopts[$role->id] = $role->localname;
             }
-            $mform->addElement('autocomplete', 'audienceroles',
-                get_string('audienceroles', 'local_reportsources'), $roleopts, ['multiple' => true]);
+            $mform->addElement(
+                'autocomplete',
+                'audienceroles',
+                get_string('audienceroles', 'local_reportsources'),
+                $roleopts,
+                ['multiple' => true]
+            );
             $mform->setType('audienceroles', PARAM_INT);
             $mform->hideIf('audienceroles', 'audiencetype', 'neq', 'courserole');
         }
 
         $cohortopts = $DB->get_records_menu('cohort', null, 'name', 'id, name');
-        $mform->addElement('autocomplete', 'audiencecohorts',
-            get_string('audiencecohorts', 'local_reportsources'), $cohortopts, ['multiple' => true]);
+        $mform->addElement(
+            'autocomplete',
+            'audiencecohorts',
+            get_string('audiencecohorts', 'local_reportsources'),
+            $cohortopts,
+            ['multiple' => true]
+        );
         $mform->setType('audiencecohorts', PARAM_INT);
         $mform->hideIf('audiencecohorts', 'audiencetype', 'neq', 'cohort');
     }
@@ -239,7 +270,10 @@ class edit_query_form extends moodleform {
         if (!$record || empty($record->columnsmeta)) {
             if ($record) {
                 $mform->addElement('header', 'chartheader', get_string('chartsettings', 'local_reportsources'));
-                $mform->addElement('static', 'chart_unpublished_note', '',
+                $mform->addElement(
+                    'static',
+                    'chart_unpublished_note',
+                    '',
                     \html_writer::div(
                         get_string('chartpublishrequired', 'local_reportsources'),
                         'alert alert-warning',
@@ -263,8 +297,12 @@ class edit_query_form extends moodleform {
         // Per-user filter: restrict the report to rows whose chosen column matches the viewing
         // user's id. Offered only once published, since the column list comes from the live view.
         $mform->addElement('header', 'useridfilterheader', get_string('useridfilter', 'local_reportsources'));
-        $mform->addElement('select', 'useridcolumn',
-            get_string('useridcolumn', 'local_reportsources'), $xopts);
+        $mform->addElement(
+            'select',
+            'useridcolumn',
+            get_string('useridcolumn', 'local_reportsources'),
+            $xopts
+        );
         $mform->setType('useridcolumn', PARAM_ALPHANUMEXT);
         $mform->setDefault('useridcolumn', $record->useridcolumn ?? '');
         $mform->addHelpButton('useridcolumn', 'useridcolumn', 'local_reportsources');

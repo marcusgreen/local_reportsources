@@ -29,7 +29,6 @@ use local_reportsources\local\query;
  * @covers    \local_reportsources\local\query
  */
 final class audience_test extends \advanced_testcase {
-
     /**
      * Build a minimal valid form-data object for query::save().
      *

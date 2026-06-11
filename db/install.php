@@ -51,8 +51,12 @@ function xmldb_local_reportsources_install(): void {
                     set_config('queryid_for_report_' . $rec->reportid, $newid, 'local_reportsources');
                 }
                 // Update reportbuilder_report source class name.
-                $DB->set_field('reportbuilder_report', 'source', $newsource,
-                    ['id' => $rec->reportid, 'source' => $oldsource]);
+                $DB->set_field(
+                    'reportbuilder_report',
+                    'source',
+                    $newsource,
+                    ['id' => $rec->reportid, 'source' => $oldsource]
+                );
             }
         }
 

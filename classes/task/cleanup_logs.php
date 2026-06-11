@@ -26,7 +26,6 @@ namespace local_reportsources\task;
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class cleanup_logs extends \core\task\scheduled_task {
-
     public function get_name(): string {
         return get_string('cleanuplogs', 'local_reportsources');
     }

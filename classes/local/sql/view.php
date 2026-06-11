@@ -28,7 +28,6 @@ use local_reportsources\local\sql\validator;
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class view {
-
     /** @var string Prefix for generated view names (without Moodle prefix). */
     public const NAME_PREFIX = 'local_reportsources_v_';
 
@@ -67,8 +66,12 @@ class view {
         } catch (\dml_exception $e) {
             $detail = validator::clean_error($e->error ?: ($e->debuginfo ?: $e->getMessage()));
             if (stripos($detail, 'Duplicate column name') !== false) {
-                throw new \moodle_exception('errcreateview', 'local_reportsources', '',
-                    get_string('errduplicatecolumn', 'local_reportsources'));
+                throw new \moodle_exception(
+                    'errcreateview',
+                    'local_reportsources',
+                    '',
+                    get_string('errduplicatecolumn', 'local_reportsources')
+                );
             }
             throw new \moodle_exception('errcreateview', 'local_reportsources', '', $detail);
         }

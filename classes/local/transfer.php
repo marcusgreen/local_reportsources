@@ -34,7 +34,6 @@ use local_reportsources\local\sql\validator;
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class transfer {
-
     /** Marker identifying our export files. */
     public const FORMAT = 'local_reportsources';
 

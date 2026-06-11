@@ -29,7 +29,6 @@ use local_reportsources\local\sql\validator;
  * @covers \local_reportsources\local\sql\validator
  */
 final class sql_validator_test extends \advanced_testcase {
-
     public static function valid_provider(): array {
         return [
             'simple SELECT' => ['SELECT id, fullname FROM {course}'],

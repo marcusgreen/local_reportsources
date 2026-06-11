@@ -460,8 +460,12 @@ class validator {
     private static function count_top_level_selects(string $stripped): int {
         $depth = 0;
         $count = 0;
-        $tokens = preg_split('/(\(|\)|\bSELECT\b)/i', $stripped, -1,
-            PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
+        $tokens = preg_split(
+            '/(\(|\)|\bSELECT\b)/i',
+            $stripped,
+            -1,
+            PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY
+        );
         foreach ($tokens as $tok) {
             if ($tok === '(') {
                 $depth++;
