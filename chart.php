@@ -62,6 +62,23 @@ if ($rec->status !== query::STATUS_PUBLISHED) {
     throw new moodle_exception('errchartnotpublished', 'local_reportsources');
 }
 
+// The chart reads the same data as the RB report, so it must honour the same report-level
+// access: managers always, everyone else only if core RB's context + audience admit them.
+$syscontext = context_system::instance();
+$canmanage = has_capability('local/reportsources:author', $syscontext)
+    || has_capability('local/reportsources:approve', $syscontext)
+    || has_capability('local/reportsources:viewall', $syscontext);
+
+$reportmodel = $rec->reportid
+    ? \core_reportbuilder\local\models\report::get_record(['id' => $rec->reportid])
+    : null;
+
+if (!$canmanage && (!$reportmodel
+        || !\core_reportbuilder\permission::can_view_report($reportmodel))) {
+    throw new moodle_exception('nopermissions', 'error', '',
+        get_string('viewchart', 'local_reportsources'));
+}
+
 $chartmeta = $rec->chartmeta ? json_decode($rec->chartmeta, true) : [];
 if (empty($chartmeta['type']) || $chartmeta['type'] === 'none') {
     throw new moodle_exception('errchartnotconfigured', 'local_reportsources');
@@ -72,16 +89,38 @@ $ycol     = (string) ($chartmeta['ycol'] ?? '');
 $rowlimit = max(1, min(5000, (int) ($chartmeta['rowlimit'] ?? 200)));
 $type     = $chartmeta['type'];
 
-// Fetch all columns for CSV; chart only needs xcol/ycol but CSV exports everything.
+// Fetch only the published columns: columnsmeta is denylist-stripped at publish time, while the
+// physical VIEW may still hold denied columns (password etc.) — never select *. Per-user queries
+// are additionally scoped to the viewing user, mirroring the RB base condition in adhoc_query.
+$meta = $q->columns_meta();
+if (!$meta) {
+    throw new moodle_exception('errchartnotconfigured', 'local_reportsources');
+}
+$fields = implode(', ', array_keys($meta));
+
+$conditions = null;
+$useridcolumn = $q->useridcolumn();
+if ($useridcolumn !== '') {
+    if (!array_key_exists($useridcolumn, $meta)) {
+        // Fail closed: a per-user query whose filter column is no longer in the published
+        // metadata must not fall through to showing every user's rows.
+        throw new moodle_exception('errchartnotconfigured', 'local_reportsources');
+    }
+    $conditions = [$useridcolumn => $USER->id];
+}
+
 $rows = [];
 try {
-    $rs = $DB->get_recordset($rec->viewname, null, '', '*', 0, $rowlimit);
+    $rs = $DB->get_recordset($rec->viewname, $conditions, '', $fields, 0, $rowlimit);
     foreach ($rs as $row) {
         $rows[] = (array) $row;
     }
     $rs->close();
 } catch (\dml_exception $e) {
-    throw new moodle_exception('errcreateview', 'local_reportsources', '', $e->getMessage());
+    // Viewers may be ordinary audience members: never surface the raw DB error (it can
+    // contain SQL fragments and physical table names). Detail goes to developer debugging.
+    debugging($e->getMessage(), DEBUG_DEVELOPER);
+    throw new moodle_exception('errchartdata', 'local_reportsources');
 }
 
 // CSV export — stream and exit before any HTML output.
@@ -92,8 +131,11 @@ if ($format === 'csv') {
     $out = fopen('php://output', 'w');
     if ($rows) {
         fputcsv($out, array_keys($rows[0]));
+        // Neutralise spreadsheet formula injection: a leading =, +, -, @, tab or CR would
+        // execute as a formula when the CSV is opened in Excel/Sheets.
+        $escape = static fn($v) => preg_match('/^[=+\-@\t\r]/', (string) $v) ? "'" . $v : $v;
         foreach ($rows as $row) {
-            fputcsv($out, $row);
+            fputcsv($out, array_map($escape, $row));
         }
     }
     fclose($out);
@@ -108,11 +150,13 @@ foreach ($rows as $row) {
 }
 
 $chart = match ($type) {
-    'line'     => new \core\chart_line(),
-    'pie'      => new \core\chart_pie(),
-    'doughnut' => (function () { $c = new \core\chart_pie(); $c->set_doughnut(true); return $c; })(),
-    default    => new \core\chart_bar(),
+    'line'            => new \core\chart_line(),
+    'pie', 'doughnut' => new \core\chart_pie(),
+    default           => new \core\chart_bar(),
 };
+if ($type === 'doughnut') {
+    $chart->set_doughnut(true);
+}
 
 $series = new \core\chart_series($ycol, $values);
 $chart->add_series($series);

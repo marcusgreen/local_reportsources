@@ -186,6 +186,7 @@ $string['chartdownloadpng'] = 'Download PNG';
 $string['chartprint'] = 'Print';
 $string['errchartnotpublished'] = 'This query is not published. Publish it first before viewing the chart.';
 $string['errchartnotconfigured'] = 'No chart is configured for this query. Edit the query to add chart settings.';
+$string['errchartdata'] = 'The report data for this chart could not be loaded. Contact the report owner if this persists.';
 
 $string['ai:heading'] = 'Generate SQL with AI';
 $string['ai:question'] = 'Describe the data you want';
