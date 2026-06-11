@@ -28,6 +28,8 @@
                COMMENT="Course this query is bound to; 0 means site-wide."/>
         <FIELD NAME="visible" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false"
                COMMENT="Hidden queries are excluded from the per-course list."/>
+        <FIELD NAME="useridcolumn" TYPE="char" LENGTH="64" NOTNULL="false" SEQUENCE="false"
+               COMMENT="Output column matched against the viewing user's id; NULL = no per-user filter."/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
       </FIELDS>

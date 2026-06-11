@@ -260,6 +260,15 @@ class edit_query_form extends moodleform {
         $colopts   = array_combine($colnames, $colnames);
         $xopts     = ['' => get_string('selectcolumn', 'local_reportsources')] + $colopts;
 
+        // Per-user filter: restrict the report to rows whose chosen column matches the viewing
+        // user's id. Offered only once published, since the column list comes from the live view.
+        $mform->addElement('header', 'useridfilterheader', get_string('useridfilter', 'local_reportsources'));
+        $mform->addElement('select', 'useridcolumn',
+            get_string('useridcolumn', 'local_reportsources'), $xopts);
+        $mform->setType('useridcolumn', PARAM_ALPHANUMEXT);
+        $mform->setDefault('useridcolumn', $record->useridcolumn ?? '');
+        $mform->addHelpButton('useridcolumn', 'useridcolumn', 'local_reportsources');
+
         $mform->addElement('header', 'chartheader', get_string('chartsettings', 'local_reportsources'));
 
         $mform->addElement('select', 'chart_type', get_string('charttype', 'local_reportsources'), [

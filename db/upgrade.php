@@ -105,5 +105,17 @@ function xmldb_local_reportsources_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026060901, 'local', 'reportsources');
     }
 
+    if ($oldversion < 2026061001) {
+        $dbman = $DB->get_manager();
+        $table = new xmldb_table('local_reportsources_query');
+
+        $field = new xmldb_field('useridcolumn', XMLDB_TYPE_CHAR, '64', null, null, null, null, 'visible');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_plugin_savepoint(true, 2026061001, 'local', 'reportsources');
+    }
+
     return true;
 }

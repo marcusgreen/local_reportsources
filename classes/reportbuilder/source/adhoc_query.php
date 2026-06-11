@@ -71,6 +71,15 @@ class adhoc_query extends datasource {
         $this->set_main_table($viewname, $alias);
         $this->add_entity($entity);
         $this->add_all_from_entity($entity->get_entity_name());
+
+        // Per-user filter: scope every row to the viewing user. The chosen column is a physical
+        // column of the view (validated at save against columnsmeta), so referencing it here is safe.
+        global $USER;
+        $useridcolumn = $query->useridcolumn();
+        if ($useridcolumn !== '' && array_key_exists($useridcolumn, $meta)) {
+            $param = \core_reportbuilder\local\helpers\database::generate_param_name();
+            $this->add_base_condition_sql("{$alias}.{$useridcolumn} = :{$param}", [$param => (int) $USER->id]);
+        }
     }
 
     /**

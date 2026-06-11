@@ -163,6 +163,10 @@ $string['visible_help'] = 'Controls whether this published report appears in the
 
 For finer-grained access control, use the Audiences feature in Report Builder after publishing: open the report, go to the Audience tab, and restrict by cohort, role, or individual user.';
 
+$string['useridfilter'] = 'Per-user filter';
+$string['useridcolumn'] = 'Restrict to viewing user';
+$string['useridcolumn_help'] = 'Optionally scope this report so each person sees only rows that belong to them. Pick the output column holding a user id; at view time the report shows only rows where that column equals the id of the logged-in user. Leave as "Choose a column…" to show all rows to everyone in the audience.';
+
 $string['cleanuplogs'] = 'Clean up report sources execution log';
 
 $string['chartsettings'] = 'Chart settings';

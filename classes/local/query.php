@@ -252,6 +252,16 @@ class query {
     }
 
     /**
+     * Output column whose value is matched against the viewing user's id to scope the report to
+     * "rows about me". Empty string means no per-user filter.
+     *
+     * @return string
+     */
+    public function useridcolumn(): string {
+        return (string) ($this->record->useridcolumn ?? '');
+    }
+
+    /**
      * Decoded column metadata cached on save (introspected from the live VIEW).
      *
      * @return array<string, array{type:string,label:string}>
@@ -260,6 +270,23 @@ class query {
         $raw = $this->record->columnsmeta ?: '[]';
         $decoded = json_decode($raw, true);
         return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * Coerce a submitted per-user column choice to a valid value: it must name one of the columns
+     * in the supplied columnsmeta JSON, otherwise the filter is cleared (returns null).
+     *
+     * @param string $choice Raw submitted column name.
+     * @param string|null $columnsmeta JSON column metadata of the published query.
+     * @return string|null Validated column name, or null for no filter.
+     */
+    private static function valid_useridcolumn(string $choice, ?string $columnsmeta): ?string {
+        $choice = clean_param($choice, PARAM_ALPHANUMEXT);
+        if ($choice === '') {
+            return null;
+        }
+        $meta = json_decode((string) ($columnsmeta ?: '[]'), true);
+        return (is_array($meta) && array_key_exists($choice, $meta)) ? $choice : null;
     }
 
     /**
@@ -304,14 +331,20 @@ class query {
             if ($existing->status === self::STATUS_PUBLISHED && $existing->querysql !== $sql) {
                 $transaction = $DB->start_delegated_transaction();
                 self::tear_down((int) $existing->id, $existing);
-                $record->status      = self::STATUS_DRAFT;
-                $record->viewname    = null;
-                $record->reportid    = null;
-                $record->columnsmeta = null;
+                $record->status       = self::STATUS_DRAFT;
+                $record->viewname     = null;
+                $record->reportid     = null;
+                $record->columnsmeta  = null;
+                // Old column names no longer apply once the view is rebuilt.
+                $record->useridcolumn = null;
                 $DB->update_record(self::TABLE, $record);
                 $transaction->allow_commit();
                 return $record->id;
             }
+            // The per-user column is picked from the live view's columns, so only accept it for an
+            // already-published query and only when it names one of that query's output columns.
+            $record->useridcolumn = self::valid_useridcolumn(
+                (string) ($data->useridcolumn ?? ''), $existing->columnsmeta);
             $DB->update_record(self::TABLE, $record);
             // Audience/visibility edits on an already-published report take effect immediately.
             if ($existing->status === self::STATUS_PUBLISHED && !empty($existing->reportid)) {
