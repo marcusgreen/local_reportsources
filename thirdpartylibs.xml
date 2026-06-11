@@ -12,4 +12,15 @@
       <copyright>2014 Justin Swanhart &lt;greenlion@gmail.com&gt; and André Rothe &lt;phosco@gmx.de&gt;</copyright>
     </copyrights>
   </library>
+  <library>
+    <location>amd/src/sql-formatter-lazy.js</location>
+    <name>sql-formatter</name>
+    <description>JavaScript SQL formatter used by the query editor's "Format SQL" button to pretty-print author SQL.</description>
+    <version>15.6.6</version>
+    <license>MIT</license>
+    <repository>https://github.com/sql-formatter-org/sql-formatter</repository>
+    <copyrights>
+      <copyright>2016-present ZeroTurnaround LLC and sql-formatter contributors</copyright>
+    </copyrights>
+  </library>
 </libraries>

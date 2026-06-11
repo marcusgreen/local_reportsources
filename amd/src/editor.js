@@ -32,6 +32,8 @@ import {
     sql,
     MySQL,
 } from './codemirror-lazy';
+import {format as formatSql} from './sql-formatter-lazy';
+import {get_string as getString} from 'core/str';
 
 /**
  * Initialise a CodeMirror 6 SQL editor replacing the textarea with the given id.
@@ -124,12 +126,13 @@ export const init = (targetid) => {
         const tableFkMap = fkMap[entry.table] || {};
         return {
             from: before.from + dotIdx + 1,
+            // Foreign-key columns are boosted so they group at the top of the list.
             options: entry.cols.map(col => {
                 const fk = tableFkMap[col];
                 return {
                     label: col,
                     type: 'property',
-                    ...(fk ? {detail: `→ ${fk.reftable}.${fk.refcol}`} : {}),
+                    ...(fk ? {detail: `→ ${fk.reftable}.${fk.refcol}`, boost: 1} : {}),
                 };
             }),
             validFor: /^\w*$/,
@@ -147,7 +150,13 @@ export const init = (targetid) => {
             basicSetup,
             sql({dialect: MySQL, schema: schema, tables: tables, upperCaseKeywords: true}),
             MySQL.language.data.of({autocomplete: aliasCompletionSource}),
-            keymap.of([{key: "Tab", run: acceptCompletion}]),
+            keymap.of([
+                {key: "Tab", run: acceptCompletion},
+                {key: "Shift-Ctrl-f", run: () => {
+                    reformatEditor();
+                    return true;
+                }},
+            ]),
             EditorView.lineWrapping,
             heightTheme,
             EditorView.updateListener.of((update) => {
@@ -175,6 +184,51 @@ export const init = (targetid) => {
     warningBanner.className = 'alert alert-warning mt-1';
     warningBanner.style.display = 'none';
     errorBanner.after(warningBanner);
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'd-flex justify-content-end mb-1';
+    const formatBtn = document.createElement('button');
+    formatBtn.type = 'button';
+    formatBtn.className = 'btn btn-outline-secondary btn-sm';
+    formatBtn.textContent = 'Format SQL';
+    getString('formatsql', 'local_reportsources')
+        .then(s => {
+            formatBtn.textContent = s;
+            return s;
+        })
+        .catch(() => null);
+    toolbar.appendChild(formatBtn);
+    container.before(toolbar);
+
+    /**
+     * Reformat the editor contents to standard SQL layout (clauses on their own
+     * lines, indented lists, upper-case keywords). Moodle {table} placeholders
+     * are declared as a custom parameter type so the parser accepts them.
+     */
+    function reformatEditor() {
+        const current = view.state.doc.toString();
+        if (!current.trim()) {
+            return;
+        }
+        try {
+            const formatted = formatSql(current, {
+                language: 'mysql',
+                keywordCase: 'upper',
+                functionCase: 'upper',
+                dataTypeCase: 'upper',
+                tabWidth: 4,
+                paramTypes: {custom: [{regex: '\\{[A-Za-z0-9_]+\\}'}]},
+            });
+            view.dispatch({changes: {from: 0, to: view.state.doc.length, insert: formatted}});
+            errorBanner.style.display = 'none';
+        } catch (e) {
+            // Parse failure (incomplete SQL etc.) — leave the text untouched.
+            errorBanner.className = 'alert alert-danger mt-1';
+            errorBanner.textContent = 'Could not format SQL: ' + e.message;
+            errorBanner.style.display = '';
+        }
+    }
+    formatBtn.addEventListener('click', reformatEditor);
 
     const denyKeywords = [
         'INSERT', 'UPDATE', 'DELETE', 'DROP', 'TRUNCATE', 'ALTER', 'CREATE',

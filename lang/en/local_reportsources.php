@@ -79,6 +79,7 @@ $string['duplicate'] = 'Duplicate';
 $string['copyof'] = 'Copy of {$a}';
 $string['copysuccess'] = 'Report view copied. You are now editing the copy.';
 $string['edit'] = 'Edit';
+$string['formatsql'] = 'Format SQL';
 $string['actions'] = 'Actions';
 $string['owner'] = 'Owner';
 
