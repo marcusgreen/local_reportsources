@@ -135,5 +135,18 @@ function xmldb_local_reportsources_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026061201, 'local', 'reportsources');
     }
 
+    if ($oldversion < 2026061202) {
+        $dbman = $DB->get_manager();
+
+        // Drop the custom audit table: nothing ever wrote to it, and lifecycle auditing now
+        // goes through \core\event subclasses into the standard Moodle logstore.
+        $table = new xmldb_table('local_reportsources_log');
+        if ($dbman->table_exists($table)) {
+            $dbman->drop_table($table);
+        }
+
+        upgrade_plugin_savepoint(true, 2026061202, 'local', 'reportsources');
+    }
+
     return true;
 }

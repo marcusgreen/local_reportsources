@@ -1,89 +1,118 @@
 # local_reportsources — improvement suggestions
 
 Review of the whole plugin, ranked by impact. File:line references point at the code discussed.
+Last refreshed 2026-06-12; previously fixed items (alias denylist bypass, dead `rowcap`,
+missing lifecycle events) have been removed.
 
-## Security
+## Security / privacy
 
-### 1. Column denylist bypassable via alias — real info-leak ✅ FIXED
-`view::columns()` strips denied column *output names* (`classes/local/sql/view.php:147`); denylist default is `password,secret,sesskey`. A user could alias the source column to dodge it:
+### 1. Privacy delete retains authored queries — GDPR design decision pending
+`classes/privacy/provider.php:39` declares `query.querysql` and `query.ownerid` as personal
+data, but all three delete methods (`provider.php:77-89`) are deliberate no-ops: queries
+back live RB reports + DB views, so deletion is destructive. The retention rationale is now
+documented in code (done as part of the #2 cleanup), which satisfies the minimum bar.
 
-```sql
-SELECT password AS pw FROM {user}
-```
+Remaining decision: whether a deletion request should anonymise `ownerid` (reassign to
+admin/guest) so the row stops being personal data while the report survives.
 
-Output column = `pw`, so the denylist never matched `password` and the hash leaked. The output-name filter checks final view column names, not the underlying source columns.
+### 2. `local_reportsources_log` table ✅ FIXED (removed)
+Lifecycle events had already replaced it (`classes/event/*`, logged to
+`logstore_standard_log`), but the never-written custom table and its plumbing remained.
 
-Fixed: `validator::validate()` now scans the comment/string-stripped SQL and rejects any reference to a denied column name as a bare identifier token (`errdeniedcolumn`), so aliased or qualified references are caught at save/import. The output-name strip remains as a second layer (covers `SELECT *`, where no denied name appears in the SQL text). Tests in `tests/sql_validator_test.php`.
-
-### 2. Privacy delete is incomplete — GDPR gap
-`classes/privacy/provider.php:38` declares `query.querysql` and `query.ownerid` as personal data. But `delete_data_for_user` (`provider.php:95`) only deletes from `_log`, never `_query`. A user-deletion request leaves their authored SQL behind.
-
-Fix: delete/anonymise owned queries, or document why they are retained (they back live reports → deletion is destructive). At minimum reassign `ownerid`.
-
-## Dead code / unfinished
-
-### 3. `rowcap` does nothing ✅ FIXED (removed)
-Stored, form field, exported, imported, migrated — but there was zero enforcement anywhere. The RB report uses its own pagination; the chart uses a separate `chart_rowlimit`.
-
-Fixed: removed the dead config rather than wiring a hard cap (a view-level `LIMIT` picks an arbitrary subset before RB sorts/paginates, so it would not behave as authors expect). Dropped the `rowcap` column (`db/upgrade.php` drop_field step + version bump), the `rowcapdefault` admin setting, and all form / transfer / save / duplicate / lang / fixture references.
-
-### 4. Logging uses a dead custom table instead of the Moodle log
-Two problems, both wrong-by-design.
-
-**(a) Custom table, never written.** The plugin ships its own audit table `local_reportsources_log` (`db/install.xml:47`; columns `queryid|userid|action|status|durationms|errortext|timeexecuted`, action vocab `validate|preview|publish|drop|run`). Nothing inserts rows outside the install migration (`db/install.php:65`); the cleanup task (`classes/task/cleanup_logs.php:36`) only deletes from it. Privacy exports an empty table. `STATUS_DISABLED` is likewise defined and unused.
-
-**(b) Wrong channel.** Even if populated, a custom table is invisible to Site admin → Reports → Logs, the Logs report filters, core retention policy, and external logstores. Lifecycle actions should fire `\core\event\*` subclasses, which Moodle routes to `logstore_standard_log` automatically.
-
-No event coverage exists today: no `classes/event/`, no `\core\event` triggers, no `db/events.php`. Nothing reaches `logstore_standard_log`. For a plugin tagged `RISK_PERSONAL | RISK_DATALOSS` (`db/access.php:29`) that executes arbitrary SQL and creates DB views, the absence of any audit trail for *who published/edited/deleted which query* is the real weakness — not the empty custom table.
-
-Actions that currently log nothing: save (`query.php:330`), publish (`query.php:407`), unpublish (`query.php:627`), delete (`query.php:671`), duplicate (`query.php:687`), create-extra-report (`query.php:650`), validate-SQL AJAX (`external\validate_sql`), import/export (`transfer::*`). (Running a report is logged by core RB itself.)
-
-Fix:
-1. Add `classes/event/` subclasses (`query_published`, `query_unpublished`, `query_deleted`, `query_created`, `query_updated`) extending `\core\event\base` (`crud`, `edulevel = LEVEL_OTHER`, `objecttable = local_reportsources_query`).
-2. `::create([...])->trigger()` at each lifecycle point in `query.php`. Events land in `logstore_standard_log` (default logstore), queryable in the normal Logs report and honouring core retention + privacy.
-3. Then delete the redundant `local_reportsources_log` table + `cleanup_logs` task + its `db/tasks.php` entry + its privacy-provider entries + `STATUS_DISABLED`.
-
-Minimal high-value subset: just `query_published` + `query_deleted` — the two data-exposure transitions an auditor cares about.
+Fixed: dropped the table (`db/upgrade.php` 2026061202 step + version bump), removed it from
+`db/install.xml`, deleted the `cleanup_logs` task + `db/tasks.php`, removed the
+`local_adhocreports_log` migration from `db/install.php`, stripped all `_log` references
+from the privacy provider (delete methods are now documented no-ops — queries retained, see
+#1), removed `STATUS_DISABLED` and the `cleanuplogs` / `privacy:metadata:log:*` lang
+strings. (`status_disabled` kept: reachable via dynamic `'status_' . $rec->status` in
+`index.php:150` for rows migrated from local_adhocreports.)
 
 ## Correctness
 
-### 5. `get_contexts_for_userid` always returns system context
-`classes/privacy/provider.php:53` returns the system context for *every* user, even those with no data. Should check the user actually owns a query or log row first, else the privacy UI shows phantom data for everyone.
+### 3. `get_contexts_for_userid` always returns system context
+`classes/privacy/provider.php:53` returns the system context for *every* user, even those
+with no data. Should check the user actually owns a query row first, else the privacy UI
+shows phantom data for everyone.
 
 ## Architecture / maintainability
 
-### 6. `query.php` is 834 lines with mixed concerns
-CRUD + audience derivation + AI naming heuristics + RB plumbing in one class.
+### 4. Report-access check duplicated — and the drift already happened
+The original concern was a copy-pasted `$canmanage || can_view_report` block. It is now
+worse: `index.php:115-145` hand-mirrors core `permission::can_view_report()` internals
+(`can_view_reports_list()` + a pre-fetched audience-id map, to avoid N queries on the list
+page), while `chart.php:72-82` calls `can_view_report()` directly. Two implementations of
+the same rule; a core RB permission change now breaks them differently.
 
-Fix: split audience logic (`apply_report_visibility`, `build_audiencemeta`, `explode_audiencemeta`, `staff_role_ids`) into a dedicated `audience_resolver`. Move naming heuristics (`name_from_sql`, `extract_tables`, `extract_select_columns`) into a `naming` helper.
+Fix: extract one method (e.g. `query::current_user_can_view_report(?array $prefetchedaudiences = null)`)
+that uses the pre-fetched map when given one and falls back to the core call otherwise.
 
-### 7. Duplicated report-access check
-The `$canmanage || can_view_report` block exists in both `index.php:123` and `chart.php:71`. Extract to one method (e.g. `query::current_user_can_view_report()`) — drift risk if RB permission logic changes.
+### 5. `query.php` is 846 lines with mixed concerns — and still growing
+CRUD + audience derivation + AI naming heuristics + RB plumbing in one class. The audience
+logic has grown since the last review (now `allusers` / `courseparticipant` / `courserole` /
+`cohortmember` branches around `query.php:528-557`).
 
-### 8. `queryid_for_report_<id>` config glue is fragile
-The binding lives in `config_plugins` and is torn down by a `LIKE 'queryid\_for\_report\_%'` scan (`classes/local/query.php:721`). Works, but a real column (`reportid` already exists on the query) or a small mapping table would be clearer, indexable, and FK-enforceable.
+Fix: split audience logic (`apply_report_visibility`, `build_audiencemeta`,
+`explode_audiencemeta`, `staff_role_ids`) into a dedicated `audience_resolver`. Move naming
+heuristics (`name_from_sql`, `extract_tables`, `extract_select_columns`) into a `naming` helper.
+
+### 6. `queryid_for_report_<id>` config glue is fragile
+The binding lives in `config_plugins` (`classes/local/query.php:437`) and is torn down by a
+`LIKE 'queryid\_for\_report\_%'` scan (`query.php:734`). Works, but a real column
+(`reportid` already exists on the query) or a small mapping table would be clearer,
+indexable, and FK-enforceable.
 
 ## Performance
 
-### 9. `tablejson` rebuilt every form load, uncached
-`classes/form/edit_query_form.php:85` loops `$DB->get_tables()` + `get_columns()` for *every* table on each edit-page render. On a large Moodle (hundreds of tables) this is heavy. `fkmap` is already version-cached (`build_fk_map`, `edit_query_form.php:198`) — give `tablejson` the same treatment.
+### 7. `tablejson` rebuilt every form load, uncached
+`classes/form/edit_query_form.php:86` loops `$DB->get_tables()` + `get_columns()` for
+*every* table on each edit-page render. On a large Moodle (hundreds of tables) this is
+heavy. `fkmap` is already version-cached (`build_fk_map`, `edit_query_form.php:185`) — give
+`tablejson` the same treatment.
 
 ## i18n / standards
 
-### 10. Hard-coded English in privacy export
-`classes/privacy/provider.php:78` uses the literal strings `'Ad-hoc reports'`, `'Queries'`, `'Audit log'` as export path keys. Should be `get_string()`.
+### 8. Hard-coded English in privacy export
+`classes/privacy/provider.php:78` and `:83` use the literal strings `'Ad-hoc reports'`,
+`'Queries'`, `'Audit log'` as export path keys. Should be `get_string()`.
 
 ## Testing
 
-### 11. Thin coverage
-Only 3 unit files (validator, audience, transfer). No tests for the core `publish()` lifecycle, `view::create_or_replace`, `auto_brace()` (complex tokeniser, untested directly), per-user filter scoping, or the alias-denylist gap (#1). No Behat.
+### 9. Thin coverage
+Still only 3 unit files (validator, audience, transfer). No tests for the core `publish()`
+lifecycle, `view::create_or_replace`, `auto_brace()` (complex tokeniser, untested directly),
+or per-user filter scoping. The new event classes are also untested — no assertions that
+`query_published` etc. fire with the right `objectid`/`other` payload
+(`assertEventLegacyData` / `redirectEvents` pattern). No Behat.
 
-Fix: add `auto_brace` data-provider tests and a publish → view → teardown integration test.
+Fix: add `auto_brace` data-provider tests, event-trigger tests via `redirectEvents()`, and a
+publish → view → teardown integration test.
+
+## New ideas
+
+### 10. Repo hygiene: session scratch file at plugin root
+`SESSION-report-visibility.md` is a dated working log ("Session log — report visibility
+(2026-06-09)") sitting in the plugin root. It will ship in any release zip and confuse
+moodle.org reviewers. Fold anything durable into `docs/` or CLAUDE.md and delete it.
+
+### 11. SQL change history
+Events record *who* changed a query and *when*, but not *what* the SQL was before. For a
+plugin whose whole risk surface is the SQL text, storing the previous `querysql` (e.g. in
+the `query_updated` event's `other` payload, or a small history table) would let an admin
+answer "what did this report expose last month?". Cheap to add at the existing trigger
+point (`query.php:373`/`:395`).
+
+### 12. Fail fast on unsupported DB families
+View column introspection special-cases Postgres (`classes/local/sql/view.php:149`) and
+relies on native `get_columns()` for everything else — which is known-good on MySQL/MariaDB
+but unverified on sqlsrv/Oracle. `privilege_check::probe()` (and ideally `settings.php`)
+should detect an unsupported `$DB->get_dbfamily()` and warn up front instead of letting
+publish fail mid-flow.
 
 ---
 
 ## Priority
 
-Highest: **#1 (alias leak)** and **#2 (privacy delete)** — both data-exposure. Then **#3 / #4** (dead `rowcap` / log) to cut confusion.
+Highest: **#1 (privacy delete)** — data-retention exposure; the log-table removal (#2, done)
+has already shrunk it to the single `_query` retention question.
 
-Bounded mechanical edits: #3, #4, #7, #10. Need a design decision first: #1, #2.
+Bounded mechanical edits: #3, #8, #10. Need a design decision first: #1, #6, #11.

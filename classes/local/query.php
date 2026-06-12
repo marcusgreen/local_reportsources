@@ -40,7 +40,6 @@ class query {
 
     public const STATUS_DRAFT = 'draft';
     public const STATUS_PUBLISHED = 'published';
-    public const STATUS_DISABLED = 'disabled';
 
     /** Audience picker tokens (stored in audiencemeta.type; DEFAULT means derive automatically). */
     public const AUDIENCE_DEFAULT = 'default';
@@ -681,7 +680,6 @@ class query {
         $queryid = $this->id();
         $name = $this->name();
         self::tear_down($queryid, $this->record);
-        $DB->delete_records('local_reportsources_log', ['queryid' => $queryid]);
         $DB->delete_records(self::TABLE, ['id' => $queryid]);
         \local_reportsources\event\query_deleted::create_and_trigger($queryid, $name);
     }

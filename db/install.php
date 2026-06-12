@@ -60,14 +60,6 @@ function xmldb_local_reportsources_install(): void {
             }
         }
 
-        // Migrate log records.
-        if ($DB->get_manager()->table_exists('local_adhocreports_log')) {
-            $DB->execute('INSERT INTO {local_reportsources_log}
-                (queryid, userid, action, status, durationms, errortext, timeexecuted)
-                SELECT queryid, userid, action, status, durationms, errortext, timeexecuted
-                FROM {local_adhocreports_log}');
-        }
-
         // Rename existing DB views to new prefix.
         $existing = $DB->get_records('local_adhocreports_query', null, '', 'id,viewname');
         global $CFG;

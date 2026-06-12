@@ -70,7 +70,6 @@ $string['chartxcol'] = 'Label column (X axis / slices)';
 $string['chartxcol_help'] = 'Column whose values label each bar, point, or pie slice.';
 $string['chartycol'] = 'Value column (Y axis)';
 $string['chartycol_help'] = 'Column whose values are plotted. Must contain numeric data.';
-$string['cleanuplogs'] = 'Clean up report sources execution log';
 $string['copyof'] = 'Copy of {$a}';
 $string['copysuccess'] = 'Report view copied. You are now editing the copy.';
 $string['coursescope'] = 'Course scope';
@@ -137,9 +136,6 @@ When you publish a query, the plugin creates a database VIEW from your SQL, read
 
 Only SELECT queries are allowed, and a denylist blocks access to sensitive tables. Editing the SQL of a published query rebuilds the view and report on the next publish.';
 $string['pluginname'] = 'Report sources';
-$string['privacy:metadata:log'] = 'Audit log of query executions.';
-$string['privacy:metadata:log:timeexecuted'] = 'Timestamp of the action.';
-$string['privacy:metadata:log:userid'] = 'User who ran or modified the query.';
 $string['privacy:metadata:query'] = 'Saved report views authored by users.';
 $string['privacy:metadata:query:ownerid'] = 'User who authored the query.';
 $string['privacy:metadata:query:querysql'] = 'The SQL of the query.';

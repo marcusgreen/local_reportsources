@@ -43,27 +43,5 @@
         <INDEX NAME="courseid" UNIQUE="false" FIELDS="courseid"/>
       </INDEXES>
     </TABLE>
-    <TABLE NAME="local_reportsources_log" COMMENT="Audit of ad-hoc report executions.">
-      <FIELDS>
-        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
-        <FIELD NAME="queryid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
-        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
-        <FIELD NAME="action" TYPE="char" LENGTH="32" NOTNULL="true" SEQUENCE="false"
-               COMMENT="validate|preview|publish|drop|run"/>
-        <FIELD NAME="status" TYPE="char" LENGTH="16" NOTNULL="true" SEQUENCE="false"
-               COMMENT="ok|denied|error|timeout"/>
-        <FIELD NAME="durationms" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
-        <FIELD NAME="errortext" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
-        <FIELD NAME="timeexecuted" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
-      </FIELDS>
-      <KEYS>
-        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
-        <KEY NAME="queryid" TYPE="foreign" FIELDS="queryid" REFTABLE="local_reportsources_query" REFFIELDS="id"/>
-        <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
-      </KEYS>
-      <INDEXES>
-        <INDEX NAME="timeexecuted" UNIQUE="false" FIELDS="timeexecuted"/>
-      </INDEXES>
-    </TABLE>
   </TABLES>
 </XMLDB>

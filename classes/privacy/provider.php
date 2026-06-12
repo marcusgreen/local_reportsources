@@ -42,11 +42,6 @@ class provider implements \core_privacy\local\metadata\provider, \core_privacy\l
             'timecreated'  => 'privacy:metadata:query:timecreated',
         ], 'privacy:metadata:query');
 
-        $collection->add_database_table('local_reportsources_log', [
-            'userid'       => 'privacy:metadata:log:userid',
-            'timeexecuted' => 'privacy:metadata:log:timeexecuted',
-        ], 'privacy:metadata:log');
-
         return $collection;
     }
 
@@ -61,7 +56,6 @@ class provider implements \core_privacy\local\metadata\provider, \core_privacy\l
         if (!$context instanceof \context_system) {
             return;
         }
-        $userlist->add_from_sql('userid', 'SELECT DISTINCT userid FROM {local_reportsources_log}', []);
         $userlist->add_from_sql('ownerid', 'SELECT DISTINCT ownerid FROM {local_reportsources_query}', []);
     }
 
@@ -77,39 +71,19 @@ class provider implements \core_privacy\local\metadata\provider, \core_privacy\l
             writer::with_context(\context_system::instance())
                 ->export_data(['Ad-hoc reports', 'Queries'], (object) $queries);
         }
-        $logs = $DB->get_records('local_reportsources_log', ['userid' => $userid]);
-        if ($logs) {
-            writer::with_context(\context_system::instance())
-                ->export_data(['Ad-hoc reports', 'Audit log'], (object) $logs);
-        }
     }
 
     public static function delete_data_for_all_users_in_context(\context $context): void {
-        global $DB;
-        if (!$context instanceof \context_system) {
-            return;
-        }
-        $DB->delete_records('local_reportsources_log');
+        // Authored queries are retained: each backs a live Report Builder report and a
+        // DB view, so deleting them destroys site reporting infrastructure rather than
+        // personal data. The querysql/ownerid fields are exported above instead.
     }
 
     public static function delete_data_for_user(approved_contextlist $contextlist): void {
-        global $DB;
-        if (!in_array(\context_system::instance()->id, $contextlist->get_contextids(), true)) {
-            return;
-        }
-        $DB->delete_records('local_reportsources_log', ['userid' => $contextlist->get_user()->id]);
+        // Queries are retained; see delete_data_for_all_users_in_context().
     }
 
     public static function delete_data_for_users(approved_userlist $userlist): void {
-        global $DB;
-        if (!$userlist->get_context() instanceof \context_system) {
-            return;
-        }
-        $userids = $userlist->get_userids();
-        if (!$userids) {
-            return;
-        }
-        [$insql, $params] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
-        $DB->delete_records_select('local_reportsources_log', "userid {$insql}", $params);
+        // Queries are retained; see delete_data_for_all_users_in_context().
     }
 }
