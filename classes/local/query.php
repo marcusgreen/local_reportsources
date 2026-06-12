@@ -324,7 +324,7 @@ class query {
     /**
      * Save (create or update) a query record. Validates the SQL before storing.
      *
-     * @param \stdClass $data Form data: id?, name, description, querysql, rowcap.
+     * @param \stdClass $data Form data: id?, name, description, querysql.
      * @return int Query id.
      */
     public static function save(\stdClass $data): int {
@@ -337,7 +337,6 @@ class query {
             'name'         => (string) $data->name,
             'description'  => (string) ($data->description ?? ''),
             'querysql'     => $sql,
-            'rowcap'       => (int) ($data->rowcap ?? get_config('local_reportsources', 'rowcapdefault') ?: 5000),
             'courseid'     => (int) ($data->courseid ?? 0),
             'visible'      => isset($data->visible) ? (int) (bool) $data->visible : 1,
             'audiencemeta' => self::build_audiencemeta($data),
@@ -690,7 +689,7 @@ class query {
     /**
      * Duplicate this query as a new draft owned by the current user.
      *
-     * Copies the SQL, description, row cap, course scope, visibility and chart
+     * Copies the SQL, description, course scope, visibility and chart
      * settings. The copy starts as a draft: no VIEW, report or column metadata
      * is carried over (those are rebuilt on publish).
      *
@@ -704,7 +703,6 @@ class query {
             'name'         => get_string('copyof', 'local_reportsources', $this->name()),
             'description'  => (string) ($this->record->description ?? ''),
             'querysql'     => $this->sql(),
-            'rowcap'       => (int) ($this->record->rowcap ?? get_config('local_reportsources', 'rowcapdefault') ?: 5000),
             'courseid'     => $this->courseid(),
             'visible'      => (int) ($this->record->visible ?? 1),
             'chartmeta'    => $this->record->chartmeta ?: null,

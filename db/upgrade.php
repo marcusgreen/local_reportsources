@@ -119,5 +119,21 @@ function xmldb_local_reportsources_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026061001, 'local', 'reportsources');
     }
 
+    if ($oldversion < 2026061201) {
+        $dbman = $DB->get_manager();
+        $table = new xmldb_table('local_reportsources_query');
+
+        // Drop the never-enforced per-query row cap: it was stored but never limited any output
+        // (the RB report paginates itself; the chart has its own row limit). Remove the orphaned
+        // admin default too.
+        $field = new xmldb_field('rowcap');
+        if ($dbman->field_exists($table, $field)) {
+            $dbman->drop_field($table, $field);
+        }
+        unset_config('rowcapdefault', 'local_reportsources');
+
+        upgrade_plugin_savepoint(true, 2026061201, 'local', 'reportsources');
+    }
+
     return true;
 }

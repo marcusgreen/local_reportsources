@@ -49,7 +49,6 @@ $data = (object) [
 FROM {role_assignments} ra
 JOIN {role} r ON r.id = ra.roleid
 GROUP BY r.shortname",
-    'rowcap'      => 5000,
     'courseid'    => 0,
     'visible'     => 1,
     // Pie chart over the two output columns.

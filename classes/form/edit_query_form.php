@@ -104,16 +104,6 @@ class edit_query_form extends moodleform {
         $mform->addRule('querysql', null, 'required', null, 'client');
         $mform->addHelpButton('querysql', 'querysql', 'local_reportsources');
 
-        $mform->addElement(
-            'text',
-            'rowcap',
-            get_string('rowcap', 'local_reportsources'),
-            ['size' => 8]
-        );
-        $mform->setType('rowcap', PARAM_INT);
-        $mform->setDefault('rowcap', (int) (get_config('local_reportsources', 'rowcapdefault') ?: 5000));
-        $mform->addHelpButton('rowcap', 'rowcap', 'local_reportsources');
-
         $this->add_audience_elements($mform);
 
         $this->add_action_buttons(true, get_string('savechanges'));

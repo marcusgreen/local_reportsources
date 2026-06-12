@@ -41,7 +41,6 @@ final class transfer_test extends \advanced_testcase {
             'name'        => 'Imported view',
             'description' => '',
             'querysql'    => 'SELECT id FROM {user}',
-            'rowcap'      => 100,
             'courseid'    => 0,
             'visible'     => 1,
             'chartmeta'   => null,

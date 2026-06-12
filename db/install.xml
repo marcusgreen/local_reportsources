@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="local/reportsources/db" VERSION="20260507" COMMENT="Ad-hoc reports schema"
+<XMLDB PATH="local/reportsources/db" VERSION="20260612" COMMENT="Ad-hoc reports schema"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
 >
@@ -23,7 +23,6 @@
                COMMENT="JSON audience choice: {type, roles?, cohorts?, users?}. NULL means auto."/>
         <FIELD NAME="reportid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"
                COMMENT="FK into reportbuilder_report once published"/>
-        <FIELD NAME="rowcap" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="5000" SEQUENCE="false"/>
         <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
                COMMENT="Course this query is bound to; 0 means site-wide."/>
         <FIELD NAME="visible" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false"

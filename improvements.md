@@ -22,10 +22,10 @@ Fix: delete/anonymise owned queries, or document why they are retained (they bac
 
 ## Dead code / unfinished
 
-### 3. `rowcap` does nothing
-Stored, form field (`classes/form/edit_query_form.php:107`), exported, imported, migrated — but there is zero enforcement anywhere. The RB report uses its own pagination; the chart uses a separate `chart_rowlimit`.
+### 3. `rowcap` does nothing ✅ FIXED (removed)
+Stored, form field, exported, imported, migrated — but there was zero enforcement anywhere. The RB report uses its own pagination; the chart uses a separate `chart_rowlimit`.
 
-Fix: wire `rowcap` into the datasource/chart as a real cap, or remove the field + column. Dead config misleads authors.
+Fixed: removed the dead config rather than wiring a hard cap (a view-level `LIMIT` picks an arbitrary subset before RB sorts/paginates, so it would not behave as authors expect). Dropped the `rowcap` column (`db/upgrade.php` drop_field step + version bump), the `rowcapdefault` admin setting, and all form / transfer / save / duplicate / lang / fixture references.
 
 ### 4. Logging uses a dead custom table instead of the Moodle log
 Two problems, both wrong-by-design.

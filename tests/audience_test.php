@@ -39,7 +39,6 @@ final class audience_test extends \advanced_testcase {
         return (object) array_merge([
             'name'     => 'Test view',
             'querysql' => 'SELECT id FROM {user}',
-            'rowcap'   => 100,
             'courseid' => 0,
             'visible'  => 1,
         ], $extra);

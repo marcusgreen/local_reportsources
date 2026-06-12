@@ -23,8 +23,8 @@ use local_reportsources\local\sql\validator;
 /**
  * Export / import saved ad-hoc queries as portable JSON.
  *
- * Only the portable fields of a query are transferred (name, description, SQL, row cap, course
- * scope, visibility and chart config). Environment-specific or derived state — owner, status,
+ * Only the portable fields of a query are transferred (name, description, SQL, course scope,
+ * visibility and chart config). Environment-specific or derived state — owner, status,
  * backing VIEW name, Reportbuilder report id, introspected column metadata and timestamps — is
  * never exported and is regenerated on import: every imported query lands as a fresh draft owned
  * by the importing user and must be re-published on the target site.
@@ -77,7 +77,6 @@ class transfer {
             'name'        => (string) $rec->name,
             'description' => (string) ($rec->description ?? ''),
             'querysql'    => (string) $rec->querysql,
-            'rowcap'      => (int) ($rec->rowcap ?? 5000),
             'courseid'    => (int) ($rec->courseid ?? 0),
             'visible'     => (int) ($rec->visible ?? 1),
             'chartmeta'   => $rec->chartmeta ? json_decode($rec->chartmeta, true) : null,
@@ -112,7 +111,6 @@ class transfer {
                 'name'        => (string) $raw['name'],
                 'description' => (string) ($raw['description'] ?? ''),
                 'querysql'    => (string) $raw['querysql'],
-                'rowcap'      => (int) ($raw['rowcap'] ?? 5000),
                 'courseid'    => (int) ($raw['courseid'] ?? 0),
                 'visible'     => (int) ($raw['visible'] ?? 1),
                 'chartmeta'   => isset($raw['chartmeta']) && is_array($raw['chartmeta'])
@@ -174,7 +172,6 @@ class transfer {
                 'name'         => $name,
                 'description'  => (string) ($source['description'] ?? ''),
                 'querysql'     => $sql,
-                'rowcap'       => (int) ($source['rowcap'] ?? get_config('local_reportsources', 'rowcapdefault') ?: 5000),
                 'courseid'     => $courseid,
                 'visible'      => (int) ($source['visible'] ?? 1),
                 'chartmeta'    => !empty($source['chartmeta']) ? json_encode($source['chartmeta']) : null,

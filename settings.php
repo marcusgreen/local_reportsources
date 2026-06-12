@@ -28,14 +28,6 @@ if ($hassiteconfig) {
     );
     $ADMIN->add('localplugins', $settings);
 
-    $settings->add(new admin_setting_configtext(
-        'local_reportsources/rowcapdefault',
-        get_string('settings:rowcapdefault', 'local_reportsources'),
-        get_string('settings:rowcapdefault_desc', 'local_reportsources'),
-        5000,
-        PARAM_INT
-    ));
-
     $settings->add(new admin_setting_configtextarea(
         'local_reportsources/denycolumns',
         get_string('settings:denycolumns', 'local_reportsources'),
