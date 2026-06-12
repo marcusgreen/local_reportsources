@@ -1,120 +1,150 @@
-# local_reportsources — improvement suggestions
+# Improvement ideas — local_reportsources
 
-Review of the whole plugin, ranked by impact. File:line references point at the code discussed.
-Last refreshed 2026-06-12; previously fixed items (alias denylist bypass, dead `rowcap`,
-missing lifecycle events) have been removed.
+Code review findings, 2026-06-12. Ordered by category, priority noted inline.
+Biggest wins: items 1, 2 (user-facing breakage), 4, 5 (access control), 7 (every-page perf).
 
-## Security / privacy
+## Bugs
 
-### 1. Privacy delete retains authored queries ✅ FIXED
-All three delete methods were no-ops while `querysql`/`ownerid` were declared personal data.
+### 1. ~~Top-level UNION rejected as "multi-statement"~~ — DONE 2026-06-13
+Fixed in `count_top_level_selects()`: SELECTs introduced by UNION/EXCEPT/INTERSECT
+(optionally ALL/DISTINCT) no longer count as separate statements; bare `SELECT 1 SELECT 2`
+still rejected. UNION cases added to `tests/sql_validator_test.php`.
 
-Fixed: `purge_queries()` in `classes/privacy/provider.php` now handles deletion requests —
-published queries are anonymised (`ownerid → 0`: listing shows no owner, ownership checks
-never match, the live RB report + view survive); everything else (drafts, legacy statuses)
-is deleted outright via `query::delete()`, whose `tear_down()` removes any stray artefacts.
-`get_users_in_context` excludes `ownerid = 0` so anonymised rows stop surfacing. Verified
-with a live smoke test (draft deleted, published anonymised, userid 0 absent from userlist).
+Original finding (high):
+`classes/local/sql/validator.php:471` — `count_top_level_selects()` counts SELECT keywords
+at parenthesis depth 0. `SELECT a FROM {user} UNION SELECT b FROM {course}` contains two,
+so it throws `errmultistatement`, even though `check_statement_type()` (line 217) explicitly
+allows UNION/EXCEPT/INTERSECT. A documented feature is unreachable.
+**Fix:** don't count a SELECT that directly follows UNION/EXCEPT/INTERSECT. Add a UNION case
+to `tests/sql_validator_test.php::valid_provider()` (none exists today).
 
-### 2. `local_reportsources_log` table ✅ FIXED (removed)
-Lifecycle events had already replaced it (`classes/event/*`, logged to
-`logstore_standard_log`), but the never-written custom table and its plumbing remained.
+### 2. ~~`REPLACE` denylist blocks the legitimate `REPLACE()` string function~~ — DONE 2026-06-13
+Fixed in both validator.php (keyword scan uses `\bREPLACE\b(?!\s*\()`) and editor.js client
+mirror; AMD rebuilt. REPLACE-function and REPLACE-statement cases added to tests.
 
-Fixed: dropped the table (`db/upgrade.php` 2026061202 step + version bump), removed it from
-`db/install.xml`, deleted the `cleanup_logs` task + `db/tasks.php`, removed the
-`local_adhocreports_log` migration from `db/install.php`, stripped all `_log` references
-from the privacy provider (delete methods are now documented no-ops — queries retained, see
-#1), removed `STATUS_DISABLED` and the `cleanuplogs` / `privacy:metadata:log:*` lang
-strings. (`status_disabled` kept: reachable via dynamic `'status_' . $rec->status` in
-`index.php:150` for rows migrated from local_adhocreports.)
+Original finding (high):
+`classes/local/sql/validator.php:49` — keyword scan matches `\bREPLACE\b`, so
+`SELECT REPLACE(name, 'x', 'y') FROM {course}` is rejected. Common in reporting SQL.
+The parser already rejects REPLACE *statements* via `check_statement_type()`.
+**Fix:** allow `REPLACE` when immediately followed by `(`. Mirror the change in the
+client-side denylist at `amd/src/editor.js:233`.
 
-## Correctness
+### 3. Transaction around DDL is illusory (medium)
+`classes/local/query.php:362` — `save()` wraps `tear_down()` in a delegated transaction,
+but `tear_down()` issues `DROP VIEW` via `change_database_structure()`. MySQL DDL implicitly
+commits, so the atomicity claimed by the comment at line 359 does not hold: a failed
+`update_record` after the drop still leaves view + report destroyed while the record claims
+published status.
+**Fix:** update the record to draft first, then tear down outside any transaction.
 
-### 3. `get_contexts_for_userid` always returns system context
-`classes/privacy/provider.php:53` returns the system context for *every* user, even those
-with no data. Should check the user actually owns a query row first, else the privacy UI
-shows phantom data for everyone.
+## Security
 
-## Architecture / maintainability
+### 4. Draft SQL disclosure via copy action (high)
+`run.php:57` — `action=copy` only checks the system-wide `author` capability; no ownership
+or visibility check on the target query. Any author can duplicate another author's hidden
+draft by guessing its id, exposing its SQL, name and description in their own edit form.
+**Fix:** apply the same owner-or-viewall check used in `edit.php:49` and `delete.php:37`.
 
-### 4. Report-access check duplicated — and the drift already happened
-The original concern was a copy-pasted `$canmanage || can_view_report` block. It is now
-worse: `index.php:115-145` hand-mirrors core `permission::can_view_report()` internals
-(`can_view_reports_list()` + a pre-fetched audience-id map, to avoid N queries on the list
-page), while `chart.php:72-82` calls `can_view_report()` directly. Two implementations of
-the same rule; a core RB permission change now breaks them differently.
+### 5. Import bypasses course-scope access check (high)
+`classes/local/transfer.php:166` — import only checks the courseid *exists*, while
+`edit.php:125` requires the author to hold view/viewown in that course. A crafted import
+file lets an author bind a query to any course they cannot access.
+**Fix:** re-run the edit.php capability check during import; demote to site-wide (0) on
+failure, same as for unknown course ids, and report it in the `demoted` list.
 
-Fix: extract one method (e.g. `query::current_user_can_view_report(?array $prefetchedaudiences = null)`)
-that uses the pre-fetched map when given one and falls back to the core call otherwise.
-
-### 5. `query.php` is 846 lines with mixed concerns — and still growing
-CRUD + audience derivation + AI naming heuristics + RB plumbing in one class. The audience
-logic has grown since the last review (now `allusers` / `courseparticipant` / `courserole` /
-`cohortmember` branches around `query.php:528-557`).
-
-Fix: split audience logic (`apply_report_visibility`, `build_audiencemeta`,
-`explode_audiencemeta`, `staff_role_ids`) into a dedicated `audience_resolver`. Move naming
-heuristics (`name_from_sql`, `extract_tables`, `extract_select_columns`) into a `naming` helper.
-
-### 6. `queryid_for_report_<id>` config glue is fragile
-The binding lives in `config_plugins` (`classes/local/query.php:437`) and is torn down by a
-`LIKE 'queryid\_for\_report\_%'` scan (`query.php:734`). Works, but a real column
-(`reportid` already exists on the query) or a small mapping table would be clearer,
-indexable, and FK-enforceable.
+### 6. Cross-owner delete gated by a read capability (medium)
+`index.php:222` / `delete.php:37` allow deleting other users' queries with `viewall`,
+declared `captype: read` with no `RISK_DATALOSS` (`db/access.php:61`). Deleting a published
+query destroys a live RB report and its view.
+**Fix:** gate cross-owner delete on `approve` (or a dedicated manage capability).
 
 ## Performance
 
-### 7. `tablejson` rebuilt every form load, uncached
-`classes/form/edit_query_form.php:86` loops `$DB->get_tables()` + `get_columns()` for
-*every* table on each edit-page render. On a large Moodle (hundreds of tables) this is
-heavy. `fkmap` is already version-cached (`build_fk_map`, `edit_query_form.php:185`) — give
-`tablejson` the same treatment.
+### 7. Full schema dump on every edit-page render (high)
+`classes/form/edit_query_form.php:85-89` — loops `$DB->get_tables()` and calls
+`get_columns()` per table (~450+ tables), embedding the whole schema as a JSON hidden form
+field. Runs on every GET *and* POST of edit.php. Page weight likely 1MB+; cold-cache render
+slow.
+**Fix:** serve schema from a dedicated AJAX endpoint backed by MUC; fetch lazily from
+`editor.js` after init.
 
-## i18n / standards
+### 8. FK map cached in config_plugins (medium)
+`classes/form/edit_query_form.php:240` — `set_config()` of a large JSON blob, written
+during a GET render. The config table is not a cache.
+**Fix:** MUC application cache with a `db/caches.php` definition, invalidated on upgrade.
 
-### 8. Hard-coded English in privacy export
-`classes/privacy/provider.php:78` and `:83` use the literal strings `'Ad-hoc reports'`,
-`'Queries'`, `'Audit log'` as export path keys. Should be `get_string()`.
+### 9. N+1 queries in index listing (medium)
+`index.php:132` — `report::get_record()` per row; `index.php:149` — `core_user::get_user()`
+per row.
+**Fix:** batch with one `get_records_list()` for reports and one for owners.
 
-## Testing
+### 10. No runtime guard on validation dry-run (medium)
+`classes/external/validate_sql.php:79` — executes arbitrary SELECT with no execution-time
+cap; a pathological cross join can pin the DB before LIMIT 1 applies.
+**Fix:** MySQL — prepend `/*+ MAX_EXECUTION_TIME(5000) */` hint; Postgres —
+`SET LOCAL statement_timeout`.
 
-### 9. Thin coverage
-Still only 3 unit files (validator, audience, transfer). No tests for the core `publish()`
-lifecycle, `view::create_or_replace`, `auto_brace()` (complex tokeniser, untested directly),
-or per-user filter scoping. The new event classes are also untested — no assertions that
-`query_published` etc. fire with the right `objectid`/`other` payload
-(`assertEventLegacyData` / `redirectEvents` pattern). No Behat.
+### 11. Shared probe view name races (low)
+`classes/external/validate_sql.php:89` — every concurrent validation uses the same
+`..._probe_col` view; two authors validating simultaneously can drop each other's view
+mid-check, producing a spurious failure.
+**Fix:** suffix the probe name with `$USER->id` or a random token.
 
-Fix: add `auto_brace` data-provider tests, event-trigger tests via `redirectEvents()`, and a
-publish → view → teardown integration test.
+## Code quality
 
-## New ideas
+### 12. Dead code: `validator::placeholders()` (low)
+`classes/local/sql/validator.php:519` — only caller is its own unit test. Named
+placeholders cannot work in views anyway (`?` rejected; dry-run passes `[]`).
+**Fix:** delete the method and `test_placeholders()`.
 
-### 10. Repo hygiene: session scratch file at plugin root
-`SESSION-report-visibility.md` is a dated working log ("Session log — report visibility
-(2026-06-09)") sitting in the plugin root. It will ship in any release zip and confuse
-moodle.org reviewers. Fold anything durable into `docs/` or CLAUDE.md and delete it.
+### 13. AI naming helpers misplaced (low)
+`classes/local/query.php:91-229` — `name_from_question`, `is_error_fix_prompt`,
+`name_from_sql`, `description_from_sql`, `extract_tables`, `extract_select_columns` are
+~140 lines of AI-prompt heuristics inside the CRUD/lifecycle class.
+**Fix:** extract to e.g. `local\ai\naming`.
 
-### 11. SQL change history
-Events record *who* changed a query and *when*, but not *what* the SQL was before. For a
-plugin whose whole risk surface is the SQL text, storing the previous `querysql` (e.g. in
-the `query_updated` event's `other` payload, or a small history table) would let an admin
-answer "what did this report expose last month?". Cheap to add at the existing trigger
-point (`query.php:373`/`:395`).
+### 14. Hardcoded English strings in editor.js (medium)
+`amd/src/editor.js:193,227,267-280,352` — 'SQL is required.', 'Only a single statement…',
+'Query must start with…', 'Keyword not allowed: ', 'Checking query…',
+'Could not format SQL: ', initial 'Format SQL' button label.
+**Fix:** load via `core/str`; align client messages with server lang strings.
 
-### 12. Fail fast on unsupported DB families
-View column introspection special-cases Postgres (`classes/local/sql/view.php:149`) and
-relies on native `get_columns()` for everything else — which is known-good on MySQL/MariaDB
-but unverified on sqlsrv/Oracle. `privilege_check::probe()` (and ideally `settings.php`)
-should detect an unsupported `$DB->get_dbfamily()` and warn up front instead of letting
-publish fail mid-flow.
+### 15. Repeated capability boilerplate (low)
+`index.php:30-51` and `chart.php:43-60` duplicate the same four-way capability block, in a
+convoluted `if (!A && !B && !C) require_capability(A)` shape.
+**Fix:** extract a `local\access::require_viewer(int $courseid)` helper.
 
----
+### 16. Missing format_string on page title/heading (low)
+`chart.php:185-186` — `set_title($rec->name)` / `set_heading($rec->name)` pass the raw name.
+**Fix:** wrap both in `format_string()`.
 
-## Priority
+### 17. ~~Dead CodeMirror 5 CSS shipped from amd/src~~ — DONE 2026-06-12
+Was `amd/src/codemirror.css`, loaded at `edit_query_form.php:82`. The file was stock
+CodeMirror 5 CSS; the editor is CodeMirror 6, which injects its own styles via JS. No CM6
+selector matched anything in the file. Deleted the file and the `$PAGE->requires->css()`
+call instead of relocating.
 
-Both data-exposure items (#1 privacy delete, #2 log table) are now fixed. Highest remaining:
-**#3 (`get_contexts_for_userid`)** — phantom privacy data for every user — and **#4**
-(diverged access checks), the live drift risk.
+### 18. Privacy metadata incomplete (medium)
+`classes/privacy/provider.php:40` — declares only ownerid/querysql/timecreated; the table
+also stores user-authored `name`, `description` and `timemodified`.
+**Fix:** declare the missing fields in `get_metadata()`.
 
-Bounded mechanical edits: #3, #8, #10. Need a design decision first: #6, #11.
+### 19. Audience wipe clobbers manual RB edits (medium)
+`classes/local/query.php:508` — `apply_report_visibility()` deletes *all* audiences on
+every re-save. Admins can reach `/reportbuilder/edit.php` (link offered at `index.php:177`)
+and add audiences there; the next query save silently destroys them.
+**Fix:** either delete only plugin-owned audience classnames, or surface a prominent
+warning in the RB UI / docs.
+
+## Docs / tests
+
+### 20. CLAUDE.md stale (low)
+Still documents the dropped `local_reportsources_log` table (removed in upgrade step
+2026061202), a two-table schema, and `amd/src/editor.es6.js` (file is now `editor.js`).
+**Fix:** refresh CLAUDE.md against current code.
+
+### 21. Test coverage gaps (medium)
+No tests for: `query::publish()/unpublish()/tear_down()` lifecycle,
+`visible_to_current_user()` capability matrix (5 rules), `auto_brace()` (complex tokenizer,
+zero direct tests), privacy provider, `validate_sql` external function, top-level UNION
+(item 1). Roughly 300 test lines against ~3k plugin lines.
