@@ -47,8 +47,8 @@ function local_reportsources_extend_navigation(global_navigation $navigation): v
 }
 
 /**
- * Add a "Report sources" link to the course "More" (secondary) menu for users with
- * author or view capability in the course context.
+ * Add a "Report sources" link under the course Reports menu (Course → More →
+ * Reports) for users with author or view capability in the course context.
  *
  * @param navigation_node $parentnode
  * @param stdClass $course
@@ -71,7 +71,22 @@ function local_reportsources_extend_navigation_course(
         return;
     }
 
-    $parentnode->add(
+    $reportsnode = $parentnode->get('coursereports');
+    if (!$reportsnode) {
+        // Core removes the Reports container before local plugin hooks run when
+        // no report_* plugin added a link to it; recreate it so the link stays
+        // reachable via Course → More → Reports.
+        $reportsnode = $parentnode->add(
+            get_string('reports'),
+            new moodle_url('/report/view.php', ['courseid' => $course->id]),
+            navigation_node::TYPE_CONTAINER,
+            null,
+            'coursereports',
+            new pix_icon('i/stats', '')
+        );
+    }
+
+    $reportsnode->add(
         get_string('reportsources', 'local_reportsources'),
         new moodle_url('/local/reportsources/index.php', ['courseid' => $course->id]),
         navigation_node::TYPE_SETTING,
