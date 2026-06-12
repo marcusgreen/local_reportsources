@@ -40,6 +40,11 @@ final class sql_validator_test extends \advanced_testcase {
             'CROSS JOIN'    => ['SELECT a.id FROM {course} a CROSS JOIN {user} b'],
             'comma join'    => ['SELECT a.id FROM {course} a, {user} b WHERE a.id = b.id'],
             'JOIN USING'    => ['SELECT u.id FROM {user} u JOIN {role} r USING (id)'],
+            'UNION'         => ['SELECT id FROM {user} UNION SELECT id FROM {course}'],
+            'UNION ALL'     => ['SELECT id FROM {user} UNION ALL SELECT id FROM {course}'],
+            'three-way UNION' => [
+                'SELECT id FROM {user} UNION SELECT id FROM {course} UNION ALL SELECT id FROM {role}',
+            ],
         ];
     }
 
@@ -58,6 +63,7 @@ final class sql_validator_test extends \advanced_testcase {
             'DELETE'          => ['DELETE FROM {course}'],
             'DROP'            => ['DROP TABLE {course}'],
             'multi statement' => ['SELECT 1; SELECT 2'],
+            'bare multi statement' => ['SELECT 1 SELECT 2'],
             'SELECT INTO'     => ['SELECT * INTO foo FROM {user}'],
             'denied table'    => ['SELECT * FROM {config}'],
             'EXECUTE'         => ['EXECUTE my_proc'],

@@ -465,14 +465,18 @@ class validator {
      * Count SELECT keywords at parenthesis depth 0 to detect bare multi-statement SQL
      * (two SELECTs with no semicolon separator).
      *
+     * A SELECT introduced by a set operator (UNION/EXCEPT/INTERSECT, optionally followed by
+     * ALL/DISTINCT) continues the same statement, so it is not counted.
+     *
      * @param string $stripped SQL with comments and string literals already removed.
      * @return int
      */
     private static function count_top_level_selects(string $stripped): int {
         $depth = 0;
         $count = 0;
+        $aftersetop = false;
         $tokens = preg_split(
-            '/(\(|\)|\bSELECT\b)/i',
+            '/(\(|\)|\b(?:SELECT|UNION|EXCEPT|INTERSECT)\b)/i',
             $stripped,
             -1,
             PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY
@@ -480,10 +484,23 @@ class validator {
         foreach ($tokens as $tok) {
             if ($tok === '(') {
                 $depth++;
+                $aftersetop = false;
             } else if ($tok === ')') {
                 $depth--;
-            } else if (strcasecmp($tok, 'SELECT') === 0 && $depth === 0) {
-                $count++;
+            } else if (in_array(strtoupper($tok), ['UNION', 'EXCEPT', 'INTERSECT'], true)) {
+                if ($depth === 0) {
+                    $aftersetop = true;
+                }
+            } else if (strcasecmp($tok, 'SELECT') === 0) {
+                if ($depth === 0 && !$aftersetop) {
+                    $count++;
+                }
+                $aftersetop = false;
+            } else if ($depth === 0 && $aftersetop
+                    && !in_array(strtoupper(trim($tok)), ['', 'ALL', 'DISTINCT'], true)) {
+                // Anything other than ALL/DISTINCT between the set operator and its SELECT
+                // ends the set operation, so the next SELECT counts as a new statement.
+                $aftersetop = false;
             }
         }
         return $count;
