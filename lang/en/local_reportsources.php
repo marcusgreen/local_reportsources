@@ -90,6 +90,7 @@ $string['errchartdata'] = 'The report data for this chart could not be loaded. C
 $string['errchartnotconfigured'] = 'No chart is configured for this query. Edit the query to add chart settings.';
 $string['errchartnotpublished'] = 'This query is not published. Publish it first before viewing the chart.';
 $string['errcreateview'] = 'Could not create database view: {$a}';
+$string['errdeniedcolumn'] = 'Disallowed column: {$a}';
 $string['errdeniedkeyword'] = 'Disallowed keyword: {$a}';
 $string['errdeniedtable'] = 'Disallowed table: {$a}';
 $string['errdropview'] = 'Could not drop database view: {$a}';

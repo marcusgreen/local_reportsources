@@ -134,6 +134,17 @@ class validator {
             }
         }
 
+        // Column denylist (admin-configured, e.g. password,secret,sesskey). The view's introspected
+        // metadata is also denylist-stripped at publish time, but that only filters by *output*
+        // column name — `SELECT password AS pw` would slip a renamed denied column through. Reject
+        // any reference to a denied column name as a bare identifier token here (string literals and
+        // comments are already blanked in $stripped, so a denied word inside a literal is ignored).
+        foreach (self::denied_columns() as $col) {
+            if (preg_match('/\b' . preg_quote($col, '/') . '\b/i', $stripped)) {
+                throw new \moodle_exception('errdeniedcolumn', 'local_reportsources', '', $col);
+            }
+        }
+
         // Each JOIN needs an ON/USING condition — catch the common mistake before the
         // DB returns a cryptic syntax error.
         self::check_join_conditions($tree, $stripped);
@@ -511,5 +522,22 @@ class validator {
         $names = array_values(array_unique($m[1] ?? []));
         sort($names);
         return $names;
+    }
+
+    /**
+     * Lowercased denylist of sensitive column names from admin config (denycolumns).
+     *
+     * Mirrors {@see \local_reportsources\local\sql\view::columns()}'s output-name filter, but is
+     * applied to the SQL source so aliased denied columns cannot leak.
+     *
+     * @return string[]
+     */
+    private static function denied_columns(): array {
+        $raw = (string) get_config('local_reportsources', 'denycolumns');
+        if ($raw === '') {
+            return [];
+        }
+        $items = preg_split('/[\s,]+/', $raw, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        return array_map('strtolower', $items);
     }
 }

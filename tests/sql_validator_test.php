@@ -93,6 +93,24 @@ final class sql_validator_test extends \advanced_testcase {
         validator::validate('SELECT u.firstname FROM {user} u JOIN {user_enrolments} ue.userid = u.id');
     }
 
+    public function test_denied_column_rejected_even_when_aliased(): void {
+        $this->resetAfterTest();
+        set_config('denycolumns', 'password,secret,sesskey', 'local_reportsources');
+
+        // Aliasing the denied source column must not slip it past the denylist.
+        $this->expectException(\moodle_exception::class);
+        $this->expectExceptionMessage(get_string('errdeniedcolumn', 'local_reportsources', 'password'));
+        validator::validate('SELECT password AS pw FROM {user}');
+    }
+
+    public function test_denied_column_in_literal_is_allowed(): void {
+        $this->resetAfterTest();
+        set_config('denycolumns', 'password,secret,sesskey', 'local_reportsources');
+
+        // The denied word only appears inside a string literal, which is blanked before the scan.
+        $this->assertNotEmpty(validator::validate("SELECT id, 'password' AS label FROM {user}"));
+    }
+
     public function test_placeholders(): void {
         $names = validator::placeholders(
             'SELECT id FROM {course} WHERE category = :cat AND timecreated > :since AND :cat = :cat'
