@@ -371,6 +371,7 @@ class query {
                 $record->useridcolumn = null;
                 $DB->update_record(self::TABLE, $record);
                 $transaction->allow_commit();
+                \local_reportsources\event\query_updated::create_and_trigger($record->id, $record->name);
                 return $record->id;
             }
             // The per-user column is picked from the live view's columns, so only accept it for an
@@ -392,13 +393,16 @@ class query {
             if ($existing->status === self::STATUS_PUBLISHED && !empty($existing->reportid)) {
                 self::get($record->id)->apply_report_visibility((int) $existing->reportid);
             }
+            \local_reportsources\event\query_updated::create_and_trigger($record->id, $record->name);
             return $record->id;
         }
 
         $record->ownerid     = (int) $USER->id;
         $record->status      = self::STATUS_DRAFT;
         $record->timecreated = $now;
-        return $DB->insert_record(self::TABLE, $record);
+        $newid = $DB->insert_record(self::TABLE, $record);
+        \local_reportsources\event\query_created::create_and_trigger($newid, $record->name);
+        return $newid;
     }
 
     /**
@@ -458,6 +462,8 @@ class query {
         $this->apply_report_visibility($reportid);
 
         $this->record = $DB->get_record(self::TABLE, ['id' => $this->id()], '*', MUST_EXIST);
+
+        \local_reportsources\event\query_published::create_and_trigger($this->id(), $this->name());
     }
 
     /**
@@ -636,6 +642,8 @@ class query {
             'timemodified' => time(),
         ]);
         $this->record = $DB->get_record(self::TABLE, ['id' => $this->id()], '*', MUST_EXIST);
+
+        \local_reportsources\event\query_unpublished::create_and_trigger($this->id(), $this->name());
     }
 
     /**
@@ -670,9 +678,13 @@ class query {
      */
     public function delete(): void {
         global $DB;
-        self::tear_down($this->id(), $this->record);
-        $DB->delete_records('local_reportsources_log', ['queryid' => $this->id()]);
-        $DB->delete_records(self::TABLE, ['id' => $this->id()]);
+        // Snapshot id/name before the record is gone so the event can still describe it.
+        $queryid = $this->id();
+        $name = $this->name();
+        self::tear_down($queryid, $this->record);
+        $DB->delete_records('local_reportsources_log', ['queryid' => $queryid]);
+        $DB->delete_records(self::TABLE, ['id' => $queryid]);
+        \local_reportsources\event\query_deleted::create_and_trigger($queryid, $name);
     }
 
     /**
@@ -705,7 +717,9 @@ class query {
             'timemodified' => $now,
         ];
 
-        return $DB->insert_record(self::TABLE, $copy);
+        $newid = $DB->insert_record(self::TABLE, $copy);
+        \local_reportsources\event\query_created::create_and_trigger($newid, $copy->name);
+        return $newid;
     }
 
     /**
