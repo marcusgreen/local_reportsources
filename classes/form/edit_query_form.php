@@ -79,7 +79,6 @@ class edit_query_form extends moodleform {
         $mform->setType('description', PARAM_TEXT);
 
         if (get_config('local_reportsources', 'syntaxhighlight')) {
-            $PAGE->requires->css('/local/reportsources/amd/src/codemirror.css');
             $PAGE->requires->js_call_amd('local_reportsources/editor', 'init', ['id_querysql']);
 
             $tableobject = new \stdClass();
