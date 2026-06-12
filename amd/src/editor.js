@@ -274,7 +274,9 @@ export const init = (targetid) => {
             return 'Query must start with SELECT or WITH.';
         }
         for (const kw of denyKeywords) {
-            if (new RegExp('\\b' + kw + '\\b', 'i').test(stripped)) {
+            // REPLACE(...) the string function is legitimate; only block the REPLACE statement.
+            const pattern = kw === 'REPLACE' ? '\\bREPLACE\\b(?!\\s*\\()' : '\\b' + kw + '\\b';
+            if (new RegExp(pattern, 'i').test(stripped)) {
                 return 'Keyword not allowed: ' + kw + '.';
             }
         }

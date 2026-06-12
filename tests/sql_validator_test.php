@@ -45,6 +45,7 @@ final class sql_validator_test extends \advanced_testcase {
             'three-way UNION' => [
                 'SELECT id FROM {user} UNION SELECT id FROM {course} UNION ALL SELECT id FROM {role}',
             ],
+            'REPLACE function' => ["SELECT REPLACE(fullname, 'x', 'y') AS n FROM {course}"],
         ];
     }
 
@@ -64,6 +65,7 @@ final class sql_validator_test extends \advanced_testcase {
             'DROP'            => ['DROP TABLE {course}'],
             'multi statement' => ['SELECT 1; SELECT 2'],
             'bare multi statement' => ['SELECT 1 SELECT 2'],
+            'REPLACE statement' => ['REPLACE {course} VALUES (1)'],
             'SELECT INTO'     => ['SELECT * INTO foo FROM {user}'],
             'denied table'    => ['SELECT * FROM {config}'],
             'EXECUTE'         => ['EXECUTE my_proc'],

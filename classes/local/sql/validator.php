@@ -120,7 +120,12 @@ class validator {
 
         // Token denylist (defence-in-depth — the parser alone does not block, e.g., INTO OUTFILE).
         foreach (self::DENY_KEYWORDS as $kw) {
-            if (preg_match('/\b' . preg_quote($kw, '/') . '\b/i', $stripped)) {
+            // REPLACE(...) the string function is legitimate in a SELECT list; only the
+            // REPLACE statement (never followed by an opening paren) is blocked.
+            $pattern = $kw === 'REPLACE'
+                ? '/\bREPLACE\b(?!\s*\()/i'
+                : '/\b' . preg_quote($kw, '/') . '\b/i';
+            if (preg_match($pattern, $stripped)) {
                 throw new \moodle_exception('errdeniedkeyword', 'local_reportsources', '', $kw);
             }
         }
