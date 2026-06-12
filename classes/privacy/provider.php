@@ -26,6 +26,7 @@ use core_privacy\local\request\{
     userlist,
     writer,
 };
+use local_reportsources\local\query;
 
 /**
  * Privacy provider for ad-hoc reports.
@@ -56,7 +57,11 @@ class provider implements \core_privacy\local\metadata\provider, \core_privacy\l
         if (!$context instanceof \context_system) {
             return;
         }
-        $userlist->add_from_sql('ownerid', 'SELECT DISTINCT ownerid FROM {local_reportsources_query}', []);
+        $userlist->add_from_sql(
+            'ownerid',
+            'SELECT DISTINCT ownerid FROM {local_reportsources_query} WHERE ownerid <> 0',
+            []
+        );
     }
 
     public static function export_user_data(approved_contextlist $contextlist): void {
@@ -74,16 +79,53 @@ class provider implements \core_privacy\local\metadata\provider, \core_privacy\l
     }
 
     public static function delete_data_for_all_users_in_context(\context $context): void {
-        // Authored queries are retained: each backs a live Report Builder report and a
-        // DB view, so deleting them destroys site reporting infrastructure rather than
-        // personal data. The querysql/ownerid fields are exported above instead.
+        if (!$context instanceof \context_system) {
+            return;
+        }
+        self::purge_queries('ownerid <> 0', []);
     }
 
     public static function delete_data_for_user(approved_contextlist $contextlist): void {
-        // Queries are retained; see delete_data_for_all_users_in_context().
+        if (!in_array(\context_system::instance()->id, $contextlist->get_contextids(), true)) {
+            return;
+        }
+        self::purge_queries('ownerid = :ownerid', ['ownerid' => $contextlist->get_user()->id]);
     }
 
     public static function delete_data_for_users(approved_userlist $userlist): void {
-        // Queries are retained; see delete_data_for_all_users_in_context().
+        global $DB;
+        if (!$userlist->get_context() instanceof \context_system) {
+            return;
+        }
+        $userids = $userlist->get_userids();
+        if (!$userids) {
+            return;
+        }
+        [$insql, $params] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
+        self::purge_queries("ownerid {$insql}", $params);
+    }
+
+    /**
+     * Delete or anonymise queries matching the given owner condition.
+     *
+     * Published queries back a live Report Builder report and a DB view, so deleting
+     * them would destroy site reporting infrastructure; they are kept with ownerid
+     * cleared instead (the listing shows no owner and ownership checks no longer match).
+     * Anything else (drafts, legacy statuses) is deleted outright via query::delete(),
+     * whose tear_down also removes any stray view/report artefacts.
+     *
+     * @param string $where SQL condition on local_reportsources_query
+     * @param array $params parameters for the condition
+     */
+    private static function purge_queries(string $where, array $params): void {
+        global $DB;
+        $records = $DB->get_records_select('local_reportsources_query', $where, $params);
+        foreach ($records as $record) {
+            if ($record->status === query::STATUS_PUBLISHED) {
+                $DB->set_field('local_reportsources_query', 'ownerid', 0, ['id' => $record->id]);
+            } else {
+                query::get((int) $record->id)->delete();
+            }
+        }
     }
 }

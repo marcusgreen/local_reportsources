@@ -6,14 +6,15 @@ missing lifecycle events) have been removed.
 
 ## Security / privacy
 
-### 1. Privacy delete retains authored queries — GDPR design decision pending
-`classes/privacy/provider.php:39` declares `query.querysql` and `query.ownerid` as personal
-data, but all three delete methods (`provider.php:77-89`) are deliberate no-ops: queries
-back live RB reports + DB views, so deletion is destructive. The retention rationale is now
-documented in code (done as part of the #2 cleanup), which satisfies the minimum bar.
+### 1. Privacy delete retains authored queries ✅ FIXED
+All three delete methods were no-ops while `querysql`/`ownerid` were declared personal data.
 
-Remaining decision: whether a deletion request should anonymise `ownerid` (reassign to
-admin/guest) so the row stops being personal data while the report survives.
+Fixed: `purge_queries()` in `classes/privacy/provider.php` now handles deletion requests —
+published queries are anonymised (`ownerid → 0`: listing shows no owner, ownership checks
+never match, the live RB report + view survive); everything else (drafts, legacy statuses)
+is deleted outright via `query::delete()`, whose `tear_down()` removes any stray artefacts.
+`get_users_in_context` excludes `ownerid = 0` so anonymised rows stop surfacing. Verified
+with a live smoke test (draft deleted, published anonymised, userid 0 absent from userlist).
 
 ### 2. `local_reportsources_log` table ✅ FIXED (removed)
 Lifecycle events had already replaced it (`classes/event/*`, logged to
@@ -112,7 +113,8 @@ publish fail mid-flow.
 
 ## Priority
 
-Highest: **#1 (privacy delete)** — data-retention exposure; the log-table removal (#2, done)
-has already shrunk it to the single `_query` retention question.
+Both data-exposure items (#1 privacy delete, #2 log table) are now fixed. Highest remaining:
+**#3 (`get_contexts_for_userid`)** — phantom privacy data for every user — and **#4**
+(diverged access checks), the live drift risk.
 
-Bounded mechanical edits: #3, #8, #10. Need a design decision first: #1, #6, #11.
+Bounded mechanical edits: #3, #8, #10. Need a design decision first: #6, #11.
