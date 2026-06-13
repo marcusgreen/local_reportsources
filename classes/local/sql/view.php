@@ -146,9 +146,21 @@ class view {
      */
     public static function columns(string $viewname): array {
         global $DB;
-        $columns = $DB->get_dbfamily() === 'postgres'
-            ? self::pg_view_columns($viewname)
-            : $DB->get_columns($viewname, false);
+        if ($DB->get_dbfamily() === 'postgres') {
+            $columns = self::pg_view_columns($viewname);
+        } else {
+            // MySQL/MariaDB fold result-set column aliases to lowercase, but Report Builder derives
+            // each column's SQL alias from the (case-preserving) column name. A mixed-case name such
+            // as `Course_Shortname` therefore yields a select alias `c1_Course_Shortname` that the
+            // driver returns as `c1_course_shortname`, so RB's case-sensitive value lookup misses and
+            // the column renders blank. Lowercasing the keys keeps the alias and the returned name in
+            // sync; the unquoted field reference still resolves because MySQL column names are
+            // case-insensitive. (Postgres identifiers are case-sensitive, so its path is left intact.)
+            $columns = [];
+            foreach ($DB->get_columns($viewname, false) as $name => $info) {
+                $columns[strtolower($name)] = $info;
+            }
+        }
         $deny = self::denylist();
         if ($deny) {
             $columns = array_filter(
