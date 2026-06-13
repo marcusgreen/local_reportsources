@@ -119,6 +119,27 @@ final class sql_validator_test extends \advanced_testcase {
         $this->assertNotEmpty(validator::validate("SELECT id, 'password' AS label FROM {user}"));
     }
 
+    public function test_mixed_case_quoted_alias_warns_on_postgres_only(): void {
+        global $CFG;
+        $sql = 'SELECT ue.userid, c.shortname AS "Course_Shortname" '
+            . 'FROM {user_enrolments} ue JOIN {enrol} e ON ue.enrolid = e.id '
+            . 'JOIN {course} c ON e.courseid = c.id';
+
+        validator::validate($sql);
+        $warnings = validator::get_warnings();
+
+        if (($CFG->dbtype ?? '') === 'pgsql') {
+            // On PostgreSQL the quoted mixed-case alias breaks Report Builder's unquoted column refs.
+            $this->assertContains(
+                get_string('warnpgmixedcasealias', 'local_reportsources', 'Course_Shortname'),
+                $warnings
+            );
+        } else {
+            // MySQL/MariaDB are case-insensitive for column identifiers — no warning expected.
+            $this->assertEmpty($warnings);
+        }
+    }
+
     public function test_placeholders(): void {
         $names = validator::placeholders(
             'SELECT id FROM {course} WHERE category = :cat AND timecreated > :since AND :cat = :cat'
