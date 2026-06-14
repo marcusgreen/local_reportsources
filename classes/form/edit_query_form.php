@@ -33,6 +33,9 @@ require_once($CFG->libdir . '/formslib.php');
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class edit_query_form extends moodleform {
+    /**
+     * Form definition.
+     */
     protected function definition() {
         global $DB, $PAGE;
 
@@ -333,6 +336,13 @@ class edit_query_form extends moodleform {
         $mform->addHelpButton('chart_rowlimit', 'chartrowlimit', 'local_reportsources');
     }
 
+    /**
+     * Validate the submitted SQL and course scope.
+     *
+     * @param array $data
+     * @param array $files
+     * @return array
+     */
     public function validation($data, $files): array {
         $errors = parent::validation($data, $files);
         $sql = (string) ($data['querysql'] ?? '');
@@ -342,8 +352,8 @@ class edit_query_form extends moodleform {
             $errors['querysql'] = $e->getMessage();
         }
 
-        // %%COURSEID%% is baked into the static VIEW at publish, so the query must carry a course
-        // scope to substitute. Reject it site-wide rather than silently bake in courseid 0.
+        // The %%COURSEID%% token is baked into the static VIEW at publish, so the query must carry a
+        // course scope to substitute. Reject it site-wide rather than silently bake in courseid 0.
         if (stripos($sql, '%%COURSEID%%') !== false && (int) ($data['courseid'] ?? 0) <= 0) {
             $errors['courseid'] = get_string('errcourseidplaceholder', 'local_reportsources');
         }

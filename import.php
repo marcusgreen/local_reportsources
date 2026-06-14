@@ -23,6 +23,7 @@
  *
  * @package   local_reportsources
  * @copyright 2026 Marcus Green
+ * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 require(__DIR__ . '/../../config.php');

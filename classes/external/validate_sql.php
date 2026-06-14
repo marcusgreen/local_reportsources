@@ -35,6 +35,8 @@ use local_reportsources\local\sql\view;
  */
 class validate_sql extends external_api {
     /**
+     * Describe the parameters accepted by execute().
+     *
      * @return external_function_parameters
      */
     public static function execute_parameters(): external_function_parameters {
@@ -104,6 +106,8 @@ class validate_sql extends external_api {
     }
 
     /**
+     * Describe the return structure of execute().
+     *
      * @return external_single_structure
      */
     public static function execute_returns(): external_single_structure {

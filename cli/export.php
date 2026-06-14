@@ -43,7 +43,7 @@ use local_reportsources\local\transfer;
     ['h' => 'help']
 );
 
-// Standard output filename, written into the destination folder.
+/** @var string Standard output filename, written into the destination folder. */
 const EXPORT_FILENAME = 'reportsources.json';
 
 if ($unrecognised) {

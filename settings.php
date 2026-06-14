@@ -15,8 +15,11 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
+ * Admin settings for the Report sources plugin.
+ *
  * @package   local_reportsources
  * @copyright 2026 Marcus Green
+ * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();

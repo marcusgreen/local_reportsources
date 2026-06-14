@@ -19,6 +19,7 @@
  *
  * @package   local_reportsources
  * @copyright 2026 Marcus Green
+ * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 require(__DIR__ . '/../../config.php');
@@ -193,8 +194,8 @@ if ($aisqlchatavailable) {
         'data-generating' => get_string('ai:generating', 'local_reportsources'),
     ]);
     echo html_writer::end_tag('form');
-    echo html_writer::end_div(); // card-body
-    echo html_writer::end_div(); // card
+    echo html_writer::end_div(); // End card-body.
+    echo html_writer::end_div(); // End card.
 }
 
 $mform->display();

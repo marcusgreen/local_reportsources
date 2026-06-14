@@ -19,6 +19,7 @@
  *
  * @package   local_reportsources
  * @copyright 2026 Marcus Green
+ * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 require(__DIR__ . '/../../config.php');
@@ -75,9 +76,7 @@ if (has_capability('local/reportsources:author', $syscontext)) {
     );
 }
 
-/**
- * Render the Export / Import buttons shown at the foot of the listing.
- */
+// Render the Export / Import buttons shown at the foot of the listing.
 $rendertransferbuttons = function () use ($OUTPUT, $syscontext) {
     if (!has_capability('local/reportsources:author', $syscontext)) {
         return;

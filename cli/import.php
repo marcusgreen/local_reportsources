@@ -47,7 +47,7 @@ use local_reportsources\local\transfer;
     ['h' => 'help']
 );
 
-// Default file looked for in the current directory.
+/** @var string Default file looked for in the current directory. */
 const IMPORT_FILENAME = 'reportsources.json';
 
 if ($unrecognised) {
@@ -92,7 +92,7 @@ if ($json === false) {
     cli_error("Could not read {$path}.");
 }
 
-// parse() throws moodle_exception on a malformed / unrecognised file.
+// The parse() call throws moodle_exception on a malformed / unrecognised file.
 try {
     $sources = transfer::parse($json);
 } catch (\moodle_exception $e) {

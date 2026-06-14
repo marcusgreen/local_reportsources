@@ -15,6 +15,8 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
+ * English language strings for the Report sources plugin.
+ *
  * @package   local_reportsources
  * @copyright 2026 Marcus Green
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -88,6 +90,7 @@ $string['erraudiencerolesempty'] = 'Choose at least one role.';
 $string['errchartdata'] = 'The report data for this chart could not be loaded. Contact the report owner if this persists.';
 $string['errchartnotconfigured'] = 'No chart is configured for this query. Edit the query to add chart settings.';
 $string['errchartnotpublished'] = 'This query is not published. Publish it first before viewing the chart.';
+$string['errcourseidplaceholder'] = 'The SQL uses %%COURSEID%%, so this report needs a course scope. Choose a course above before saving.';
 $string['errcreateview'] = 'Could not create database view: {$a}';
 $string['errdeniedcolumn'] = 'Disallowed column: {$a}';
 $string['errdeniedkeyword'] = 'Disallowed keyword: {$a}';
@@ -97,7 +100,6 @@ $string['errduplicatecolumn'] = 'Joined tables share duplicate column names (e.g
 $string['errimportempty'] = 'The export file contains no report views.';
 $string['errimportformat'] = 'This file is not a valid Report sources export.';
 $string['errjoinnoon'] = 'A JOIN is missing its ON (or USING) condition. Each JOIN needs a join condition, e.g. JOIN {user_enrolments} ue ON ue.userid = u.id';
-$string['errcourseidplaceholder'] = 'The SQL uses %%COURSEID%%, so this report needs a course scope. Choose a course above before saving.';
 $string['errmultistatement'] = 'Multiple statements are not allowed.';
 $string['errnoexportselection'] = 'Select at least one report view to export.';
 $string['errnoimportselection'] = 'Select at least one report view to import.';

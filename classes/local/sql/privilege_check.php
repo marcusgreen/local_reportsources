@@ -18,8 +18,6 @@ declare(strict_types=1);
 
 namespace local_reportsources\local\sql;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Verifies that the configured DB user can CREATE/DROP views.
  *
@@ -46,6 +44,7 @@ class privilege_check {
             $DB->change_database_structure("DROP VIEW IF EXISTS {$fullname}");
         } catch (\Throwable $e) {
             // Drop-failure tolerated only if the view doesn't exist.
+            debugging('local_reportsources probe cleanup ignored: ' . $e->getMessage(), DEBUG_DEVELOPER);
         }
 
         try {

@@ -47,6 +47,8 @@ class adhoc_view extends base {
     private string $title;
 
     /**
+     * Build the entity for a given view and its cached column metadata.
+     *
      * @param string $viewname
      * @param array  $columnsmeta
      * @param string $title Display title shown as the column-picker group heading.
@@ -58,10 +60,20 @@ class adhoc_view extends base {
         $this->set_entity_name(self::ENTITY);
     }
 
+    /**
+     * Get the tables (the view) used by this entity.
+     *
+     * @return array
+     */
     protected function get_default_tables(): array {
         return [$this->viewname];
     }
 
+    /**
+     * Get the default title for this entity.
+     *
+     * @return lang_string
+     */
     protected function get_default_entity_title(): lang_string {
         if ($this->title !== '') {
             return new lang_string('reportsourceheader', 'local_reportsources', $this->title);
@@ -69,6 +81,11 @@ class adhoc_view extends base {
         return new lang_string('reportsource', 'local_reportsources');
     }
 
+    /**
+     * Add this entity's columns, filters and conditions.
+     *
+     * @return base
+     */
     public function initialise(): base {
         foreach ($this->build_columns() as $col) {
             $this->add_column($col);
@@ -81,6 +98,8 @@ class adhoc_view extends base {
     }
 
     /**
+     * Build a Report Builder column for every view column.
+     *
      * @return column[]
      */
     private function build_columns(): array {
@@ -100,6 +119,8 @@ class adhoc_view extends base {
     }
 
     /**
+     * Build a Report Builder filter for every view column.
+     *
      * @return filter[]
      */
     private function build_filters(): array {
@@ -125,6 +146,12 @@ class adhoc_view extends base {
         return new lang_string('reportsourceheader', 'local_reportsources', $name);
     }
 
+    /**
+     * Map a column type token to a Report Builder column type constant.
+     *
+     * @param string $token
+     * @return int
+     */
     private static function rb_column_type(string $token): int {
         return match ($token) {
             'int'       => column::TYPE_INTEGER,
@@ -136,6 +163,8 @@ class adhoc_view extends base {
     }
 
     /**
+     * Map a column type token to a Report Builder filter class.
+     *
      * @param string $token
      * @return class-string
      */

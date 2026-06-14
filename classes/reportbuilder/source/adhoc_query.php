@@ -37,10 +37,18 @@ use local_reportsources\reportbuilder\local\entities\adhoc_view;
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class adhoc_query extends datasource {
+    /**
+     * Get the datasource display name.
+     *
+     * @return string
+     */
     public static function get_name(): string {
         return get_string('reportsource', 'local_reportsources');
     }
 
+    /**
+     * Resolve the bound query and wire up its view as the report's main table.
+     */
     protected function initialise(): void {
         $reportid = (int) $this->get_report_persistent()->get('id');
         $queryid  = (int) get_config('local_reportsources', 'queryid_for_report_' . $reportid);
@@ -102,6 +110,11 @@ class adhoc_query extends datasource {
         ))->add_field('u.id')->set_type(\core_reportbuilder\local\report\column::TYPE_INTEGER));
     }
 
+    /**
+     * Get the default columns shown on a new report.
+     *
+     * @return array Up to six default column identifiers.
+     */
     public function get_default_columns(): array {
         return array_slice(array_map(
             static fn(string $name): string => adhoc_view::ENTITY . ':' . $name,
@@ -109,6 +122,11 @@ class adhoc_query extends datasource {
         ), 0, 6);
     }
 
+    /**
+     * Get the default filters shown on a new report.
+     *
+     * @return array Up to four default filter identifiers.
+     */
     public function get_default_filters(): array {
         return array_slice(array_map(
             static fn(string $name): string => adhoc_view::ENTITY . ':' . $name,
@@ -116,11 +134,18 @@ class adhoc_query extends datasource {
         ), 0, 4);
     }
 
+    /**
+     * Get the default conditions (none).
+     *
+     * @return array
+     */
     public function get_default_conditions(): array {
         return [];
     }
 
     /**
+     * List the bound query's column names.
+     *
      * @return string[] Column names from the bound query, or empty array on placeholder mode.
      */
     private function known_column_names(): array {

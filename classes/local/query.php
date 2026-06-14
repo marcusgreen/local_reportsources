@@ -36,44 +36,84 @@ use local_reportsources\local\sql\view;
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class query {
+    /** @var string Database table holding saved queries. */
     public const TABLE = 'local_reportsources_query';
 
+    /** @var string Status: saved but not published. */
     public const STATUS_DRAFT = 'draft';
+    /** @var string Status: view + Report Builder report are live. */
     public const STATUS_PUBLISHED = 'published';
 
-    /** Audience picker tokens (stored in audiencemeta.type; DEFAULT means derive automatically). */
+    /** @var string Audience token: derive the audience automatically from scope/visibility. */
     public const AUDIENCE_DEFAULT = 'default';
+    /** @var string Audience token: all site users. */
     public const AUDIENCE_ALLUSERS = 'allusers';
+    /** @var string Audience token: participants enrolled in the report's course. */
     public const AUDIENCE_COURSEPARTICIPANT = 'courseparticipant';
+    /** @var string Audience token: users holding a chosen role in the course. */
     public const AUDIENCE_COURSEROLE = 'courserole';
+    /** @var string Audience token: members of chosen cohorts. */
     public const AUDIENCE_COHORT = 'cohort';
+    /** @var string Audience token: nobody (owner + reportbuilder:viewall only). */
     public const AUDIENCE_NONE = 'none';
 
     /** @var \stdClass */
     private \stdClass $record;
 
+    /**
+     * Wrap a query database record.
+     *
+     * @param \stdClass $record The query database record.
+     */
     private function __construct(\stdClass $record) {
         $this->record = $record;
     }
 
+    /**
+     * Load a query by id.
+     *
+     * @param int $id
+     * @return self
+     */
     public static function get(int $id): self {
         global $DB;
         $rec = $DB->get_record(self::TABLE, ['id' => $id], '*', MUST_EXIST);
         return new self($rec);
     }
 
+    /**
+     * Load a query record by id.
+     *
+     * @param int $id
+     * @return \stdClass
+     */
     public static function get_record(int $id): \stdClass {
         return self::get($id)->record;
     }
 
+    /**
+     * Get the query id.
+     *
+     * @return int
+     */
     public function id(): int {
         return (int) $this->record->id;
     }
 
+    /**
+     * Get the underlying query record.
+     *
+     * @return \stdClass
+     */
     public function record(): \stdClass {
         return $this->record;
     }
 
+    /**
+     * Get the query name.
+     *
+     * @return string
+     */
     public function name(): string {
         return (string) $this->record->name;
     }
@@ -228,26 +268,56 @@ class query {
         return array_values(array_filter($cols, static fn(string $c): bool => $c !== ''));
     }
 
+    /**
+     * Get the query SQL.
+     *
+     * @return string
+     */
     public function sql(): string {
         return (string) $this->record->querysql;
     }
 
+    /**
+     * Get the query status (draft|published).
+     *
+     * @return string
+     */
     public function status(): string {
         return (string) $this->record->status;
     }
 
+    /**
+     * Get the database view name, or null if not published.
+     *
+     * @return string|null
+     */
     public function viewname(): ?string {
         return $this->record->viewname ?: null;
     }
 
+    /**
+     * Get the bound Report Builder report id, or null if not published.
+     *
+     * @return int|null
+     */
     public function reportid(): ?int {
         return $this->record->reportid ? (int) $this->record->reportid : null;
     }
 
+    /**
+     * Get the course id this query is scoped to (0 = site-wide).
+     *
+     * @return int
+     */
     public function courseid(): int {
         return (int) ($this->record->courseid ?? 0);
     }
 
+    /**
+     * Whether the published report is listed in the plugin UI.
+     *
+     * @return bool
+     */
     public function visible(): bool {
         return (int) ($this->record->visible ?? 1) === 1;
     }

@@ -35,7 +35,16 @@ use local_reportsources\local\query;
  * @copyright 2026 Marcus Green
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class provider implements \core_privacy\local\metadata\provider, \core_privacy\local\request\core_userlist_provider, \core_privacy\local\request\plugin\provider {
+class provider implements
+    \core_privacy\local\metadata\provider,
+    \core_privacy\local\request\core_userlist_provider,
+    \core_privacy\local\request\plugin\provider {
+    /**
+     * Describe the personal data stored by this plugin.
+     *
+     * @param collection $collection
+     * @return collection
+     */
     public static function get_metadata(collection $collection): collection {
         $collection->add_database_table('local_reportsources_query', [
             'ownerid'      => 'privacy:metadata:query:ownerid',
@@ -46,12 +55,23 @@ class provider implements \core_privacy\local\metadata\provider, \core_privacy\l
         return $collection;
     }
 
+    /**
+     * Get the list of contexts that contain user information for the given user.
+     *
+     * @param int $userid
+     * @return contextlist
+     */
     public static function get_contexts_for_userid(int $userid): contextlist {
         $list = new contextlist();
         $list->add_system_context();
         return $list;
     }
 
+    /**
+     * Get the list of users who have data within a context.
+     *
+     * @param userlist $userlist
+     */
     public static function get_users_in_context(userlist $userlist): void {
         $context = $userlist->get_context();
         if (!$context instanceof \context_system) {
@@ -64,6 +84,11 @@ class provider implements \core_privacy\local\metadata\provider, \core_privacy\l
         );
     }
 
+    /**
+     * Export all user data for the given approved contexts.
+     *
+     * @param approved_contextlist $contextlist
+     */
     public static function export_user_data(approved_contextlist $contextlist): void {
         global $DB;
         if (!in_array(\context_system::instance()->id, $contextlist->get_contextids(), true)) {
@@ -78,6 +103,11 @@ class provider implements \core_privacy\local\metadata\provider, \core_privacy\l
         }
     }
 
+    /**
+     * Delete all data for all users in the given context.
+     *
+     * @param \context $context
+     */
     public static function delete_data_for_all_users_in_context(\context $context): void {
         if (!$context instanceof \context_system) {
             return;
@@ -85,6 +115,11 @@ class provider implements \core_privacy\local\metadata\provider, \core_privacy\l
         self::purge_queries('ownerid <> 0', []);
     }
 
+    /**
+     * Delete all user data for the given user in the approved contexts.
+     *
+     * @param approved_contextlist $contextlist
+     */
     public static function delete_data_for_user(approved_contextlist $contextlist): void {
         if (!in_array(\context_system::instance()->id, $contextlist->get_contextids(), true)) {
             return;
@@ -92,6 +127,11 @@ class provider implements \core_privacy\local\metadata\provider, \core_privacy\l
         self::purge_queries('ownerid = :ownerid', ['ownerid' => $contextlist->get_user()->id]);
     }
 
+    /**
+     * Delete data for multiple users within a single context.
+     *
+     * @param approved_userlist $userlist
+     */
     public static function delete_data_for_users(approved_userlist $userlist): void {
         global $DB;
         if (!$userlist->get_context() instanceof \context_system) {

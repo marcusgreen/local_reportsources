@@ -29,6 +29,11 @@ use local_reportsources\local\sql\validator;
  * @covers \local_reportsources\local\sql\validator
  */
 final class sql_validator_test extends \advanced_testcase {
+    /**
+     * Data provider of SQL strings that must pass validation.
+     *
+     * @return array
+     */
     public static function valid_provider(): array {
         return [
             'simple SELECT' => ['SELECT id, fullname FROM {course}'],
@@ -50,12 +55,20 @@ final class sql_validator_test extends \advanced_testcase {
     }
 
     /**
+     * Valid SQL is accepted by the validator.
+     *
      * @dataProvider valid_provider
+     * @param string $sql
      */
     public function test_valid(string $sql): void {
         $this->assertNotEmpty(validator::validate($sql));
     }
 
+    /**
+     * Data provider of SQL strings that must fail validation.
+     *
+     * @return array
+     */
     public static function invalid_provider(): array {
         return [
             'empty'           => [''],
@@ -76,7 +89,10 @@ final class sql_validator_test extends \advanced_testcase {
     }
 
     /**
+     * Invalid SQL is rejected by the validator.
+     *
      * @dataProvider invalid_provider
+     * @param string $sql
      */
     public function test_invalid(string $sql): void {
         $this->expectException(\moodle_exception::class);

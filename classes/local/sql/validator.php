@@ -89,8 +89,8 @@ class validator {
 
         $stripped = self::strip_comments_and_strings($sql);
 
-        // ? inside string literals (e.g. URL query strings like view.php?id=) are treated as
-        // positional DML parameters by Moodle's database layer, causing "Expected N, got 0" errors.
+        // A ? inside string literals (e.g. URL query strings like view.php?id=) is treated as
+        // a positional DML parameter by Moodle's database layer, causing "Expected N, got 0" errors.
         if (strpos($sql, '?') !== false) {
             throw new \moodle_exception('errquestionmark', 'local_reportsources');
         }
@@ -274,7 +274,7 @@ class validator {
             if ($i === 0) {
                 continue; // Base table — no join condition expected.
             }
-            // greenlion uses false (not null) for absent values, so cast before strtoupper.
+            // The greenlion parser uses false (not null) for absent values, so cast before strtoupper.
             $jointype = strtoupper((string) ($from['join_type'] ?? ''));
             $reftype = strtoupper((string) ($from['ref_type'] ?? ''));
 
@@ -284,7 +284,7 @@ class validator {
             if (in_array($jointype, ['CROSS', 'NATURAL'], true)) {
                 continue; // Conditionless join by design.
             }
-            // join_type=JOIN also covers an explicit CROSS JOIN; stay lenient if one is present.
+            // A join_type of JOIN also covers an explicit CROSS JOIN; stay lenient if one is present.
             if ($jointype === 'JOIN' && $hascrossjoin) {
                 continue;
             }
@@ -512,8 +512,10 @@ class validator {
                     $count++;
                 }
                 $aftersetop = false;
-            } else if ($depth === 0 && $aftersetop
-                    && !in_array(strtoupper(trim($tok)), ['', 'ALL', 'DISTINCT'], true)) {
+            } else if (
+                $depth === 0 && $aftersetop
+                    && !in_array(strtoupper(trim($tok)), ['', 'ALL', 'DISTINCT'], true)
+            ) {
                 // Anything other than ALL/DISTINCT between the set operator and its SELECT
                 // ends the set operation, so the next SELECT counts as a new statement.
                 $aftersetop = false;
