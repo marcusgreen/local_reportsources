@@ -179,6 +179,14 @@ foreach ($queries as $rec) {
                 new moodle_url('/reportbuilder/edit.php', ['id' => $rec->reportid]),
                 get_string('editreport', 'local_reportsources')
             );
+            // Deep-link to the report's Schedules tab. The RB editor uses JS dynamic tabs whose ids
+            // are the short class name (schedules); core/dynamic_tabs activates the matching tab from
+            // the URL hash. Recipients are the report's RB audiences, set at publish.
+            $actions[] = html_writer::link(
+                new moodle_url('/reportbuilder/edit.php', ['id' => $rec->reportid], 'schedules'),
+                $OUTPUT->pix_icon('i/scheduled', '', 'moodle', ['class' => 'iconsmall me-1']) .
+                    get_string('schedule', 'local_reportsources')
+            );
         }
     }
     if ($rec->status === query::STATUS_PUBLISHED && has_capability('local/reportsources:approve', $syscontext)) {

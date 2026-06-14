@@ -161,6 +161,7 @@ $string['reportsources:view'] = 'Run published report views';
 $string['reportsources:viewall'] = 'View all report views regardless of audience';
 $string['reportsources:viewown'] = 'Run report views in own course';
 $string['runreport'] = 'Open report';
+$string['schedule'] = 'Schedule emails';
 $string['selectcolumn'] = '(select column)';
 $string['settings:aigenerate'] = 'AI SQL generation';
 $string['settings:aigenerate_desc'] = 'Show an AI question box on the query edit form. Requires the local_sqlchat plugin to be installed and configured.';
