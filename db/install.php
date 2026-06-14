@@ -28,6 +28,9 @@
 function xmldb_local_reportsources_install(): void {
     global $DB;
 
+    // Import the bundled user tour for the report views list page.
+    \local_reportsources\local\tour::install();
+
     // Migrate data from local_adhocreports if it was installed on this site.
     if ($DB->get_manager()->table_exists('local_adhocreports_query')) {
         $oldsource = 'local_adhocreports\\reportbuilder\\datasource\\adhoc_query';

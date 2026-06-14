@@ -66,13 +66,18 @@ echo $OUTPUT->heading(get_string('queries', 'local_reportsources') .
 
 $syscontext = context_system::instance();
 if (has_capability('local/reportsources:author', $syscontext)) {
-    echo $OUTPUT->single_button(
-        new moodle_url(
-            '/local/reportsources/edit.php',
-            $courseid ? ['courseid' => $courseid] : []
+    // Wrapped with a stable id so the user tour can anchor a step to the New report view button.
+    echo html_writer::div(
+        $OUTPUT->single_button(
+            new moodle_url(
+                '/local/reportsources/edit.php',
+                $courseid ? ['courseid' => $courseid] : []
+            ),
+            get_string('addnew', 'local_reportsources'),
+            'get'
         ),
-        get_string('addnew', 'local_reportsources'),
-        'get'
+        '',
+        ['id' => 'rs-tour-newbutton']
     );
 }
 
@@ -104,6 +109,7 @@ if (!$queries) {
 }
 
 $table = new html_table();
+$table->id = 'rs-tour-table';
 $table->head = [
     get_string('name', 'local_reportsources'),
     get_string('owner', 'local_reportsources'),

@@ -183,6 +183,18 @@ $string['testview:grantshint'] = 'Grant the Moodle database user CREATE VIEW and
 $string['testview:linklabel'] = 'Run database view privilege test';
 $string['testview:ok'] = 'The database user can create and drop views. Publishing queries should work.';
 $string['testview:title'] = 'Database view privilege test';
+$string['tourdesc'] = 'A short guided tour of the report views list page.';
+$string['tourname'] = 'Report sources tour';
+$string['tourstep1content'] = 'Start here to create a report view. Write a SQL <em>SELECT</em> query, then publish it to build a fully configurable Report Builder report — no PHP required.';
+$string['tourstep1title'] = 'Create a report view';
+$string['tourstep2content'] = 'Every report view you have saved is listed here, with its owner and status.';
+$string['tourstep2title'] = 'Your report views';
+$string['tourstep3content'] = 'The status shows whether a view is still a <strong>Draft</strong> or has been <strong>Published</strong> as a live report.';
+$string['tourstep3title'] = 'Draft or published';
+$string['tourstep4content'] = 'Open the live Report Builder report to view, filter, sort and export its data.';
+$string['tourstep4title'] = 'Open the report';
+$string['tourstep5content'] = 'This menu holds the rest of the actions: edit the SQL, edit in Report Builder, schedule emails, duplicate, publish/unpublish and delete.';
+$string['tourstep5title'] = 'More actions';
 $string['unpublish'] = 'Unpublish';
 
 
