@@ -230,6 +230,19 @@ When **SQL syntax highlight and autocomplete** is enabled (admin setting), the S
 
 A **Format SQL** button is also available to tidy indentation.
 
+### Support for third-party plugins
+
+The editor does not rely on a fixed, predefined list of Moodle tables. Its suggestions are derived from the schema actually installed on your site, so the tables of any third-party plugin become available in autocomplete as soon as that plugin is installed, with no additional configuration required.
+
+Suggestions are drawn from two sources:
+
+- **Table and column names** are obtained from the live database (`get_tables()` / `get_columns()`). Any table created by a plugin at installation is therefore already present: typing `{` lists those plugin tables, and `{plugintable}.` lists their columns alongside the core ones.
+- **Foreign-key relationships** are read from the `db/install.xml` files of the installed code. When the edit page loads, the plugin scans the `db/install.xml` of Moodle core and of every installed plugin, collecting each `<KEY TYPE="foreign">` definition. This allows the editor to recognise, for example, that `{forum_posts}.userid` references `{user}.id`, and to suggest the related table when you construct a join — including tables defined by add-ons.
+
+Consequently, the more plugins a site has installed, the more complete its autocomplete and join suggestions become. A table that exists only on another site will not appear until the corresponding plugin is installed on this one.
+
+> The foreign-key map is cached and rebuilt automatically on each Moodle upgrade, so newly installed or upgraded plugins are detected without manual intervention. If the relationships for a recently installed plugin do not appear, purge the site caches.
+
 ---
 
 ## Generating SQL with AI
