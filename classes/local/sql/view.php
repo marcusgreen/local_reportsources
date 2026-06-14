@@ -49,15 +49,16 @@ class view {
      *
      * @param int $queryid
      * @param string $validatedsql
+     * @param int $courseid Course scope to substitute into %%COURSEID%% (0 = site-wide).
      * @return string The view name (without prefix) on success.
      * @throws \moodle_exception
      */
-    public static function create_or_replace(int $queryid, string $validatedsql): string {
+    public static function create_or_replace(int $queryid, string $validatedsql, int $courseid = 0): string {
         global $DB, $CFG;
 
         $viewname = self::name_for($queryid);
         $fullname = $CFG->prefix . $viewname;
-        $resolved = self::normalise_aliases(self::resolve_placeholders($validatedsql));
+        $resolved = self::normalise_aliases(self::resolve_placeholders($validatedsql, $courseid));
 
         $ddl = "CREATE OR REPLACE VIEW {$fullname} AS {$resolved}";
 
@@ -115,14 +116,21 @@ class view {
     }
 
     /**
-     * Replace `{tablename}` with the prefixed table name. The Moodle DML layer normally does this
-     * for parameterised queries but DDL statements bypass that path.
+     * Replace `{tablename}` with the prefixed table name, `%%WWWROOT%%` with the site URL, and
+     * `%%COURSEID%%` with the query's course scope. The Moodle DML layer normally resolves
+     * `{table}` for parameterised queries but DDL statements bypass that path. `%%WWWROOT%%` lets
+     * authors embed absolute links (e.g. in a CONCAT building an <a href>) without hard-coding the
+     * site address. `%%COURSEID%%` bakes the bound course id into the VIEW so a course-scoped query
+     * filters to that course (the VIEW is static, so the id is fixed at publish time).
      *
      * @param string $sql
+     * @param int $courseid Course id substituted for %%COURSEID%% (0 when site-wide / dry-run).
      * @return string
      */
-    public static function resolve_placeholders(string $sql): string {
+    public static function resolve_placeholders(string $sql, int $courseid = 0): string {
         global $CFG;
+        $sql = str_ireplace('%%WWWROOT%%', $CFG->wwwroot, $sql);
+        $sql = str_ireplace('%%COURSEID%%', (string) $courseid, $sql);
         return preg_replace_callback(
             '/\{([a-z0-9_]+)\}/i',
             static fn(array $m): string => $CFG->prefix . $m[1],

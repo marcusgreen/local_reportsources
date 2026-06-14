@@ -98,8 +98,15 @@ class validator {
         // Unfilled placeholder artifacts copied from ad-hoc report templates (e.g. ## or
         // %%FILTER_USERS%%) reach the DB as broken SQL. ## also starts a MySQL comment, truncating
         // the statement into a cryptic syntax error. Catch these and name the offending token.
-        if (preg_match('/##+|%%[^%\n]*%%/', $sql, $m)) {
-            throw new \moodle_exception('errplaceholder', 'local_reportsources', '', $m[0]);
+        // %%WWWROOT%% and %%COURSEID%% are supported: both are substituted at view-build time
+        // (see view::resolve_placeholders), so they are exempt from this rejection. %%COURSEID%%
+        // additionally requires the query to carry a course scope — enforced in the edit form.
+        if (preg_match_all('/##+|%%[^%\n]*%%/', $sql, $ms)) {
+            foreach ($ms[0] as $token) {
+                if (strcasecmp($token, '%%WWWROOT%%') !== 0 && strcasecmp($token, '%%COURSEID%%') !== 0) {
+                    throw new \moodle_exception('errplaceholder', 'local_reportsources', '', $token);
+                }
+            }
         }
 
         // Single statement — reject both semicolon-separated and bare multi-statement SQL.

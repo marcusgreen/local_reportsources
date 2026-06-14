@@ -97,6 +97,7 @@ $string['errduplicatecolumn'] = 'Joined tables share duplicate column names (e.g
 $string['errimportempty'] = 'The export file contains no report views.';
 $string['errimportformat'] = 'This file is not a valid Report sources export.';
 $string['errjoinnoon'] = 'A JOIN is missing its ON (or USING) condition. Each JOIN needs a join condition, e.g. JOIN {user_enrolments} ue ON ue.userid = u.id';
+$string['errcourseidplaceholder'] = 'The SQL uses %%COURSEID%%, so this report needs a course scope. Choose a course above before saving.';
 $string['errmultistatement'] = 'Multiple statements are not allowed.';
 $string['errnoexportselection'] = 'Select at least one report view to export.';
 $string['errnoimportselection'] = 'Select at least one report view to import.';

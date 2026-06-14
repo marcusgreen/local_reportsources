@@ -24,7 +24,8 @@ Report Sources (`local_reportsources`) lets you write a SQL `SELECT` query, clic
 16. [Validation and error messages](#validation-and-error-messages)
 17. [Admin settings](#admin-settings)
 18. [Database privilege check](#database-privilege-check)
-19. [Troubleshooting](#troubleshooting)
+19. [Relationship to other SQL report plugins](#relationship-to-other-sql-report-plugins)
+20. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -424,6 +425,54 @@ GRANT CREATE VIEW, DROP ON moodle.* TO 'mdluser'@'localhost';
 ```
 
 Replace `moodle`, `mdluser`, and `localhost` with your schema name, DB user, and host.
+
+---
+
+## Relationship to other SQL report plugins
+
+Two long-established Moodle plugins also turn SQL into reports: **Ad-hoc database queries** (`report_customsql`) and **Configurable Reports** (`block_configurable_reports`). Report Sources is **complementary**, not a drop-in replacement. You can install all three side by side — they share no tables and do not conflict.
+
+### The core difference: live query vs. fixed view
+
+| | How the SQL runs |
+|---|---|
+| **report_customsql / configurable_reports** | The SQL is **executed live on every run**, so it can take per-request parameters and substitution tokens. |
+| **Report Sources (this plugin)** | Publishing compiles the SQL into a **static database `VIEW`**, then a Report Builder report reads that view. The view has **no per-request parameters** — it is the same `SELECT` for everyone, every time. |
+
+That single design choice drives every compatibility note below: anything that depends on a value being injected *at run time* has no equivalent here, and must instead be expressed through a Report Builder **filter**, the **[per-user filter](#per-user-filter)**, or **[course scope](#the-edit-form-field-by-field)**.
+
+### SQL you can reuse as-is
+
+- Plain `SELECT` / `WITH … SELECT` bodies — copy straight in.
+- `{tablename}` brace syntax — supported identically.
+- `%%WWWROOT%%` — supported identically (substituted at view-build time).
+
+### SQL that will **not** work unchanged
+
+These runtime tokens from the other plugins are **rejected at save** (the view is a fixed `CREATE VIEW`, so there is nothing to substitute into):
+
+| Token / feature | From | Report Sources equivalent |
+|---|---|---|
+| `%%USERID%%` | both | **[Per-user filter](#per-user-filter)** — pick the user-id column; each viewer sees only their rows |
+| `%%COURSEID%%`, `%%CATEGORYID%%` | configurable_reports | **[Course scope](#the-edit-form-field-by-field)** + audiences, or hard-code (`WHERE c.id = 5`), or a Report Builder course filter |
+| `%%FILTER_*%%` (cohorts, subcategories, …) | configurable_reports | Add a **filter in Report Builder** after publishing |
+| `:parameter_name` prompted parameters | report_customsql | A **Report Builder filter** the viewer sets at view time |
+| `%%STARTTIME%%` / `%%ENDTIME%%` | both (scheduled runs) | A **date filter** in Report Builder; scheduling is handled by RB itself ([Emailing reports](#emailing-reports-on-a-schedule)) |
+
+Two formatting conventions also differ:
+
+- report_customsql's `name` / `name_link_url` column-pair link convention is **not** interpreted — build clickable cells with `CONCAT` + `%%WWWROOT%%` instead (see [Placeholders](#placeholders)).
+- report_customsql's "column whose name ends in `date` → formatted as a date" magic does not apply — Report Sources types columns from the view's own column types.
+
+### What each plugin is best at
+
+| Use | Best fit |
+|---|---|
+| Quick admin CSV dump, scheduled email of raw rows, prompted parameters | **report_customsql** |
+| A report block embedded in a course/front page, point-and-click column/condition/plot builder with runtime course/user tokens | **block_configurable_reports** |
+| A fully native **Report Builder** report — drag-in columns, RB filters & conditions, sorting, **audiences**, charts, and CSV/Excel/PDF scheduled exports — with no PHP and no manual datasource | **Report Sources** |
+
+In short: bring your `SELECT` body and `{table}` references over freely; replace any **runtime token** with the matching Report Builder filter, per-user filter, or course scope.
 
 ---
 

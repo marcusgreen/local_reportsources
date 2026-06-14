@@ -335,10 +335,17 @@ class edit_query_form extends moodleform {
 
     public function validation($data, $files): array {
         $errors = parent::validation($data, $files);
+        $sql = (string) ($data['querysql'] ?? '');
         try {
-            validator::validate((string) ($data['querysql'] ?? ''));
+            validator::validate($sql);
         } catch (\moodle_exception $e) {
             $errors['querysql'] = $e->getMessage();
+        }
+
+        // %%COURSEID%% is baked into the static VIEW at publish, so the query must carry a course
+        // scope to substitute. Reject it site-wide rather than silently bake in courseid 0.
+        if (stripos($sql, '%%COURSEID%%') !== false && (int) ($data['courseid'] ?? 0) <= 0) {
+            $errors['courseid'] = get_string('errcourseidplaceholder', 'local_reportsources');
         }
 
         $audiencetype = (string) ($data['audiencetype'] ?? 'default');

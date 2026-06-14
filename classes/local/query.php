@@ -409,7 +409,7 @@ class query {
     public function publish(): void {
         global $DB;
 
-        $viewname = view::create_or_replace($this->id(), $this->sql());
+        $viewname = view::create_or_replace($this->id(), $this->sql(), $this->courseid());
         $columns  = view::columns($viewname);
 
         $meta = [];
