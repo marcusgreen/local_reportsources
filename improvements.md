@@ -29,7 +29,12 @@ The parser already rejects REPLACE *statements* via `check_statement_type()`.
 **Fix:** allow `REPLACE` when immediately followed by `(`. Mirror the change in the
 client-side denylist at `amd/src/editor.js:233`.
 
-### 3. Transaction around DDL is illusory (medium)
+### 3. ~~Transaction around DDL is illusory~~ — DONE 2026-06-14
+Removed the delegated transaction in `save()`. Record is now demoted to draft and persisted
+*before* `tear_down()` runs, so a partial teardown leaves the record reading draft instead of
+falsely published over a destroyed view/report.
+
+Original finding (medium):
 `classes/local/query.php:362` — `save()` wraps `tear_down()` in a delegated transaction,
 but `tear_down()` issues `DROP VIEW` via `change_database_structure()`. MySQL DDL implicitly
 commits, so the atomicity claimed by the comment at line 359 does not hold: a failed

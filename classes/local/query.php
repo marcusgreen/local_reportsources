@@ -356,11 +356,11 @@ class query {
             $record->id = (int) $data->id;
             $existing = $DB->get_record(self::TABLE, ['id' => $record->id], '*', MUST_EXIST);
             // SQL change while published: drop view + report so they get rebuilt on next publish.
-            // Wrap in a transaction so a failed update_record doesn't leave the record claiming
-            // published status after the view and RB report have already been destroyed.
+            // A transaction here would be illusory — tear_down() issues DROP VIEW via
+            // change_database_structure(), and DDL implicitly commits on MySQL. So demote the
+            // record to draft *first*, then tear down: if the teardown fails partway, the record
+            // already reads draft rather than claiming published over a destroyed view/report.
             if ($existing->status === self::STATUS_PUBLISHED && $existing->querysql !== $sql) {
-                $transaction = $DB->start_delegated_transaction();
-                self::tear_down((int) $existing->id, $existing);
                 $record->status       = self::STATUS_DRAFT;
                 $record->viewname     = null;
                 $record->reportid     = null;
@@ -368,7 +368,7 @@ class query {
                 // Old column names no longer apply once the view is rebuilt.
                 $record->useridcolumn = null;
                 $DB->update_record(self::TABLE, $record);
-                $transaction->allow_commit();
+                self::tear_down((int) $existing->id, $existing);
                 \local_reportsources\event\query_updated::create_and_trigger($record->id, $record->name);
                 return $record->id;
             }
