@@ -110,6 +110,8 @@ $table->head = [
     get_string('status', 'local_reportsources'),
     get_string('actions', 'local_reportsources'),
 ];
+// Keep the actions cell on one line so the Open report button and the kebab menu never wrap.
+$table->colclasses = ['', '', '', 'text-nowrap'];
 
 // Audience-allowed report ids for the current user, fetched once. can_view_report() would run this
 // same query per row, so we hoist it and do the remaining (cheap, cached) capability checks inline.
@@ -146,99 +148,125 @@ foreach ($queries as $rec) {
     }
 
     $owner = core_user::get_user($rec->ownerid);
-    $statuskey = 'status_' . $rec->status;
-    $actions = [];
-    if (has_capability('local/reportsources:author', $syscontext)) {
-        $actions[] = html_writer::link(
-            new moodle_url(
-                '/local/reportsources/edit.php',
-                ['id' => $rec->id] + ($courseid ? ['courseid' => $courseid] : [])
-            ),
-            get_string('edit', 'local_reportsources')
+    $urlcourse = $courseid ? ['courseid' => $courseid] : [];
+    $reportname = format_string($rec->name);
+
+    // The most-used action (open the published report) stays as an inline button; everything else
+    // goes into a kebab action menu so the row stays short and scannable.
+    if ($canviewreport) {
+        $primary = html_writer::link(
+            new moodle_url('/reportbuilder/view.php', ['id' => $rec->reportid]),
+            get_string('runreport', 'local_reportsources'),
+            // Row-specific accessible name so the link is distinguishable when the visible label
+            // "Open report" repeats down the list.
+            ['class' => 'btn btn-sm btn-primary me-2',
+                'aria-label' => get_string('runreportfor', 'local_reportsources', $reportname)]
         );
+    } else {
+        // No Open report button on this row: reserve its width with an invisible placeholder so the
+        // kebab menu lines up with the kebabs on rows that do have the button.
+        $primary = html_writer::span(
+            get_string('runreport', 'local_reportsources'),
+            'btn btn-sm btn-primary me-2 invisible',
+            ['aria-hidden' => 'true']
+        );
+    }
+
+    $menu = new action_menu();
+    // Row-specific trigger label: a generic "Actions" repeats for every row and gives a screen
+    // reader no way to tell the menus apart.
+    $menu->set_kebab_trigger(get_string('actionsfor', 'local_reportsources', $reportname));
+
+    if (has_capability('local/reportsources:author', $syscontext)) {
+        $menu->add(new action_menu_link_secondary(
+            new moodle_url('/local/reportsources/edit.php', ['id' => $rec->id] + $urlcourse),
+            new pix_icon('t/edit', ''),
+            get_string('edit', 'local_reportsources')
+        ));
     }
     if ($canviewreport) {
         $chartmeta = $rec->chartmeta ? json_decode($rec->chartmeta, true) : [];
         if (!empty($chartmeta['type']) && $chartmeta['type'] !== 'none') {
-            $actions[] = html_writer::link(
-                new moodle_url(
-                    '/local/reportsources/chart.php',
-                    ['id' => $rec->id] + ($courseid ? ['courseid' => $courseid] : [])
-                ),
-                $OUTPUT->pix_icon('i/chartbar', '', 'moodle', ['class' => 'iconsmall me-1']) .
-                    get_string('viewchart', 'local_reportsources')
-            );
+            $menu->add(new action_menu_link_secondary(
+                new moodle_url('/local/reportsources/chart.php', ['id' => $rec->id] + $urlcourse),
+                new pix_icon('i/chartbar', ''),
+                get_string('viewchart', 'local_reportsources')
+            ));
         }
-        $actions[] = html_writer::link(
-            new moodle_url('/reportbuilder/view.php', ['id' => $rec->reportid]),
-            get_string('runreport', 'local_reportsources')
-        );
         if (has_capability('moodle/reportbuilder:edit', $syscontext)) {
-            $actions[] = html_writer::link(
+            $menu->add(new action_menu_link_secondary(
                 new moodle_url('/reportbuilder/edit.php', ['id' => $rec->reportid]),
+                new pix_icon('i/settings', ''),
                 get_string('editreport', 'local_reportsources')
-            );
+            ));
             // Deep-link to the report's Schedules tab. The RB editor uses JS dynamic tabs whose ids
             // are the short class name (schedules); core/dynamic_tabs activates the matching tab from
             // the URL hash. Recipients are the report's RB audiences, set at publish.
-            $actions[] = html_writer::link(
+            $menu->add(new action_menu_link_secondary(
                 new moodle_url('/reportbuilder/edit.php', ['id' => $rec->reportid], 'schedules'),
-                $OUTPUT->pix_icon('i/scheduled', '', 'moodle', ['class' => 'iconsmall me-1']) .
-                    get_string('schedule', 'local_reportsources')
-            );
+                new pix_icon('i/scheduled', ''),
+                get_string('schedule', 'local_reportsources')
+            ));
         }
     }
     if ($rec->status === query::STATUS_PUBLISHED && has_capability('local/reportsources:approve', $syscontext)) {
-        $actions[] = html_writer::link(
-            new moodle_url(
-                '/local/reportsources/run.php',
-                ['id' => $rec->id, 'action' => 'newreport', 'sesskey' => sesskey()]
-            ),
+        $menu->add(new action_menu_link_secondary(
+            new moodle_url('/local/reportsources/run.php', ['id' => $rec->id, 'action' => 'newreport', 'sesskey' => sesskey()]),
+            new pix_icon('t/add', ''),
             get_string('newreport', 'local_reportsources')
-        );
+        ));
     }
     if ($rec->status === query::STATUS_DRAFT && has_capability('local/reportsources:approve', $syscontext)) {
-        $actions[] = html_writer::link(
-            new moodle_url(
-                '/local/reportsources/run.php',
-                ['id' => $rec->id, 'action' => 'publish', 'sesskey' => sesskey()]
-            ),
+        $menu->add(new action_menu_link_secondary(
+            new moodle_url('/local/reportsources/run.php', ['id' => $rec->id, 'action' => 'publish', 'sesskey' => sesskey()]),
+            new pix_icon('t/show', ''),
             get_string('publish', 'local_reportsources')
-        );
+        ));
     }
     if ($rec->status === query::STATUS_PUBLISHED && has_capability('local/reportsources:approve', $syscontext)) {
-        $actions[] = html_writer::link(
-            new moodle_url(
-                '/local/reportsources/run.php',
-                ['id' => $rec->id, 'action' => 'unpublish', 'sesskey' => sesskey()]
-            ),
+        $menu->add(new action_menu_link_secondary(
+            new moodle_url('/local/reportsources/run.php', ['id' => $rec->id, 'action' => 'unpublish', 'sesskey' => sesskey()]),
+            new pix_icon('t/hide', ''),
             get_string('unpublish', 'local_reportsources')
-        );
+        ));
     }
     if (has_capability('local/reportsources:author', $syscontext)) {
-        $actions[] = html_writer::link(
-            new moodle_url(
-                '/local/reportsources/run.php',
-                ['id' => $rec->id, 'action' => 'copy', 'sesskey' => sesskey()]
-            ),
+        $menu->add(new action_menu_link_secondary(
+            new moodle_url('/local/reportsources/run.php', ['id' => $rec->id, 'action' => 'copy', 'sesskey' => sesskey()]),
+            new pix_icon('t/copy', ''),
             get_string('duplicate', 'local_reportsources')
-        );
+        ));
     }
     if (
         has_capability('local/reportsources:author', $syscontext) &&
         ($rec->ownerid == $USER->id || has_capability('local/reportsources:viewall', $syscontext))
     ) {
-        $actions[] = html_writer::link(
+        $menu->add(new action_menu_link_secondary(
             new moodle_url('/local/reportsources/delete.php', ['id' => $rec->id, 'sesskey' => sesskey()]),
+            new pix_icon('t/delete', ''),
             get_string('delete', 'local_reportsources'),
             ['class' => 'text-danger']
-        );
+        ));
     }
+
+    $badgeclass = [
+        query::STATUS_PUBLISHED => 'badge bg-success',
+        query::STATUS_DRAFT     => 'badge bg-secondary',
+    ][$rec->status] ?? 'badge bg-warning text-dark';
+    $statusbadge = html_writer::span(get_string('status_' . $rec->status, 'local_reportsources'), $badgeclass);
+
+    // Flex row keeps the Open report button and the kebab menu on a single line — the menu renders
+    // as a block element and would otherwise wrap below the button.
+    $actionscell = html_writer::div(
+        $primary . $OUTPUT->render($menu),
+        'd-flex align-items-center flex-nowrap'
+    );
+
     $table->data[] = [
-        format_string($rec->name),
+        $reportname,
         $owner ? fullname($owner) : '-',
-        get_string($statuskey, 'local_reportsources'),
-        implode(' | ', $actions),
+        $statusbadge,
+        $actionscell,
     ];
 }
 

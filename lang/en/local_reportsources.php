@@ -25,6 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $string['actions'] = 'Actions';
+$string['actionsfor'] = 'Actions for {$a}';
 $string['addnew'] = 'New report view';
 $string['ai:generate'] = 'Generate SQL';
 $string['ai:generatedname'] = 'Generated query';
@@ -163,6 +164,7 @@ $string['reportsources:view'] = 'Run published report views';
 $string['reportsources:viewall'] = 'View all report views regardless of audience';
 $string['reportsources:viewown'] = 'Run report views in own course';
 $string['runreport'] = 'Open report';
+$string['runreportfor'] = 'Open report: {$a}';
 $string['schedule'] = 'Schedule emails';
 $string['selectcolumn'] = '(select column)';
 $string['settings:aigenerate'] = 'AI SQL generation';
