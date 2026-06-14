@@ -192,4 +192,3 @@ $string['visible_help'] = 'Controls whether this published report appears in the
 
 For finer-grained access control, use the Audiences feature in Report Builder after publishing: open the report, go to the Audience tab, and restrict by cohort, role, or individual user.';
 $string['warnmysqldatefn'] = 'MySQL-only function {$a} may not work on PostgreSQL. Use a cross-database equivalent.';
-$string['warnpgmixedcasealias'] = 'Column alias "{$a}" has uppercase letters. On PostgreSQL the quoted alias keeps its case, but Report Builder references columns unquoted (folded to lowercase), so the report fails with "column does not exist". Use a lowercase alias, e.g. "{$a}" → all lowercase.';

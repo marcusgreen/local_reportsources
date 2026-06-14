@@ -172,14 +172,9 @@ class validator {
                 }
             }
 
-            // PostgreSQL preserves the case of double-quoted identifiers, so a mixed-case alias
-            // like `AS "Course_Shortname"` becomes a case-sensitive view column. Report Builder
-            // generates its SQL with bare (unquoted) column references, which PostgreSQL folds to
-            // lowercase (course_shortname), so the report errors with "column ... does not exist".
-            // MySQL is case-insensitive for column identifiers, so this is a PostgreSQL-only trap.
-            foreach (self::mixed_case_quoted_aliases($sql) as $alias) {
-                self::$warnings[] = get_string('warnpgmixedcasealias', 'local_reportsources', $alias);
-            }
+            // Mixed-case double-quoted aliases (e.g. `AS "Course_Shortname"`) become case-sensitive
+            // view columns on PostgreSQL that Report Builder's unquoted SQL cannot reference. Rather
+            // than warn, view::normalise_aliases() lowercases them at view-build time.
         }
 
         // Error on PostgreSQL-specific date/time functions when running MySQL/MariaDB.
@@ -560,27 +555,6 @@ class validator {
         $names = array_values(array_unique($m[1] ?? []));
         sort($names);
         return $names;
-    }
-
-    /**
-     * Find double-quoted identifiers (column aliases) that contain uppercase letters.
-     *
-     * On PostgreSQL a double-quoted identifier is case-sensitive, so such an alias produces a
-     * mixed-case view column that Report Builder's unquoted SQL cannot reference. Scans the raw SQL
-     * because {@see self::strip_comments_and_strings()} blanks double-quoted content. String
-     * literals on PostgreSQL use single quotes, so a double-quoted token is always an identifier.
-     *
-     * @param string $sql SQL with comments/strings intact (post auto_brace).
-     * @return string[] Unique mixed-case quoted identifiers, without the surrounding quotes.
-     */
-    private static function mixed_case_quoted_aliases(string $sql): array {
-        // Blank block/line comments first so a quoted word inside a comment is ignored.
-        $scan = preg_replace('/\/\*.*?\*\//s', ' ', $sql) ?? $sql;
-        $scan = preg_replace('/--[^\n]*/', ' ', $scan) ?? $scan;
-        if (!preg_match_all('/"([^"]*[A-Z][^"]*)"/', $scan, $m)) {
-            return [];
-        }
-        return array_values(array_unique($m[1]));
     }
 
     /**

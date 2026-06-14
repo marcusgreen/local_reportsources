@@ -119,24 +119,27 @@ final class sql_validator_test extends \advanced_testcase {
         $this->assertNotEmpty(validator::validate("SELECT id, 'password' AS label FROM {user}"));
     }
 
-    public function test_mixed_case_quoted_alias_warns_on_postgres_only(): void {
-        global $CFG;
+    public function test_mixed_case_quoted_alias_no_longer_warns(): void {
         $sql = 'SELECT ue.userid, c.shortname AS "Course_Shortname" '
             . 'FROM {user_enrolments} ue JOIN {enrol} e ON ue.enrolid = e.id '
             . 'JOIN {course} c ON e.courseid = c.id';
 
         validator::validate($sql);
-        $warnings = validator::get_warnings();
+        // Mixed-case aliases are now lowercased at view-build time, not warned about.
+        $this->assertEmpty(validator::get_warnings());
+    }
 
-        if (($CFG->dbtype ?? '') === 'pgsql') {
-            // On PostgreSQL the quoted mixed-case alias breaks Report Builder's unquoted column refs.
-            $this->assertContains(
-                get_string('warnpgmixedcasealias', 'local_reportsources', 'Course_Shortname'),
-                $warnings
-            );
+    public function test_normalise_aliases_lowercases_quoted_alias_on_postgres(): void {
+        global $DB;
+        $sql = 'SELECT c.shortname AS "Course_Shortname" FROM {course} c';
+        $out = \local_reportsources\local\sql\view::normalise_aliases($sql);
+
+        if ($DB->get_dbfamily() === 'postgres') {
+            // PostgreSQL: double-quoted alias is lowercased to match RB's case-folded reference.
+            $this->assertStringContainsString('AS "course_shortname"', $out);
         } else {
-            // MySQL/MariaDB are case-insensitive for column identifiers — no warning expected.
-            $this->assertEmpty($warnings);
+            // MySQL/MariaDB fold case anyway, so the alias is left as written.
+            $this->assertStringContainsString('AS "Course_Shortname"', $out);
         }
     }
 

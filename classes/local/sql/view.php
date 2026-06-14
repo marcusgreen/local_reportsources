@@ -104,13 +104,27 @@ class view {
      *
      * e.g.  AS "Common world format"  →  AS "Common_world_format"
      *
+     * On PostgreSQL, double-quoted identifiers are case-sensitive, so a mixed-case alias like
+     * `AS "Course_Shortname"` becomes a case-sensitive view column that Report Builder's unquoted
+     * SQL (which PostgreSQL folds to lowercase) cannot reference. Lowercase double-quoted aliases
+     * so the view column matches RB's case-folded reference. MySQL folds case anyway, so its
+     * aliases are left untouched.
+     *
      * @param string $sql
      * @return string
      */
     public static function normalise_aliases(string $sql): string {
+        global $DB;
+        $pg = $DB->get_dbfamily() === 'postgres';
         return preg_replace_callback(
             '/\bAS\s+(["`])([^"`]+)\1/i',
-            static fn(array $m): string => 'AS ' . $m[1] . str_replace(' ', '_', $m[2]) . $m[1],
+            static function (array $m) use ($pg): string {
+                $alias = str_replace(' ', '_', $m[2]);
+                if ($pg && $m[1] === '"') {
+                    $alias = strtolower($alias);
+                }
+                return 'AS ' . $m[1] . $alias . $m[1];
+            },
             $sql
         ) ?? $sql;
     }
