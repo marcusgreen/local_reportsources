@@ -37,7 +37,7 @@ class edit_query_form extends moodleform {
      * Form definition.
      */
     protected function definition() {
-        global $DB, $PAGE;
+        global $PAGE;
 
         $mform = $this->_form;
 
@@ -82,18 +82,9 @@ class edit_query_form extends moodleform {
         $mform->setType('description', PARAM_TEXT);
 
         if (get_config('local_reportsources', 'syntaxhighlight')) {
+            // The editor fetches the (large) schema + FK map lazily over AJAX; see
+            // local_reportsources\external\get_schema and local_reportsources\local\schema.
             $PAGE->requires->js_call_amd('local_reportsources/editor', 'init', ['id_querysql']);
-
-            $tableobject = new \stdClass();
-            foreach ($DB->get_tables() as $table) {
-                $tableobject->$table = array_keys($DB->get_columns($table));
-            }
-            $jsonflags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
-            $mform->addElement('hidden', 'tablejson', json_encode($tableobject, $jsonflags), ['id' => 'tablejson']);
-            $mform->setType('tablejson', PARAM_RAW);
-
-            $mform->addElement('hidden', 'fkjson', json_encode(self::build_fk_map(), $jsonflags), ['id' => 'fkjson']);
-            $mform->setType('fkjson', PARAM_RAW);
         }
 
         $mform->addElement(
@@ -176,73 +167,6 @@ class edit_query_form extends moodleform {
         );
         $mform->setType('audiencecohorts', PARAM_INT);
         $mform->hideIf('audiencecohorts', 'audiencetype', 'neq', 'cohort');
-    }
-
-    /**
-     * Build a FK map from all installed plugin install.xml files.
-     *
-     * Returns: ['tablename' => ['colname' => ['reftable' => '...', 'refcol' => '...'], ...], ...]
-     * Result is cached in config keyed by Moodle version and invalidated on upgrade.
-     */
-    private static function build_fk_map(): array {
-        global $CFG;
-
-        $cachedver = get_config('local_reportsources', 'fkmapcache_ver');
-        if ($cachedver == $CFG->version) {
-            $cached = get_config('local_reportsources', 'fkmapcache');
-            if ($cached !== false) {
-                return json_decode($cached, true) ?? [];
-            }
-        }
-
-        $map = [];
-        $xmlfiles = [];
-
-        $corefile = $CFG->libdir . '/db/install.xml';
-        if (file_exists($corefile)) {
-            $xmlfiles[] = $corefile;
-        }
-
-        foreach (\core_component::get_plugin_types() as $type => $unused) {
-            foreach (\core_component::get_plugin_list($type) as $plugin => $plugindir) {
-                $xmlfile = $plugindir . '/db/install.xml';
-                if (file_exists($xmlfile)) {
-                    $xmlfiles[] = $xmlfile;
-                }
-            }
-        }
-
-        foreach ($xmlfiles as $file) {
-            $xml = @simplexml_load_file($file);
-            if (!$xml || !isset($xml->TABLES)) {
-                continue;
-            }
-            foreach ($xml->TABLES->TABLE as $table) {
-                $tablename = strtolower((string) $table['NAME']);
-                if (!isset($table->KEYS)) {
-                    continue;
-                }
-                foreach ($table->KEYS->KEY as $key) {
-                    if (strtolower((string) $key['TYPE']) !== 'foreign') {
-                        continue;
-                    }
-                    $fields = array_map('trim', explode(',', strtolower((string) $key['FIELDS'])));
-                    $reftable = strtolower((string) $key['REFTABLE']);
-                    $reffields = array_map('trim', explode(',', strtolower((string) $key['REFFIELDS'])));
-                    foreach ($fields as $i => $field) {
-                        $map[$tablename][$field] = [
-                            'reftable' => $reftable,
-                            'refcol'   => $reffields[$i] ?? $reffields[0],
-                        ];
-                    }
-                }
-            }
-        }
-
-        set_config('fkmapcache', json_encode($map), 'local_reportsources');
-        set_config('fkmapcache_ver', $CFG->version, 'local_reportsources');
-
-        return $map;
     }
 
     /**

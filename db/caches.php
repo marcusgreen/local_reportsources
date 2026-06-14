@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Web service definitions for local_reportsources.
+ * Cache definitions for the Report sources plugin.
  *
  * @package   local_reportsources
  * @copyright 2026 Marcus Green
@@ -24,23 +24,14 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$functions = [
-    'local_reportsources_validate_sql' => [
-        'classname'   => 'local_reportsources\external\validate_sql',
-        'methodname'  => 'execute',
-        'description' => 'Validate an ad-hoc SQL query: static checks + live DB dry-run',
-        'type'        => 'read',
-        'ajax'        => true,
-        'capabilities' => 'local/reportsources:author',
-        'loginrequired' => true,
-    ],
-    'local_reportsources_get_schema' => [
-        'classname'   => 'local_reportsources\external\get_schema',
-        'methodname'  => 'execute',
-        'description' => 'Return the DB schema and foreign-key map for editor autocomplete',
-        'type'        => 'read',
-        'ajax'        => true,
-        'capabilities' => 'local/reportsources:author',
-        'loginrequired' => true,
+$definitions = [
+    // Whole-database schema (table => columns) plus the install.xml foreign-key map, used to
+    // drive editor autocomplete. Expensive to build (get_tables + get_columns per table, and an
+    // install.xml scan of every plugin), so cached site-wide. The stored value carries the Moodle
+    // version it was built under and is rebuilt when that changes (schema only moves on upgrade).
+    'schema' => [
+        'mode' => cache_store::MODE_APPLICATION,
+        'simplekeys' => true,
+        'staticacceleration' => true,
     ],
 ];

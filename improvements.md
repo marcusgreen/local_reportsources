@@ -65,7 +65,14 @@ query destroys a live RB report and its view.
 
 ## Performance
 
-### 7. Full schema dump on every edit-page render (high)
+### 7. ~~Full schema dump on every edit-page render~~ — DONE 2026-06-14
+Schema (tables+columns) and the install.xml FK map now live in `local\schema::get()`, cached
+in a MUC application cache (`db/caches.php`, keyed by Moodle version). The edit form no longer
+builds or embeds them; `editor.js` fetches them lazily via a new `local_reportsources_get_schema`
+external function (`db/services.php`) after init, degrading to keyword-only autocomplete on
+failure. Tests in `tests/schema_test.php`. Version bumped to 2026061400.
+
+Original finding (high):
 `classes/form/edit_query_form.php:85-89` — loops `$DB->get_tables()` and calls
 `get_columns()` per table (~450+ tables), embedding the whole schema as a JSON hidden form
 field. Runs on every GET *and* POST of edit.php. Page weight likely 1MB+; cold-cache render
@@ -73,7 +80,12 @@ slow.
 **Fix:** serve schema from a dedicated AJAX endpoint backed by MUC; fetch lazily from
 `editor.js` after init.
 
-### 8. FK map cached in config_plugins (medium)
+### 8. ~~FK map cached in config_plugins~~ — DONE 2026-06-14
+Resolved together with item 7: the FK map moved out of `config_plugins` into the MUC `schema`
+cache. `db/upgrade.php` step 2026061400 unsets the orphaned `fkmapcache` / `fkmapcache_ver`
+config entries.
+
+Original finding (medium):
 `classes/form/edit_query_form.php:240` — `set_config()` of a large JSON blob, written
 during a GET render. The config table is not a cache.
 **Fix:** MUC application cache with a `db/caches.php` definition, invalidated on upgrade.

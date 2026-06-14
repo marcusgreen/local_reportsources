@@ -34,6 +34,7 @@ import {
 } from './codemirror-lazy';
 import {format as formatSql} from './sql-formatter-lazy';
 import {get_string as getString} from 'core/str';
+import Ajax from 'core/ajax';
 
 /**
  * Initialise a CodeMirror 6 SQL editor replacing the textarea with the given id.
@@ -46,26 +47,35 @@ export const init = (targetid) => {
         return;
     }
 
-    const schemaElement = document.getElementById('tablejson');
-    let schema = {};
-    if (schemaElement) {
+    // The schema + FK map are large and expensive to build, so they are fetched lazily over AJAX
+    // (server-side MUC cached) rather than embedded in the page. The editor is built once the data
+    // arrives; on failure it still builds with keyword-only autocomplete.
+    const parse = (value) => {
         try {
-            schema = JSON.parse(schemaElement.value);
+            return value ? JSON.parse(value) : {};
         } catch (e) {
-            // Schema unavailable; autocomplete still works for SQL keywords.
+            return {};
         }
-    }
+    };
 
-    const fkElement = document.getElementById('fkjson');
-    let fkMap = {};
-    if (fkElement) {
-        try {
-            fkMap = JSON.parse(fkElement.value);
-        } catch (e) {
-            // FK map unavailable; column FK annotations won't show.
-        }
-    }
+    Ajax.call([{methodname: 'local_reportsources_get_schema', args: {}}])[0]
+        .then((data) => {
+            buildEditor(textarea, parse(data.schema), parse(data.fkmap));
+            return data;
+        })
+        .catch(() => {
+            buildEditor(textarea, {}, {});
+        });
+};
 
+/**
+ * Build the CodeMirror editor and wire up autocomplete, formatting and submit validation.
+ *
+ * @param {HTMLTextAreaElement} textarea - The textarea being replaced.
+ * @param {Object} schema - Map of table name to column names.
+ * @param {Object} fkMap - Foreign-key map keyed by table then column.
+ */
+const buildEditor = (textarea, schema, fkMap) => {
     // Bare table name — server auto-wraps it in {} on save, so the user never types braces.
     const tables = Object.keys(schema).map(name => ({label: name}));
 
