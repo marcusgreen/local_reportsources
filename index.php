@@ -159,7 +159,15 @@ foreach ($queries as $rec) {
 
     $owner = core_user::get_user($rec->ownerid);
     $urlcourse = $courseid ? ['courseid' => $courseid] : [];
+    $chartmeta = $rec->chartmeta ? json_decode($rec->chartmeta, true) : [];
+    $haschart = !empty($chartmeta['type']) && $chartmeta['type'] !== 'none';
     $reportname = format_string($rec->name);
+    // Mark queries that have a chart configured with the same graph icon shown in the action menu.
+    $namecell = $reportname;
+    if ($haschart) {
+        $namecell = $OUTPUT->pix_icon('i/chartbar', get_string('viewchart', 'local_reportsources'),
+            'moodle', ['class' => 'me-1']) . $reportname;
+    }
 
     // The most-used action (open the published report) stays as an inline button; everything else
     // goes into a kebab action menu so the row stays short and scannable.
@@ -212,8 +220,7 @@ foreach ($queries as $rec) {
     $menu->set_kebab_trigger(get_string('actionsfor', 'local_reportsources', $reportname));
 
     if ($canviewreport) {
-        $chartmeta = $rec->chartmeta ? json_decode($rec->chartmeta, true) : [];
-        if (!empty($chartmeta['type']) && $chartmeta['type'] !== 'none') {
+        if ($haschart) {
             $menu->add(new action_menu_link_secondary(
                 new moodle_url('/local/reportsources/chart.php', ['id' => $rec->id] + $urlcourse),
                 new pix_icon('i/chartbar', ''),
@@ -282,7 +289,7 @@ foreach ($queries as $rec) {
     );
 
     $table->data[] = [
-        $reportname,
+        $namecell,
         $owner ? fullname($owner) : '-',
         $statusbadge,
         $actionscell,
