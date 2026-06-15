@@ -227,7 +227,14 @@ const buildEditor = (textarea, schema, fkMap) => {
                 functionCase: 'upper',
                 dataTypeCase: 'upper',
                 tabWidth: 4,
-                paramTypes: {custom: [{regex: '\\{[A-Za-z0-9_]+\\}'}]},
+                paramTypes: {custom: [
+                    {regex: '\\{[A-Za-z0-9_]+\\}'},
+                    // Reserved %%TOKEN%% placeholders (%%WWWROOT%%, %%COURSEID%%,
+                    // %%COURSECONTEXT%%, %%NOW%%, %%TIMESTAMP(expr[, format])%%). Treat each as a
+                    // single opaque parameter so the formatter does not split, space, or upper-case
+                    // their contents. Inner text never contains % so [^%]+ matches the whole token.
+                    {regex: '%%[^%]+%%'},
+                ]},
             });
             view.dispatch({changes: {from: 0, to: view.state.doc.length, insert: formatted}});
             errorBanner.style.display = 'none';
