@@ -168,7 +168,7 @@ JOIN {course} c           ON c.id = e.courseid
   CONCAT('…/view.php', CHAR(63), 'id=', c.id)
   ```
 - **Placeholders like `##`** — replace any leftover placeholder with a real value before saving (e.g. change `l.userid = ##` to `l.userid = 2`).
-- **Database-specific date functions** — MySQL-only functions (`DATE_FORMAT`, `DAYOFWEEK`, …) or PostgreSQL-only functions (`DATE_TRUNC`, …) raise a **warning**, not a block. The query still saves but may break if the site moves to a different database engine. PostgreSQL functions unsupported by MySQL are blocked outright.
+- **Database-specific date functions** — MySQL-only functions (`DATE_FORMAT`, `DAYOFWEEK`, …) or PostgreSQL-only functions (`DATE_TRUNC`, …) raise a **warning**, not a block. The query still saves but may break if the site moves to a different database engine. PostgreSQL functions unsupported by MySQL are blocked outright. To convert a stored Unix-epoch column to a date in a way that works on **both** engines, use the [`%%TIMESTAMP(expr)%%`](#timestampexpr--epoch-to-date) and [`%%NOW%%`](#now--current-unix-time) tokens instead of a database-specific function.
 
 ### Schema reference
 
@@ -178,7 +178,17 @@ Full Moodle ER diagram: [examulator.com/er](https://www.examulator.com/er). For 
 
 ## Placeholders
 
-The plugin supports exactly **two** placeholder forms in your SQL. Everything else that looks like a placeholder is **rejected** at save time.
+The plugin supports a small, fixed set of placeholder forms in your SQL. Everything else that looks like a placeholder is **rejected** at save time.
+
+| Placeholder | Replaced with | Notes |
+|---|---|---|
+| `{tablename}` | Prefixed table name (`{user}` → `mdl_user`) | |
+| `%%WWWROOT%%` | Site address (`$CFG->wwwroot`) | Case-insensitive |
+| `%%COURSEID%%` | The report's bound course id | Requires a course scope on the query |
+| `%%NOW%%` | Current Unix time (integer seconds) | Cross-database |
+| `%%TIMESTAMP(expr[, format])%%` | `expr` (an epoch column) as a date, optionally formatted | Cross-database; date-sortable |
+
+All are substituted once, when the view is built — the view is a fixed `CREATE VIEW`, so these bake a value in; they are **not** per-request parameters.
 
 ### `{tablename}` — table names
 
@@ -202,11 +212,77 @@ WHERE u.deleted = 0
 
 > Note the `CHAR(63)` for the `?` in the URL — see [Things to watch](#things-to-watch).
 
+### `%%COURSEID%%` — the report's course
+
+Replaced with the course id the query is scoped to. Because the value is baked into the view at publish time, a query using `%%COURSEID%%` **must** carry a course scope (set the *Course* field on the edit form) — otherwise it is rejected with *"this report needs a course scope"*.
+
+```sql
+SELECT u.firstname, u.lastname
+FROM {role_assignments} ra
+JOIN {context} ctx ON ctx.id = ra.contextid AND ctx.contextlevel = 50
+JOIN {course}  c   ON c.id = ctx.instanceid AND c.id = %%COURSEID%%
+JOIN {user}    u   ON u.id = ra.userid
+```
+
+### `%%NOW%%` — current Unix time
+
+Replaced with the current time as integer epoch seconds. Use it for date-window filters without a database-specific date function, so the query runs on MySQL/MariaDB **and** PostgreSQL. Combine with plain arithmetic (`86400` = seconds per day).
+
+```sql
+-- Users who logged in within the last 120 days
+SELECT id, username
+FROM {user}
+WHERE lastlogin > %%NOW%% - (120 * 86400)
+```
+
+### `%%TIMESTAMP(expr)%%` — epoch to date
+
+Marks a stored Unix-epoch value (`expr`) as a **date** column. Report Builder then renders it as a date, with date filtering, and — because the underlying value stays the raw epoch — it **sorts chronologically** (not as text). A plain epoch column without the token shows as a meaningless integer instead.
+
+```sql
+SELECT u.id,
+       u.username,
+       %%TIMESTAMP(u.lastaccess)%% AS lastaccess,
+       %%TIMESTAMP(u.timecreated)%% AS created
+FROM {user} u
+```
+
+#### Optional display format
+
+Add a second argument to control how the date is shown. The format is **database-independent** — use these tokens (case-insensitive); anything else (`/ - . :` spaces) is kept as-is:
+
+| Token | Means | Example |
+|---|---|---|
+| `dd` | Day, 2-digit | `15` |
+| `ddd` | Day name, short | `Mon` |
+| `mm` | Month, 2-digit | `06` |
+| `mon` | Month name, short | `Jun` |
+| `month` | Month name, full | `June` |
+| `yy` / `yyyy` | Year | `26` / `2026` |
+| `hh` `mi` `ss` | Hour / minute / second | `14` `05` `09` |
+
+```sql
+SELECT u.id,
+       %%TIMESTAMP(u.lastaccess, dd/mm/yyyy)%%      AS lastaccess,   -- 15/06/2026
+       %%TIMESTAMP(u.timecreated, ddd dd Mon yyyy)%% AS created       -- Mon 15 Jun 2026
+FROM {user} u
+```
+
+Formatting is applied at display time, so sorting and filtering still use the real date — you get your chosen format **and** correct chronological order. Omit the format for the default `ddd-mmm-yyyy` (e.g. `Mon-Jun-2026`).
+
+`expr` is any epoch-integer expression (a column, or arithmetic like `timecreated + 3600`), but it **cannot contain a `%` character** — do day-bucketing (`% 86400`) outside the token, or group on plain integer math:
+
+```sql
+-- Log writes per day, portable: group on the midnight-epoch bucket
+SELECT (timecreated - (timecreated % 86400)) AS day, COUNT(*) AS writes
+FROM {logstore_standard_log}
+GROUP BY (timecreated - (timecreated % 86400))
+ORDER BY day
+```
+
 ### Rejected placeholders
 
-There is **no** runtime substitution of values like `%%COURSEID%%`, `%%USERID%%`, `%%FILTER_USERS%%`, or `##`-style tokens copied from ad-hoc report templates. The view is a fixed `CREATE VIEW`; it has no per-request parameters. Any `%%…%%` token other than `%%WWWROOT%%`, and any run of `#` characters, fails validation with *"The SQL contains an unfilled placeholder…"* (`##` is also rejected because it starts a MySQL comment and would truncate the query).
-
-To get dynamic, per-context behaviour instead:
+Any other `%%…%%` token — e.g. `%%USERID%%`, `%%FILTER_USERS%%` — or any run of `#` characters copied from ad-hoc report templates fails validation with *"The SQL contains an unfilled placeholder…"*. (`##` is also rejected because it starts a MySQL comment and would truncate the query.) For dynamic, per-viewer behaviour the view cannot provide, use a filter or audience instead:
 
 | You want | Use |
 |---|---|

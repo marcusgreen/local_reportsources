@@ -61,7 +61,9 @@ $queryid = get_config('local_reportsources', 'queryid_for_report_' . $reportid);
 
 If that config key is absent the datasource falls back to a placeholder (single dummy column) so RB validation doesn't crash.
 
-Column/filter objects are built dynamically in `classes/reportbuilder/local/entities/adhoc_view.php` from `columnsmeta` — a JSON blob cached on the query record at publish time. Type mapping: `R/I→int`, `N/D→float`, `L→bool`, `T→timestamp`, everything else `→text`.
+Column/filter objects are built dynamically in `classes/reportbuilder/local/entities/adhoc_view.php` from `columnsmeta` — a JSON blob cached on the query record at publish time. `query::map_db_type()` maps the introspected Moodle meta_type char: `R/I→int`, `N/D→float`, `L→bool`, `T→timestamp`, everything else `→text`.
+
+**Timestamp columns** (`%%TIMESTAMP()%%`, see [SQL validation](#sql-validation--two-layers)) are *not* typed from introspection — the token resolves to a bare epoch integer, which would read back as `int`. Instead `query::publish()` calls `view::timestamp_columns()` on the saved SQL to recover which output columns came from `%%TIMESTAMP()%%` (keyed by `AS` alias, else the expression's trailing identifier) and their optional display format, and forces `columnsmeta` `type=timestamp` + `dateformat` for them. The entity then renders each timestamp column with a `userdate()` **callback** (`adhoc_view::strftime_format()` translates the neutral format e.g. `dd/mm/yyyy` → strftime `%d/%m/%Y`; empty → `%a-%b-%Y` i.e. `ddd-mmm-yyyy`). Because the field stays a raw epoch, the column **sorts chronologically** while displaying the formatted string.
 
 ### Report visibility (who can open the report)
 
@@ -86,12 +88,25 @@ The method is **idempotent**: it deletes existing audiences for the report befor
 - Strips comments and string literals before scanning so embedded `DROP` strings don't evade the denylist
 - Enforces SELECT/WITH-only; blocks multi-statement; blocks a table denylist (`config`, `sessions`, etc.)
 - `auto_brace()` wraps bare table names in `{}`—users don't need to type braces
+- Rejects unknown `%%…%%` tokens via `is_supported_token()`. Supported tokens (`%%WWWROOT%%`, `%%COURSEID%%`, `%%NOW%%`, `%%TIMESTAMP(expr[, format])%%`) are exempt because they are substituted later in `view::resolve_placeholders()`, not at validate time
+
+**Placeholder substitution** (`view::resolve_placeholders()`, the single substitution point — used by both publish and the live AJAX check): `{table}`→prefixed name, `%%WWWROOT%%`→site URL, `%%COURSEID%%`→bound course id, `%%NOW%%`→current epoch int (`UNIX_TIMESTAMP()` on MySQL / `EXTRACT(EPOCH FROM now())::int` on Postgres, chosen by `$DB->get_dbfamily()`), and `%%TIMESTAMP(expr[, format])%%`→the **bare epoch expression** `(expr)` — no DB date function, so the column is portable and sorts chronologically; the date typing and `format` are applied later from `columnsmeta` (see [Report Builder binding](#report-builder-binding)). `expr` cannot contain `%` (the token scan stops at `%`).
 
 **Live** (`classes/external/validate_sql.php` AJAX endpoint):
 - First runs static validation, then `$DB->get_records_sql("... LIMIT 1")` to catch bad table/column names and row-dependent runtime errors (the single fetched row forces select-list expressions to be evaluated, e.g. `to_char()` on a bigint with a date mask)
 - Then issues `CREATE OR REPLACE VIEW ... / DROP VIEW` to catch duplicate column names (a VIEW constraint that the dry-run misses)
 
 The JS editor (`amd/src/editor.es6.js`) mirrors the static denylist client-side and calls the AJAX endpoint on form submit before allowing the form through.
+
+### Import / export & bundled samples
+
+`classes/local/transfer.php` moves queries as portable JSON (`export()`/`parse()`/`import()`). Only portable fields travel (name, description, SQL, course scope, visibility, chart config); derived state is regenerated, so every import lands as a fresh **draft** owned by the importer and must be re-published. `import()` re-validates each SQL and demotes unknown courseids to site-wide.
+
+The plugin ships sample report views in `samples/reportsources.json`, loadable two ways, both via `transfer`:
+- **CLI** — `cli/import.php` (defaults to `reportsources.json` in the CWD).
+- **Post-install** — `db/install.php` raises a notification linking to `samples.php`, a confirm page (also registered as the `local_reportsources_samples` admin external page) that calls `transfer::import_bundled()`. That helper reads `samples/reportsources.json` and skips any sample whose name already exists, so it is idempotent across repeat clicks / reinstalls.
+
+The shipped samples are cross-DB: date handling uses the `%%TIMESTAMP()%%` / `%%NOW%%` tokens rather than dialect-specific functions, so all of them import and publish on both MySQL/MariaDB and PostgreSQL.
 
 ### DB schema
 
