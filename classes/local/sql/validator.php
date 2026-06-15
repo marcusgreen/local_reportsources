@@ -98,12 +98,13 @@ class validator {
         // Unfilled placeholder artifacts copied from ad-hoc report templates (e.g. ## or
         // %%FILTER_USERS%%) reach the DB as broken SQL. ## also starts a MySQL comment, truncating
         // the statement into a cryptic syntax error. Catch these and name the offending token.
-        // %%WWWROOT%% and %%COURSEID%% are supported: both are substituted at view-build time
-        // (see view::resolve_placeholders), so they are exempt from this rejection. %%COURSEID%%
-        // additionally requires the query to carry a course scope — enforced in the edit form.
+        // The supported tokens (%%WWWROOT%%, %%COURSEID%%, %%NOW%%, %%TIMESTAMP(expr)%%) are all
+        // substituted at view-build time (see view::resolve_placeholders), so they are exempt from
+        // this rejection. %%COURSEID%% additionally requires the query to carry a course scope —
+        // enforced in the edit form.
         if (preg_match_all('/##+|%%[^%\n]*%%/', $sql, $ms)) {
             foreach ($ms[0] as $token) {
-                if (strcasecmp($token, '%%WWWROOT%%') !== 0 && strcasecmp($token, '%%COURSEID%%') !== 0) {
+                if (!self::is_supported_token($token)) {
                     throw new \moodle_exception('errplaceholder', 'local_reportsources', '', $token);
                 }
             }
@@ -187,6 +188,25 @@ class validator {
         }
 
         return rtrim($sql, "; \t\n\r");
+    }
+
+    /**
+     * Whether a `%%...%%` token is one the plugin substitutes at view-build time.
+     *
+     * Exact tokens: %%WWWROOT%%, %%COURSEID%%, %%NOW%%. The parameterised %%TIMESTAMP(expr)%% token
+     * (epoch column → datetime, rendered per database dialect) is matched by shape; its inner
+     * expression is resolved in {@see \local_reportsources\local\sql\view::resolve_placeholders()}.
+     *
+     * @param string $token A token captured by the %%..%% scan, including the surrounding %%.
+     * @return bool
+     */
+    private static function is_supported_token(string $token): bool {
+        foreach (['%%WWWROOT%%', '%%COURSEID%%', '%%NOW%%'] as $exact) {
+            if (strcasecmp($token, $exact) === 0) {
+                return true;
+            }
+        }
+        return (bool) preg_match('/^%%TIMESTAMP\(.+\)%%$/i', $token);
     }
 
     /**

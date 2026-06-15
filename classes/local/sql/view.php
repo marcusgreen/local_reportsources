@@ -130,26 +130,88 @@ class view {
     }
 
     /**
-     * Replace `{tablename}` with the prefixed table name, `%%WWWROOT%%` with the site URL, and
-     * `%%COURSEID%%` with the query's course scope. The Moodle DML layer normally resolves
-     * `{table}` for parameterised queries but DDL statements bypass that path. `%%WWWROOT%%` lets
-     * authors embed absolute links (e.g. in a CONCAT building an <a href>) without hard-coding the
-     * site address. `%%COURSEID%%` bakes the bound course id into the VIEW so a course-scoped query
-     * filters to that course (the VIEW is static, so the id is fixed at publish time).
+     * Replace `{tablename}` with the prefixed table name, `%%WWWROOT%%` with the site URL,
+     * `%%COURSEID%%` with the query's course scope, and the portable date/time tokens `%%NOW%%`
+     * and `%%TIMESTAMP(expr)%%` with their dialect for the live database. The Moodle DML layer
+     * normally resolves `{table}` for parameterised queries but DDL statements bypass that path.
+     * `%%WWWROOT%%` lets authors embed absolute links (e.g. in a CONCAT building an <a href>)
+     * without hard-coding the site address. `%%COURSEID%%` bakes the bound course id into the VIEW
+     * so a course-scoped query filters to that course (the VIEW is static, so the id is fixed at
+     * publish time).
+     *
+     * The date tokens let one saved query run on both MySQL/MariaDB and PostgreSQL without the
+     * dialect-specific date functions the validator otherwise blocks: `%%NOW%%` → the current Unix
+     * epoch (int), `%%TIMESTAMP(expr)%%` → `expr` (an epoch column) cast to a datetime/timestamp.
      *
      * @param string $sql
      * @param int $courseid Course id substituted for %%COURSEID%% (0 when site-wide / dry-run).
      * @return string
      */
     public static function resolve_placeholders(string $sql, int $courseid = 0): string {
-        global $CFG;
+        global $CFG, $DB;
         $sql = str_ireplace('%%WWWROOT%%', $CFG->wwwroot, $sql);
         $sql = str_ireplace('%%COURSEID%%', (string) $courseid, $sql);
+
+        // %%NOW%% — current Unix time, expanded to the dialect of the live database.
+        $postgres = $DB->get_dbfamily() === 'postgres';
+        $sql = str_ireplace('%%NOW%%', $postgres ? 'EXTRACT(EPOCH FROM now())::int' : 'UNIX_TIMESTAMP()', $sql);
+
+        // %%TIMESTAMP(expr[, format])%% — emit the *raw epoch* expression (no DB date function, so
+        // the column stays an integer that sorts chronologically). The publish path types it as a
+        // timestamp and applies the optional display format as a Report Builder callback; see
+        // self::timestamp_columns(). The format argument is therefore dropped from the SQL here.
+        $sql = preg_replace_callback(
+            '/%%TIMESTAMP\(\s*([^,)]+?)\s*(?:,[^)]*)?\)%%/i',
+            static fn(array $m): string => '(' . $m[1] . ')',
+            $sql
+        ) ?? $sql;
+
         return preg_replace_callback(
             '/\{([a-z0-9_]+)\}/i',
             static fn(array $m): string => $CFG->prefix . $m[1],
             $sql
         ) ?? $sql;
+    }
+
+    /**
+     * Find the output columns produced by `%%TIMESTAMP(expr[, format])%%` tokens in a saved query,
+     * mapping each to its requested display format.
+     *
+     * Used at publish time to type these columns as timestamps (the resolved SQL emits a bare epoch
+     * integer, which would otherwise introspect as an int) and to carry the optional format into
+     * `columnsmeta` so the Report Builder entity can render it via a callback while still sorting on
+     * the underlying epoch.
+     *
+     * The output column name is the `AS` alias when present, otherwise the trailing identifier of a
+     * simple `a.b` / `b` expression. Tokens whose expression is too complex to name without an alias
+     * (e.g. `timecreated + 3600` with no `AS`) are skipped — they cannot be matched to an
+     * introspected column anyway.
+     *
+     * @param string $sql Raw saved SQL (before placeholder resolution).
+     * @return array<string, string> Lower-cased output column name => neutral format ('' if none).
+     */
+    public static function timestamp_columns(string $sql): array {
+        $pattern = '/%%TIMESTAMP\(\s*([^,)]+?)\s*(?:,\s*([^)]*?)\s*)?\)%%'
+            . '(?:\s+AS\s+(["`]?)([A-Za-z0-9_]+)\3)?/i';
+        if (!preg_match_all($pattern, $sql, $matches, PREG_SET_ORDER)) {
+            return [];
+        }
+        $columns = [];
+        foreach ($matches as $m) {
+            $expr   = $m[1];
+            $format = isset($m[2]) ? trim($m[2]) : '';
+            $alias  = $m[4] ?? '';
+            if ($alias !== '') {
+                $name = $alias;
+            } else if (preg_match('/([A-Za-z0-9_]+)\s*$/', $expr, $im)) {
+                // Bare column expression — name the view column after its trailing identifier.
+                $name = $im[1];
+            } else {
+                continue;
+            }
+            $columns[strtolower($name)] = $format;
+        }
+        return $columns;
     }
 
     /**

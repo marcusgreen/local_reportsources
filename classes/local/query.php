@@ -482,12 +482,26 @@ class query {
         $viewname = view::create_or_replace($this->id(), $this->sql(), $this->courseid());
         $columns  = view::columns($viewname);
 
+        // %%TIMESTAMP() columns resolve to a bare epoch integer in the view, so introspection alone
+        // would type them as int. Recover the intended timestamp type — and any requested display
+        // format — from the saved SQL tokens, keyed by output column name.
+        $tsformats = view::timestamp_columns($this->sql());
+
         $meta = [];
         foreach ($columns as $name => $info) {
-            $meta[$name] = [
-                'type'  => self::map_db_type((string) $info->meta_type),
-                'label' => $name,
-            ];
+            $key = strtolower($name);
+            if (array_key_exists($key, $tsformats)) {
+                $meta[$name] = [
+                    'type'       => 'timestamp',
+                    'label'      => $name,
+                    'dateformat' => $tsformats[$key],
+                ];
+            } else {
+                $meta[$name] = [
+                    'type'  => self::map_db_type((string) $info->meta_type),
+                    'label' => $name,
+                ];
+            }
         }
 
         // Register the Reportbuilder report (idempotent). create_report() will set ->type for us.

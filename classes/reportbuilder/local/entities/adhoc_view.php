@@ -37,7 +37,7 @@ class adhoc_view extends base {
     /** @var string Internal entity name. */
     public const ENTITY = 'adhoc';
 
-    /** @var array<string, array{type:string,label:string}> */
+    /** @var array<string, array{type:string,label:string,dateformat?:string}> */
     private array $columnsmeta;
 
     /** @var string VIEW name (without Moodle prefix). */
@@ -106,16 +106,58 @@ class adhoc_view extends base {
         $alias = $this->get_table_alias($this->viewname);
         $cols = [];
         foreach ($this->columnsmeta as $name => $meta) {
-            $cols[] = (new column(
+            $type = $meta['type'] ?? 'text';
+            $column = (new column(
                 $name,
                 self::raw_title($name),
                 $this->get_entity_name()
             ))
                 ->add_field("{$alias}.{$name}")
-                ->set_type(self::rb_column_type($meta['type'] ?? 'text'))
+                ->set_type(self::rb_column_type($type))
                 ->set_is_sortable(true);
+
+            // A %%TIMESTAMP() column holds a raw epoch integer, so it sorts chronologically; format
+            // it for display with a callback (the optional per-column format, else Moodle's default).
+            // Sorting still uses the underlying epoch field, not the formatted string.
+            if ($type === 'timestamp') {
+                $strftime = self::strftime_format((string) ($meta['dateformat'] ?? ''));
+                $column->set_callback(static function ($value, $row, $arg): string {
+                    return empty($value) ? '' : userdate((int) $value, $arg);
+                }, $strftime);
+            }
+
+            $cols[] = $column;
         }
         return $cols;
+    }
+
+    /** Default display format when a %%TIMESTAMP() token gives none: `ddd-mmm-yyyy`, e.g. Mon-Jun-2026. */
+    private const DEFAULT_DATE_FORMAT = '%a-%b-%Y';
+
+    /**
+     * Translate a neutral display format (e.g. `dd/mm/yyyy`, `ddd dd Mon yyyy`) into the
+     * strftime-style format {@see userdate()} expects. Unrecognised characters pass through, so
+     * separators like `/ - . :` and spaces are preserved. An empty format yields the default
+     * `ddd-mmm-yyyy` (e.g. `Mon-Jun-2026`).
+     *
+     * @param string $neutral Neutral format from the %%TIMESTAMP(expr, format)%% token.
+     * @return string strftime format.
+     */
+    private static function strftime_format(string $neutral): string {
+        $neutral = trim($neutral);
+        if ($neutral === '') {
+            return self::DEFAULT_DATE_FORMAT;
+        }
+        // Longest tokens first so 'month' beats 'mon', 'yyyy' beats 'yy', 'ddd' beats 'dd'.
+        $map = [
+            'month' => '%B', 'yyyy' => '%Y', 'ddd' => '%a', 'mon' => '%b',
+            'hh' => '%H', 'mi' => '%M', 'ss' => '%S', 'yy' => '%y', 'mm' => '%m', 'dd' => '%d',
+        ];
+        return (string) preg_replace_callback(
+            '/month|yyyy|ddd|mon|hh|mi|ss|yy|mm|dd/i',
+            static fn(array $m): string => $map[strtolower($m[0])],
+            $neutral
+        );
     }
 
     /**
