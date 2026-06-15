@@ -110,13 +110,17 @@ if (!$queries) {
 
 $table = new html_table();
 $table->id = 'rs-tour-table';
+$table->attributes['class'] = 'generaltable table table-hover';
+// Spread the columns evenly across the full page width rather than letting the long Name column
+// absorb all the slack.
+$table->size = ['40%', '20%', '15%', '25%'];
 $table->head = [
     get_string('name', 'local_reportsources'),
     get_string('owner', 'local_reportsources'),
     get_string('status', 'local_reportsources'),
     get_string('actions', 'local_reportsources'),
 ];
-// Keep the actions cell on one line so the Open report button and the kebab menu never wrap.
+// Keep the actions cell on one line so the kebab menu and buttons never wrap.
 $table->colclasses = ['', '', '', 'text-nowrap'];
 
 // Audience-allowed report ids for the current user, fetched once. can_view_report() would run this
@@ -169,12 +173,36 @@ foreach ($queries as $rec) {
                 'aria-label' => get_string('runreportfor', 'local_reportsources', $reportname)]
         );
     } else {
-        // No Open report button on this row: reserve its width with an invisible placeholder so the
-        // kebab menu lines up with the kebabs on rows that do have the button.
+        // No Open report button on this row: reserve its width with an invisible placeholder so any
+        // Edit button (and the column edge) lines up with the rows that do have the Open button.
         $primary = html_writer::span(
             get_string('runreport', 'local_reportsources'),
             'btn btn-sm btn-primary me-2 invisible',
             ['aria-hidden' => 'true']
+        );
+    }
+
+    // Editing the query is the most common action after opening, so it sits inline as a button
+    // next to Open report rather than in the kebab menu.
+    $editbtn = '';
+    if (has_capability('local/reportsources:author', $syscontext)) {
+        $editbtn = html_writer::link(
+            new moodle_url('/local/reportsources/edit.php', ['id' => $rec->id] + $urlcourse),
+            get_string('edit', 'local_reportsources'),
+            ['class' => 'btn btn-sm btn-secondary me-2',
+                'aria-label' => get_string('editfor', 'local_reportsources', $reportname)]
+        );
+    }
+
+    // Unpublish sits inline as a button, but only for rows that are actually published.
+    $unpublishbtn = '';
+    if ($rec->status === query::STATUS_PUBLISHED && has_capability('local/reportsources:approve', $syscontext)) {
+        $unpublishbtn = html_writer::link(
+            new moodle_url('/local/reportsources/run.php',
+                ['id' => $rec->id, 'action' => 'unpublish', 'sesskey' => sesskey()]),
+            get_string('unpublish', 'local_reportsources'),
+            ['class' => 'btn btn-sm btn-outline-secondary me-2',
+                'aria-label' => get_string('unpublishfor', 'local_reportsources', $reportname)]
         );
     }
 
@@ -183,13 +211,6 @@ foreach ($queries as $rec) {
     // reader no way to tell the menus apart.
     $menu->set_kebab_trigger(get_string('actionsfor', 'local_reportsources', $reportname));
 
-    if (has_capability('local/reportsources:author', $syscontext)) {
-        $menu->add(new action_menu_link_secondary(
-            new moodle_url('/local/reportsources/edit.php', ['id' => $rec->id] + $urlcourse),
-            new pix_icon('t/edit', ''),
-            get_string('edit', 'local_reportsources')
-        ));
-    }
     if ($canviewreport) {
         $chartmeta = $rec->chartmeta ? json_decode($rec->chartmeta, true) : [];
         if (!empty($chartmeta['type']) && $chartmeta['type'] !== 'none') {
@@ -229,13 +250,6 @@ foreach ($queries as $rec) {
             get_string('publish', 'local_reportsources')
         ));
     }
-    if ($rec->status === query::STATUS_PUBLISHED && has_capability('local/reportsources:approve', $syscontext)) {
-        $menu->add(new action_menu_link_secondary(
-            new moodle_url('/local/reportsources/run.php', ['id' => $rec->id, 'action' => 'unpublish', 'sesskey' => sesskey()]),
-            new pix_icon('t/hide', ''),
-            get_string('unpublish', 'local_reportsources')
-        ));
-    }
     if (has_capability('local/reportsources:author', $syscontext)) {
         $menu->add(new action_menu_link_secondary(
             new moodle_url('/local/reportsources/run.php', ['id' => $rec->id, 'action' => 'copy', 'sesskey' => sesskey()]),
@@ -261,10 +275,9 @@ foreach ($queries as $rec) {
     ][$rec->status] ?? 'badge bg-warning text-dark';
     $statusbadge = html_writer::span(get_string('status_' . $rec->status, 'local_reportsources'), $badgeclass);
 
-    // Flex row keeps the Open report button and the kebab menu on a single line — the menu renders
-    // as a block element and would otherwise wrap below the button.
+    // Kebab leads the actions cell, followed by the inline buttons, all on one flex line.
     $actionscell = html_writer::div(
-        $primary . $OUTPUT->render($menu),
+        html_writer::div($OUTPUT->render($menu), 'me-2') . $primary . $editbtn . $unpublishbtn,
         'd-flex align-items-center flex-nowrap'
     );
 

@@ -85,6 +85,7 @@ $string['delete'] = 'Delete';
 $string['description'] = 'Description';
 $string['duplicate'] = 'Duplicate';
 $string['edit'] = 'Edit';
+$string['editfor'] = 'Edit: {$a}';
 $string['editreport'] = 'Edit in Report Builder';
 $string['erraudiencecohortsempty'] = 'Choose at least one cohort.';
 $string['erraudiencerolesempty'] = 'Choose at least one role.';
@@ -200,9 +201,10 @@ $string['tourstep3content'] = 'The status shows whether a view is still a <stron
 $string['tourstep3title'] = 'Draft or published';
 $string['tourstep4content'] = 'Open the live Report Builder report to view, filter, sort and export its data.';
 $string['tourstep4title'] = 'Open the report';
-$string['tourstep5content'] = 'This menu holds the rest of the actions: edit the SQL, edit in Report Builder, schedule emails, duplicate, publish/unpublish and delete.';
+$string['tourstep5content'] = 'This menu holds the rest of the actions: edit in Report Builder, schedule emails, duplicate, publish and delete.';
 $string['tourstep5title'] = 'More actions';
 $string['unpublish'] = 'Unpublish';
+$string['unpublishfor'] = 'Unpublish: {$a}';
 
 
 
