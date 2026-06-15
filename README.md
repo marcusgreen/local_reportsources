@@ -125,7 +125,7 @@ A searchable map of all Moodle database tables is at [examulator.com/er](https:/
 
 If you use date functions that only work on MySQL (e.g. `DATE_FORMAT`, `DAYOFWEEK`) or only on PostgreSQL (e.g. `DATE_TRUNC`), you will see a warning. The query will still save, but it may stop working if your site ever moves to a different database engine. The warning is a heads-up, not a block.
 
-For the common case of turning a stored Unix-epoch column into a date, use the cross-database placeholders instead of a database-specific function. `%%TIMESTAMP(expr)%%` marks `expr` as a date column — it sorts chronologically and displays as `ddd-mmm-yyyy` by default, or pass your own format, e.g. `%%TIMESTAMP(timecreated, dd/mm/yyyy)%%`. `%%NOW%%` gives the current Unix time for date-window filters (e.g. `WHERE lastlogin > %%NOW%% - (120 * 86400)`). These work on whichever database the site runs on. See the [user docs](docs/userdocs.md#placeholders) for details.
+For the common case of turning a stored Unix-epoch column into a date, use the cross-database placeholders instead of a database-specific function. `%%TIMESTAMP(expr)%%` marks `expr` as a date column — it sorts chronologically and displays as `dd-mmm-yyyy` by default, or pass your own format, e.g. `%%TIMESTAMP(timecreated, dd/mm/yyyy)%%`. `%%NOW%%` gives the current Unix time for date-window filters (e.g. `WHERE lastlogin > %%NOW%% - (120 * 86400)`). These work on whichever database the site runs on. See the [user docs](docs/userdocs.md#placeholders) for details.
 
 ## Admin settings
 

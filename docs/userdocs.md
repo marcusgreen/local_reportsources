@@ -268,7 +268,7 @@ SELECT u.id,
 FROM {user} u
 ```
 
-Formatting is applied at display time, so sorting and filtering still use the real date — you get your chosen format **and** correct chronological order. Omit the format for the default `ddd-mmm-yyyy` (e.g. `Mon-Jun-2026`).
+Formatting is applied at display time, so sorting and filtering still use the real date — you get your chosen format **and** correct chronological order. Omit the format for the default `dd-mmm-yyyy` (e.g. `15-Jun-2026`).
 
 `expr` is any epoch-integer expression (a column, or arithmetic like `timecreated + 3600`), but it **cannot contain a `%` character** — do day-bucketing (`% 86400`) outside the token, or group on plain integer math:
 

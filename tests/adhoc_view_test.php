@@ -51,9 +51,9 @@ final class adhoc_view_test extends \advanced_testcase {
         $this->assertSame('%d-%b-%y', $this->map('dd-Mon-yy'));
         $this->assertSame('%B %Y', $this->map('Month yyyy'));
         $this->assertSame('%H:%M:%S', $this->map('hh:mi:ss'));
-        // An empty format yields the ddd-mmm-yyyy default.
-        $this->assertSame('%a-%b-%Y', $this->map(''));
-        $this->assertSame('%a-%b-%Y', $this->map('   '));
+        // An empty format yields the dd-mmm-yyyy default.
+        $this->assertSame('%d-%b-%Y', $this->map(''));
+        $this->assertSame('%d-%b-%Y', $this->map('   '));
     }
 
     /**

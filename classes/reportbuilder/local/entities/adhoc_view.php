@@ -131,14 +131,14 @@ class adhoc_view extends base {
         return $cols;
     }
 
-    /** Default display format when a %%TIMESTAMP() token gives none: `ddd-mmm-yyyy`, e.g. Mon-Jun-2026. */
-    private const DEFAULT_DATE_FORMAT = '%a-%b-%Y';
+    /** Default display format when a %%TIMESTAMP() token gives none: `dd-mmm-yyyy`, e.g. 15-Jun-2026. */
+    private const DEFAULT_DATE_FORMAT = '%d-%b-%Y';
 
     /**
      * Translate a neutral display format (e.g. `dd/mm/yyyy`, `ddd dd Mon yyyy`) into the
      * strftime-style format {@see userdate()} expects. Unrecognised characters pass through, so
      * separators like `/ - . :` and spaces are preserved. An empty format yields the default
-     * `ddd-mmm-yyyy` (e.g. `Mon-Jun-2026`).
+     * `dd-mmm-yyyy` (e.g. `15-Jun-2026`).
      *
      * @param string $neutral Neutral format from the %%TIMESTAMP(expr, format)%% token.
      * @return string strftime format.
