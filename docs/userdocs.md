@@ -30,7 +30,7 @@ Report Sources (`local_reportsources`) lets you write a SQL `SELECT` query, clic
 
 ## Requirements
 
-- Moodle 4.5 – 5.0 (stable Report Builder API).
+- Moodle 4.5 – 5.2 (stable Report Builder API).
 - The Moodle database user must have `CREATE VIEW` and `DROP` privileges on the schema.
 
 Confirm the privileges from **Site admin → Local plugins → Report sources → Run database view privilege test**.
@@ -93,15 +93,15 @@ Click **Save changes** to store. Editing the SQL of a published view reverts it 
 
 - A single `SELECT` or `WITH … SELECT`. No `INSERT`, `UPDATE`, `DELETE`, or multiple statements.
 - No semicolons.
-- Use Moodle table syntax: `{tablename}` (e.g. `{user}`, `{course}`). The plugin resolves these to the real prefixed table names (`mdl_user`, …) at runtime. You can also write bare table names and braces are added on save.
+- You do **not** need to type the `{}` braces. Just write the bare table name (e.g. `user`, `course`) and the plugin wraps it in Moodle's `{tablename}` syntax on save, resolving it to the real prefixed table name (`mdl_user`, …) at runtime. Writing the braces yourself (`{user}`) also works if you prefer.
 
 ### Always alias tables
 
-Because `{user}` resolves to `mdl_user`, give every table a short alias so column references stay unambiguous:
+Because `user` resolves to `mdl_user`, give every table a short alias so column references stay unambiguous:
 
 ```sql
 SELECT u.id, u.firstname, u.lastname, u.email
-FROM {user} u
+FROM user u
 WHERE u.deleted = 0
 ```
 
@@ -112,8 +112,8 @@ A database view cannot have two columns with the same name. When you join tables
 ```sql
 -- WRONG: both tables have 'id' — publish fails
 SELECT *
-FROM {user} u
-JOIN {forum_posts} fp ON fp.userid = u.id
+FROM user u
+JOIN forum_posts fp ON fp.userid = u.id
 
 -- CORRECT: alias every ambiguous column
 SELECT u.id       AS userid,
@@ -122,8 +122,8 @@ SELECT u.id       AS userid,
        fp.id      AS postid,
        fp.subject,
        fp.created AS postcreated
-FROM {user} u
-JOIN {forum_posts} fp ON fp.userid = u.id
+FROM user u
+JOIN forum_posts fp ON fp.userid = u.id
 ```
 
 Every `JOIN` also needs an `ON` (or `USING`) condition — a join with no condition is rejected.
@@ -136,10 +136,10 @@ SELECT u.id        AS userid,
        u.lastname,
        c.id        AS courseid,
        c.fullname  AS coursename
-FROM {user} u
-JOIN {user_enrolments} ue ON ue.userid = u.id
-JOIN {enrol} e            ON e.id = ue.enrolid
-JOIN {course} c           ON c.id = e.courseid
+FROM user u
+JOIN user_enrolments ue ON ue.userid = u.id
+JOIN enrol e            ON e.id = ue.enrolid
+JOIN course c           ON c.id = e.courseid
 WHERE u.deleted = 0
 ```
 
@@ -148,7 +148,7 @@ WHERE u.deleted = 0
 ```sql
 WITH active AS (
     SELECT id, firstname, lastname
-    FROM {user}
+    FROM user
     WHERE deleted = 0 AND suspended = 0
 )
 SELECT a.id        AS userid,
@@ -156,9 +156,9 @@ SELECT a.id        AS userid,
        a.lastname,
        c.fullname  AS course
 FROM active a
-JOIN {user_enrolments} ue ON ue.userid = a.id
-JOIN {enrol} e            ON e.id = ue.enrolid
-JOIN {course} c           ON c.id = e.courseid
+JOIN user_enrolments ue ON ue.userid = a.id
+JOIN enrol e            ON e.id = ue.enrolid
+JOIN course c           ON c.id = e.courseid
 ```
 
 ### Things to watch
@@ -193,10 +193,10 @@ All are substituted once, when the view is built — the view is a fixed `CREATE
 
 ### `{tablename}` — table names
 
-Curly-brace table syntax. Resolved to the prefixed table name (`{user}` → `mdl_user`) when the view is built. Add them yourself or let the editor wrap bare table names on save.
+Curly-brace table syntax, resolved to the prefixed table name (`{user}` → `mdl_user`) when the view is built. **Braces are optional** — write the bare name (`user`) and the editor adds them on save. Type them yourself only if you prefer.
 
 ```sql
-SELECT u.id, u.firstname FROM {user} u WHERE u.deleted = 0
+SELECT u.id, u.firstname FROM user u WHERE u.deleted = 0
 ```
 
 ### `%%WWWROOT%%` — your site URL
@@ -207,7 +207,7 @@ Replaced with the site address (`$CFG->wwwroot`) when the view is built. Use it 
 SELECT u.id,
        CONCAT('<a href="', %%WWWROOT%%, '/user/view.php', CHAR(63), 'id=', u.id, '">',
               u.firstname, ' ', u.lastname, '</a>') AS profilelink
-FROM {user} u
+FROM user u
 WHERE u.deleted = 0
 ```
 
@@ -219,10 +219,10 @@ Replaced with the course id the query is scoped to. Because the value is baked i
 
 ```sql
 SELECT u.firstname, u.lastname
-FROM {role_assignments} ra
-JOIN {context} ctx ON ctx.id = ra.contextid AND ctx.contextlevel = 50
-JOIN {course}  c   ON c.id = ctx.instanceid AND c.id = %%COURSEID%%
-JOIN {user}    u   ON u.id = ra.userid
+FROM role_assignments ra
+JOIN context ctx ON ctx.id = ra.contextid AND ctx.contextlevel = 50
+JOIN course  c   ON c.id = ctx.instanceid AND c.id = %%COURSEID%%
+JOIN user    u   ON u.id = ra.userid
 ```
 
 ### `%%COURSECONTEXT%%` — the course's context id
@@ -233,8 +233,8 @@ Use it to skip the `mdl_context` join when you already know the course. The `%%C
 
 ```sql
 SELECT u.firstname, u.lastname
-FROM {role_assignments} ra
-JOIN {user} u ON u.id = ra.userid
+FROM role_assignments ra
+JOIN user u ON u.id = ra.userid
 WHERE ra.contextid = %%COURSECONTEXT%%
 ```
 
@@ -245,7 +245,7 @@ Replaced with the current time as integer epoch seconds. Use it for date-window 
 ```sql
 -- Users who logged in within the last 120 days
 SELECT id, username
-FROM {user}
+FROM user
 WHERE lastlogin > %%NOW%% - (120 * 86400)
 ```
 
@@ -258,7 +258,7 @@ SELECT u.id,
        u.username,
        %%TIMESTAMP(u.lastaccess)%% AS lastaccess,
        %%TIMESTAMP(u.timecreated)%% AS created
-FROM {user} u
+FROM user u
 ```
 
 #### Optional display format
@@ -279,7 +279,7 @@ Add a second argument to control how the date is shown. The format is **database
 SELECT u.id,
        %%TIMESTAMP(u.lastaccess, dd/mm/yyyy)%%      AS lastaccess,   -- 15/06/2026
        %%TIMESTAMP(u.timecreated, ddd dd Mon yyyy)%% AS created       -- Mon 15 Jun 2026
-FROM {user} u
+FROM user u
 ```
 
 Formatting is applied at display time, so sorting and filtering still use the real date — you get your chosen format **and** correct chronological order. Omit the format for the default `dd-mmm-yyyy` (e.g. `15-Jun-2026`).
@@ -289,7 +289,7 @@ Formatting is applied at display time, so sorting and filtering still use the re
 ```sql
 -- Log writes per day, portable: group on the midnight-epoch bucket
 SELECT (timecreated - (timecreated % 86400)) AS day, COUNT(*) AS writes
-FROM {logstore_standard_log}
+FROM logstore_standard_log
 GROUP BY (timecreated - (timecreated % 86400))
 ORDER BY day
 ```
@@ -315,7 +315,7 @@ When **SQL syntax highlight and autocomplete** is enabled (admin setting), the S
 - Keyword autocomplete (uppercase keywords).
 - **Table autocomplete** — type `{` for a popup of all Moodle table names; the chosen name is wrapped in `{}` automatically.
 - **Column autocomplete** — type `{tablename}.` to list that table's columns.
-- **Alias-aware columns** — write `FROM {user} u`, then type `u.` to list user columns.
+- **Alias-aware columns** — write `FROM user u`, then type `u.` to list user columns.
 - **Tab** accepts the highlighted completion; Space does not (so you can type aliases freely after a table name).
 
 A **Format SQL** button is also available to tidy indentation.
@@ -424,7 +424,7 @@ The chosen column is hidden from all output (its value is always the viewer's ow
 
 Once configured, a **View chart** link appears for the published view. From the chart page you can **Export CSV**, **Download PNG**, and **Print**.
 
-**Example** — enrolments per course: `SELECT c.fullname AS course, COUNT(ue.id) AS enrolments FROM {course} c JOIN {enrol} e ON e.courseid = c.id JOIN {user_enrolments} ue ON ue.enrolid = e.id GROUP BY c.fullname`. Set chart type **Bar**, label column **course**, value column **enrolments**.
+**Example** — enrolments per course: `SELECT c.fullname AS course, COUNT(ue.id) AS enrolments FROM course c JOIN enrol e ON e.courseid = c.id JOIN user_enrolments ue ON ue.enrolid = e.id GROUP BY c.fullname`. Set chart type **Bar**, label column **course**, value column **enrolments**.
 
 ---
 
