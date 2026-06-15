@@ -189,4 +189,76 @@ class transfer {
 
         return ['imported' => $imported, 'skipped' => $skipped, 'demoted' => $demoted];
     }
+
+    /** Absolute path to the sample report views shipped with the plugin. */
+    public const BUNDLED_SAMPLES = __DIR__ . '/../../samples/reportsources.json';
+
+    /**
+     * Number of sample report views bundled with the plugin.
+     *
+     * Returns 0 if the bundled file is absent (a stripped deployment) or unparseable, so callers
+     * can present the loader without fataling.
+     *
+     * @return int
+     */
+    public static function count_bundled(): int {
+        if (!is_readable(self::BUNDLED_SAMPLES)) {
+            return 0;
+        }
+        $json = file_get_contents(self::BUNDLED_SAMPLES);
+        if ($json === false) {
+            return 0;
+        }
+        try {
+            return count(self::parse($json));
+        } catch (\moodle_exception $e) {
+            return 0;
+        }
+    }
+
+    /**
+     * Import the bundled sample report views as fresh drafts owned by the current user.
+     *
+     * Idempotent: any bundled source whose name already exists as a query is skipped rather than
+     * duplicated, so re-running this (repeat clicks, reinstall) never accumulates copies. The
+     * remaining sources go through the same {@see import()} path as a normal import — each SQL is
+     * re-validated, unknown courseids are demoted to site-wide, and every query lands as a draft.
+     *
+     * @return array{imported:int,skipped:array<string,string>,demoted:array<string,int>,duplicates:string[]}
+     *         The {@see import()} result with an added list of names skipped as already present.
+     */
+    public static function import_bundled(): array {
+        global $DB;
+
+        $empty = ['imported' => 0, 'skipped' => [], 'demoted' => [], 'duplicates' => []];
+
+        if (!is_readable(self::BUNDLED_SAMPLES)) {
+            return $empty;
+        }
+        $json = file_get_contents(self::BUNDLED_SAMPLES);
+        if ($json === false) {
+            return $empty;
+        }
+        try {
+            $sources = self::parse($json);
+        } catch (\moodle_exception $e) {
+            return $empty;
+        }
+
+        // Drop sources whose name already exists, so repeat runs never duplicate.
+        $duplicates = [];
+        $selected = [];
+        foreach ($sources as $index => $source) {
+            $name = (string) ($source['name'] ?? '');
+            if ($name !== '' && $DB->record_exists(query::TABLE, ['name' => $name])) {
+                $duplicates[] = $name;
+                continue;
+            }
+            $selected[] = $index;
+        }
+
+        $result = self::import($sources, $selected);
+        $result['duplicates'] = $duplicates;
+        return $result;
+    }
 }

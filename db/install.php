@@ -84,10 +84,16 @@ function xmldb_local_reportsources_install(): void {
         \core\notification::success(
             get_string('install:privilegeok', 'local_reportsources')
         );
-        return;
+    } else {
+        \core\notification::error(
+            get_string('install:privilegefail', 'local_reportsources', $result['error'])
+        );
     }
 
-    \core\notification::error(
-        get_string('install:privilegefail', 'local_reportsources', $result['error'])
+    // Offer the bundled sample report views. The web installer runs this hook non-interactively, so
+    // we point the installer at a confirm page rather than importing silently.
+    $samplesurl = new \moodle_url('/local/reportsources/samples.php');
+    \core\notification::info(
+        get_string('install:loadsamples', 'local_reportsources', $samplesurl->out())
     );
 }

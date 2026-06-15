@@ -62,10 +62,27 @@ if ($hassiteconfig) {
         )
     ));
 
+    $settings->add(new admin_setting_description(
+        'local_reportsources/sampleslink',
+        get_string('samples:title', 'local_reportsources'),
+        html_writer::link(
+            new moodle_url('/local/reportsources/samples.php'),
+            get_string('samples:linklabel', 'local_reportsources')
+        )
+    ));
+
     $ADMIN->add('localplugins', new admin_externalpage(
         'local_reportsources_testview',
         get_string('testview:title', 'local_reportsources'),
         new moodle_url('/local/reportsources/testview.php'),
+        'moodle/site:config',
+        true
+    ));
+
+    $ADMIN->add('localplugins', new admin_externalpage(
+        'local_reportsources_samples',
+        get_string('samples:title', 'local_reportsources'),
+        new moodle_url('/local/reportsources/samples.php'),
         'moodle/site:config',
         true
     ));
