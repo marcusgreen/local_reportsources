@@ -1,5 +1,2 @@
 # Scratch session/dev logs, not part of the plugin.
 SESSION-*.md
-
-# CLI export output, generated at runtime.
-cli/reportsources.json
