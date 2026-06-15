@@ -1,7 +1,7 @@
 {
     "format": "local_reportsources",
     "version": 1,
-    "exported": 1781508098,
+    "exported": 1781548071,
     "sources": [
         {
             "name": "Course enrolments for current user",
@@ -32,7 +32,7 @@
         {
             "name": "Enrolled students and completion dates in current course",
             "description": "List Students with enrollment and completion dates in current course\r\n",
-            "querysql": "SELECT\r\n    u.firstname,\r\n    u.lastname,\r\n    u.idnumber,\r\n    u.institution,\r\n    u.department,\r\n    u.email,\r\n    %%TIMESTAMP(cc.timeenrolled)%% AS timeenrolled,\r\n    %%TIMESTAMP(cc.timecompleted)%% AS timecompleted\r\nFROM {role_assignments} AS ra\r\nJOIN {context} AS ctx ON ctx.id = ra.contextid AND ctx.contextlevel = 50\r\nJOIN {course} AS c ON c.id = ctx.instanceid AND c.id = %%COURSEID%%\r\nJOIN {user} AS u ON u.id = ra.userid\r\nJOIN {course_completions} AS cc ON cc.course = c.id AND cc.userid = u.id\r\nLIMIT 100",
+            "querysql": "SELECT\r\n    u.firstname,\r\n    u.lastname,\r\n    u.idnumber,\r\n    u.institution,\r\n    u.department,\r\n    u.email,\r\n    %%TIMESTAMP(cc.timeenrolled)%% AS timeenrolled,\r\n    %%TIMESTAMP(cc.timecompleted)%% AS timecompleted\r\nFROM {role_assignments} AS ra\r\nJOIN {context} AS ctx ON ctx.id = ra.contextid AND ctx.id = %%COURSECONTEXT%%\r\nJOIN {course} AS c ON c.id = ctx.instanceid AND c.id = %%COURSEID%%\r\nJOIN {user} AS u ON u.id = ra.userid\r\nJOIN {course_completions} AS cc ON cc.course = c.id AND cc.userid = u.id\r\nLIMIT 100",
             "courseid": 3,
             "visible": 1,
             "chartmeta": {
@@ -53,7 +53,7 @@
         {
             "name": "Line graph of log writes per day",
             "description": "Report over logstore_standard_log.",
-            "querysql": "SELECT userid, (timecreated - (timecreated % 86400)) AS day, COUNT(*) AS writes\nFROM {logstore_standard_log}\nGROUP BY userid, (timecreated - (timecreated % 86400))\nORDER BY userid, day",
+            "querysql": "SELECT userid, (timecreated - (timecreated % 86400)) AS day, COUNT(*) AS writes\r\nFROM {logstore_standard_log}\r\nGROUP BY userid, (timecreated - (timecreated % 86400))\r\nORDER BY userid, day",
             "courseid": 0,
             "visible": 1,
             "chartmeta": {
@@ -66,7 +66,7 @@
         {
             "name": "Lists \"loggedin users\" from the last 120 days",
             "description": "",
-            "querysql": "SELECT id, username, %%TIMESTAMP(lastlogin)%% AS lastlogin\nFROM {user}\nWHERE lastlogin > %%NOW%% - (120 * 86400)",
+            "querysql": "SELECT id, username, %%TIMESTAMP(lastlogin)%% AS lastlogin\r\nFROM {user}\r\nWHERE lastlogin > %%NOW%% - (120 * 86400)",
             "courseid": 0,
             "visible": 1,
             "chartmeta": {
