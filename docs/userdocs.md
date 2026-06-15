@@ -185,6 +185,7 @@ The plugin supports a small, fixed set of placeholder forms in your SQL. Everyth
 | `{tablename}` | Prefixed table name (`{user}` → `mdl_user`) | |
 | `%%WWWROOT%%` | Site address (`$CFG->wwwroot`) | Case-insensitive |
 | `%%COURSEID%%` | The report's bound course id | Requires a course scope on the query |
+| `%%COURSECONTEXT%%` | The bound course's context row id (`mdl_context.id`) | Requires a course scope on the query |
 | `%%NOW%%` | Current Unix time (integer seconds) | Cross-database |
 | `%%TIMESTAMP(expr[, format])%%` | `expr` (an epoch column) as a date, optionally formatted | Cross-database; date-sortable |
 
@@ -222,6 +223,19 @@ FROM {role_assignments} ra
 JOIN {context} ctx ON ctx.id = ra.contextid AND ctx.contextlevel = 50
 JOIN {course}  c   ON c.id = ctx.instanceid AND c.id = %%COURSEID%%
 JOIN {user}    u   ON u.id = ra.userid
+```
+
+### `%%COURSECONTEXT%%` — the course's context id
+
+Replaced with the bound course's **context row id** (`mdl_context.id`) when the view is built. This is *not* the context level — the course context level is always `50` (`CONTEXT_COURSE`), but the `mdl_context.id` row differs for every course, so it cannot be hard-coded. Like `%%COURSEID%%`, it requires a course scope on the query.
+
+Use it to skip the `mdl_context` join when you already know the course. The `%%COURSEID%%` example above becomes:
+
+```sql
+SELECT u.firstname, u.lastname
+FROM {role_assignments} ra
+JOIN {user} u ON u.id = ra.userid
+WHERE ra.contextid = %%COURSECONTEXT%%
 ```
 
 ### `%%NOW%%` — current Unix time

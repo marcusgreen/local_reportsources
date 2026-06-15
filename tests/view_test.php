@@ -67,6 +67,30 @@ final class view_test extends \advanced_testcase {
     }
 
     /**
+     * %%COURSECONTEXT%% resolves to the bound course's context row id, and to 0 site-wide.
+     */
+    public function test_resolve_course_context_token(): void {
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        $courseid = (int) $course->id;
+        $contextid = \context_course::instance($courseid)->id;
+
+        $resolved = view::resolve_placeholders(
+            'SELECT id FROM {role_assignments} WHERE contextid = %%COURSECONTEXT%%',
+            $courseid
+        );
+        $this->assertStringContainsString('contextid = ' . $contextid, $resolved);
+        $this->assertStringNotContainsString('%%', $resolved);
+
+        // Site-wide (courseid 0) has no course context — resolves to 0.
+        $sitewide = view::resolve_placeholders(
+            'SELECT id FROM {role_assignments} WHERE contextid = %%COURSECONTEXT%%'
+        );
+        $this->assertStringContainsString('contextid = 0', $sitewide);
+    }
+
+    /**
      * timestamp_columns() maps each token's output column (AS alias, else trailing identifier) to
      * its requested format ('' when none).
      */

@@ -88,7 +88,7 @@ The method is **idempotent**: it deletes existing audiences for the report befor
 - Strips comments and string literals before scanning so embedded `DROP` strings don't evade the denylist
 - Enforces SELECT/WITH-only; blocks multi-statement; blocks a table denylist (`config`, `sessions`, etc.)
 - `auto_brace()` wraps bare table names in `{}`—users don't need to type braces
-- Rejects unknown `%%…%%` tokens via `is_supported_token()`. Supported tokens (`%%WWWROOT%%`, `%%COURSEID%%`, `%%NOW%%`, `%%TIMESTAMP(expr[, format])%%`) are exempt because they are substituted later in `view::resolve_placeholders()`, not at validate time
+- Rejects unknown `%%…%%` tokens via `is_supported_token()`. Supported tokens (`%%WWWROOT%%`, `%%COURSEID%%`, `%%COURSECONTEXT%%`, `%%NOW%%`, `%%TIMESTAMP(expr[, format])%%`) are exempt because they are substituted later in `view::resolve_placeholders()`, not at validate time
 
 **Placeholder substitution** (`view::resolve_placeholders()`, the single substitution point — used by both publish and the live AJAX check): `{table}`→prefixed name, `%%WWWROOT%%`→site URL, `%%COURSEID%%`→bound course id, `%%NOW%%`→current epoch int (`UNIX_TIMESTAMP()` on MySQL / `EXTRACT(EPOCH FROM now())::int` on Postgres, chosen by `$DB->get_dbfamily()`), and `%%TIMESTAMP(expr[, format])%%`→the **bare epoch expression** `(expr)` — no DB date function, so the column is portable and sorts chronologically; the date typing and `format` are applied later from `columnsmeta` (see [Report Builder binding](#report-builder-binding)). `expr` cannot contain `%` (the token scan stops at `%`).
 

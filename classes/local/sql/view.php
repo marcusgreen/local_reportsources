@@ -152,6 +152,16 @@ class view {
         $sql = str_ireplace('%%WWWROOT%%', $CFG->wwwroot, $sql);
         $sql = str_ireplace('%%COURSEID%%', (string) $courseid, $sql);
 
+        // %%COURSECONTEXT%% — the bound course's context *row* id (mdl_context.id), not the context
+        // level (which is always CONTEXT_COURSE = 50). The id varies per course, so it cannot be
+        // hard-coded; resolve it from the course scope. Site-wide queries (courseid 0) have no course
+        // context, so the token resolves to 0 there (mirrors %%COURSEID%%; the form blocks publishing
+        // a course-context query without a scope).
+        if (stripos($sql, '%%COURSECONTEXT%%') !== false) {
+            $contextid = $courseid > 0 ? \context_course::instance($courseid)->id : 0;
+            $sql = str_ireplace('%%COURSECONTEXT%%', (string) $contextid, $sql);
+        }
+
         // %%NOW%% — current Unix time, expanded to the dialect of the live database.
         $postgres = $DB->get_dbfamily() === 'postgres';
         $sql = str_ireplace('%%NOW%%', $postgres ? 'EXTRACT(EPOCH FROM now())::int' : 'UNIX_TIMESTAMP()', $sql);

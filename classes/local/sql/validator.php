@@ -201,7 +201,7 @@ class validator {
      * @return bool
      */
     private static function is_supported_token(string $token): bool {
-        foreach (['%%WWWROOT%%', '%%COURSEID%%', '%%NOW%%'] as $exact) {
+        foreach (['%%WWWROOT%%', '%%COURSEID%%', '%%COURSECONTEXT%%', '%%NOW%%'] as $exact) {
             if (strcasecmp($token, $exact) === 0) {
                 return true;
             }
