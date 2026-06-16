@@ -426,6 +426,14 @@ Once configured, a **View chart** link appears for the published view. From the 
 
 **Example** — enrolments per course: `SELECT c.fullname AS course, COUNT(ue.id) AS enrolments FROM course c JOIN enrol e ON e.courseid = c.id JOIN user_enrolments ue ON ue.enrolid = e.id GROUP BY c.fullname`. Set chart type **Bar**, label column **course**, value column **enrolments**.
 
+A **Line** chart plots the value column as points joined into a trend line — good for values over time:
+
+![A line chart of report data](line_graph.png)
+
+For **Pie** and **Doughnut** charts, each slice's value is appended to its legend label so the number is visible without hovering:
+
+![A pie chart of report data](pie_chart.png)
+
 ---
 
 ## Emailing reports on a schedule
