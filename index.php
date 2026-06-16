@@ -202,6 +202,18 @@ foreach ($queries as $rec) {
         );
     }
 
+    // Editing the underlying Report builder report sits inline next to Edit, for users who can edit
+    // RB reports and only when the report exists (published rows the current user can view).
+    $editreportbtn = '';
+    if ($canviewreport && has_capability('moodle/reportbuilder:edit', $syscontext)) {
+        $editreportbtn = html_writer::link(
+            new moodle_url('/reportbuilder/edit.php', ['id' => $rec->reportid]),
+            get_string('editreport', 'local_reportsources'),
+            ['class' => 'btn btn-sm btn-secondary me-2',
+                'aria-label' => get_string('editreport', 'local_reportsources') . ' ' . $reportname]
+        );
+    }
+
     // Unpublish sits inline as a button, but only for rows that are actually published.
     $unpublishbtn = '';
     if ($rec->status === query::STATUS_PUBLISHED && has_capability('local/reportsources:approve', $syscontext)) {
@@ -209,7 +221,7 @@ foreach ($queries as $rec) {
             new moodle_url('/local/reportsources/run.php',
                 ['id' => $rec->id, 'action' => 'unpublish', 'sesskey' => sesskey()]),
             get_string('unpublish', 'local_reportsources'),
-            ['class' => 'btn btn-sm btn-outline-secondary me-2',
+            ['class' => 'btn btn-sm btn-secondary me-2',
                 'aria-label' => get_string('unpublishfor', 'local_reportsources', $reportname)]
         );
     }
@@ -228,11 +240,6 @@ foreach ($queries as $rec) {
             ));
         }
         if (has_capability('moodle/reportbuilder:edit', $syscontext)) {
-            $menu->add(new action_menu_link_secondary(
-                new moodle_url('/reportbuilder/edit.php', ['id' => $rec->reportid]),
-                new pix_icon('i/settings', ''),
-                get_string('editreport', 'local_reportsources')
-            ));
             // Deep-link to the report's Schedules tab. The RB editor uses JS dynamic tabs whose ids
             // are the short class name (schedules); core/dynamic_tabs activates the matching tab from
             // the URL hash. Recipients are the report's RB audiences, set at publish.
@@ -284,7 +291,7 @@ foreach ($queries as $rec) {
 
     // Kebab leads the actions cell, followed by the inline buttons, all on one flex line.
     $actionscell = html_writer::div(
-        html_writer::div($OUTPUT->render($menu), 'me-2') . $primary . $editbtn . $unpublishbtn,
+        html_writer::div($OUTPUT->render($menu), 'me-2') . $primary . $editbtn . $editreportbtn . $unpublishbtn,
         'd-flex align-items-center flex-nowrap'
     );
 
