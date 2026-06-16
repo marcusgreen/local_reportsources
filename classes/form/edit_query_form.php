@@ -99,7 +99,21 @@ class edit_query_form extends moodleform {
 
         $this->add_audience_elements($mform);
 
-        $this->add_action_buttons(true, get_string('savechanges'));
+        // Authors get a plain Save (draft); approvers additionally get a one-click Save & publish so
+        // they don't have to round-trip through the index page to publish. The capability is also
+        // re-checked in edit.php before publishing — the button is convenience, not the gate.
+        $buttonarray = [];
+        $buttonarray[] = $mform->createElement('submit', 'submitbutton', get_string('savechanges'));
+        if (!empty($this->_customdata['canpublish'])) {
+            $buttonarray[] = $mform->createElement(
+                'submit',
+                'saveandpublish',
+                get_string('saveandpublish', 'local_reportsources')
+            );
+        }
+        $buttonarray[] = $mform->createElement('cancel');
+        $mform->addGroup($buttonarray, 'buttonar', '', [' '], false);
+        $mform->closeHeaderBefore('buttonar');
     }
 
     /**

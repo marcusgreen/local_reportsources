@@ -57,7 +57,8 @@ if ($id) {
 
 // The audience picker offers course-scoped options only when the query is bound to a course.
 $formcourseid = $existing ? (int) $existing->courseid : $courseid;
-$mform = new edit_query_form(null, ['courseid' => $formcourseid]);
+$canpublish = has_capability('local/reportsources:approve', $context);
+$mform = new edit_query_form(null, ['courseid' => $formcourseid, 'canpublish' => $canpublish]);
 
 // Consolidate form defaults into one object so AI generation can override querysql.
 $formdefaults = null;
@@ -136,6 +137,29 @@ if ($mform->is_cancelled()) {
         }
     }
     $newid = query::save($data);
+
+    // "Save and publish" is a one-click convenience for approvers. The capability is re-checked here
+    // (not just on the form button) so a forged submit can't publish. If publishing fails the query
+    // is already saved as a draft, so report the failure but keep the saved state.
+    if (!empty($data->saveandpublish) && $canpublish) {
+        try {
+            query::get($newid)->publish();
+        } catch (\moodle_exception $e) {
+            redirect(
+                $returnurl,
+                get_string('savedpublishfailed', 'local_reportsources', $e->getMessage()),
+                null,
+                \core\output\notification::NOTIFY_ERROR
+            );
+        }
+        redirect(
+            $returnurl,
+            get_string('savedandpublished', 'local_reportsources'),
+            null,
+            \core\output\notification::NOTIFY_SUCCESS
+        );
+    }
+
     redirect(
         $returnurl,
         get_string('changessaved'),
