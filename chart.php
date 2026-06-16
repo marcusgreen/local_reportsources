@@ -172,9 +172,20 @@ if ($type === 'doughnut') {
     $chart->set_doughnut(true);
 }
 
+// Pie/doughnut segment values only show on hover (Chart.js tooltip). Append the value to each
+// segment label so the number is always visible in the legend alongside its slice.
+$chartlabels = $labels;
+if ($type === 'pie' || $type === 'doughnut') {
+    $chartlabels = array_map(static function ($label, $value) {
+        // Drop a trailing .0 so whole numbers read cleanly (e.g. "42" not "42.0").
+        $num = rtrim(rtrim(format_float($value, 2), '0'), '.');
+        return $label . ' (' . $num . ')';
+    }, $labels, $values);
+}
+
 $series = new \core\chart_series($ycol, $values);
 $chart->add_series($series);
-$chart->set_labels($labels);
+$chart->set_labels($chartlabels);
 $chart->set_title(format_string($rec->name));
 
 $PAGE->set_url(new moodle_url(
