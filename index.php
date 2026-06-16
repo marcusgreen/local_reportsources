@@ -27,6 +27,12 @@ require(__DIR__ . '/../../config.php');
 use local_reportsources\local\query;
 
 $courseid = optional_param('courseid', 0, PARAM_INT);
+// Column sort: blank keeps the default timemodified DESC ordering from visible_to_current_user().
+$tsort = optional_param('tsort', '', PARAM_ALPHA);
+$tdir  = optional_param('tdir', 'asc', PARAM_ALPHA) === 'desc' ? 'desc' : 'asc';
+if (!in_array($tsort, ['name', 'owner', 'status'], true)) {
+    $tsort = '';
+}
 
 if ($courseid) {
     require_login($courseid);
@@ -108,6 +114,45 @@ if (!$queries) {
     exit;
 }
 
+// Resolve owner full names once so they can drive both the owner-column sort and the rendered cell.
+$ownernames = [];
+foreach ($queries as $rec) {
+    $owner = core_user::get_user($rec->ownerid);
+    $ownernames[$rec->id] = $owner ? fullname($owner) : '-';
+}
+
+// Apply the column sort when one is selected. The default (no tsort) keeps the timemodified DESC
+// order returned by the query, so this only runs on explicit user request.
+if ($tsort) {
+    $dir = $tdir === 'desc' ? -1 : 1;
+    uasort($queries, function ($a, $b) use ($tsort, $dir, $ownernames) {
+        switch ($tsort) {
+            case 'owner':
+                $cmp = strcasecmp($ownernames[$a->id], $ownernames[$b->id]);
+                break;
+            case 'status':
+                $cmp = strcasecmp($a->status, $b->status);
+                break;
+            default:
+                $cmp = strcasecmp($a->name, $b->name);
+        }
+        return $cmp * $dir;
+    });
+}
+
+// Build a sortable column header: a link that re-requests the page sorted by $column, toggling the
+// direction when the column is already the active sort. An arrow marks the active column/direction.
+$sortheader = function (string $column, string $label) use ($PAGE, $tsort, $tdir) {
+    $active = ($tsort === $column);
+    $nextdir = ($active && $tdir === 'asc') ? 'desc' : 'asc';
+    $url = new moodle_url($PAGE->url, ['tsort' => $column, 'tdir' => $nextdir]);
+    $arrow = '';
+    if ($active) {
+        $arrow = ' ' . ($tdir === 'asc' ? '▲' : '▼');
+    }
+    return html_writer::link($url, $label . $arrow);
+};
+
 $table = new html_table();
 $table->id = 'rs-tour-table';
 $table->attributes['class'] = 'generaltable table table-hover';
@@ -115,9 +160,9 @@ $table->attributes['class'] = 'generaltable table table-hover';
 // absorb all the slack.
 $table->size = ['40%', '20%', '15%', '25%'];
 $table->head = [
-    get_string('name', 'local_reportsources'),
-    get_string('owner', 'local_reportsources'),
-    get_string('status', 'local_reportsources'),
+    $sortheader('name', get_string('name', 'local_reportsources')),
+    $sortheader('owner', get_string('owner', 'local_reportsources')),
+    $sortheader('status', get_string('status', 'local_reportsources')),
     get_string('actions', 'local_reportsources'),
 ];
 // Keep the actions cell on one line so the kebab menu and buttons never wrap.
@@ -157,7 +202,6 @@ foreach ($queries as $rec) {
         continue;
     }
 
-    $owner = core_user::get_user($rec->ownerid);
     $urlcourse = $courseid ? ['courseid' => $courseid] : [];
     $chartmeta = $rec->chartmeta ? json_decode($rec->chartmeta, true) : [];
     $haschart = !empty($chartmeta['type']) && $chartmeta['type'] !== 'none';
@@ -297,7 +341,7 @@ foreach ($queries as $rec) {
 
     $table->data[] = [
         $namecell,
-        $owner ? fullname($owner) : '-',
+        $ownernames[$rec->id],
         $statusbadge,
         $actionscell,
     ];
