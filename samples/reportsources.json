@@ -1,7 +1,7 @@
 {
     "format": "local_reportsources",
     "version": 1,
-    "exported": 1781548071,
+    "exported": 1781643120,
     "sources": [
         {
             "name": "Course enrolments for current user",
@@ -73,6 +73,19 @@
                 "type": "none",
                 "xcol": "",
                 "ycol": "",
+                "rowlimit": 200
+            }
+        },
+        {
+            "name": "Pie chart of user enrolments",
+            "description": "",
+            "querysql": "SELECT r.shortname, COUNT(DISTINCT ra.userid) AS usercount\r\nFROM {role} r\r\nJOIN {role_assignments} ra ON r.id = ra.roleid\r\nGROUP BY r.shortname\r\nHAVING COUNT(DISTINCT ra.userid) > 0\r\nLIMIT 100",
+            "courseid": 0,
+            "visible": 1,
+            "chartmeta": {
+                "type": "pie",
+                "xcol": "shortname",
+                "ycol": "usercount",
                 "rowlimit": 200
             }
         },
