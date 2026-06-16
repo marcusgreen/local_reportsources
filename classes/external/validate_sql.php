@@ -75,10 +75,12 @@ class validate_sql extends external_api {
         // Syntax/table/column check — LIMIT 1 fetches a single row so the select-list
         // expressions are actually evaluated, catching row-dependent runtime errors
         // (e.g. to_char() on a bigint with a date mask) that LIMIT 0 would let through.
-        // Strip any existing LIMIT (and optional OFFSET) so we don't produce "LIMIT n LIMIT 1".
-        $dryrunsql = preg_replace('/\bLIMIT\s+\d+(\s+OFFSET\s+\d+)?\s*$/i', '', trim($resolved));
+        // Wrap as a subquery so the LIMIT cannot be swallowed by a trailing line comment
+        // (`... -- note` would otherwise comment out an appended LIMIT, fetching the whole
+        // table into memory). Unlike the VIEW-create check below, a row dry-run does not care
+        // about duplicate output column names, so wrapping is safe here.
         try {
-            $DB->get_records_sql("{$dryrunsql} LIMIT 1", []);
+            $DB->get_records_sql("SELECT * FROM ({$resolved}) rs_dryrun LIMIT 1", []);
         } catch (\dml_exception $e) {
             $detail = $e->error ?: ($e->debuginfo ?: $e->getMessage());
             return ['ok' => false, 'error' => validator::clean_error($detail)];
