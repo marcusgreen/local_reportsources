@@ -26,6 +26,7 @@ require(__DIR__ . '/../../config.php');
 
 use local_reportsources\form\edit_query_form;
 use local_reportsources\local\query;
+use local_reportsources\local\query_naming;
 use local_reportsources\local\sql\validator;
 
 require_login();
@@ -92,15 +93,15 @@ if ($aisqlchatavailable && $aiaction === 'generate' && $aiquestion !== '') {
         // Make up a name/description when none exist yet, so the generated query is immediately
         // saveable (name is a required field). A "fix this SQL error" prompt is meaningless as a
         // name, so in that case derive both from the meaning of the generated SQL instead.
-        $fromsql = query::is_error_fix_prompt($aiquestion);
+        $fromsql = query_naming::is_error_fix_prompt($aiquestion);
         if (trim((string) ($mergedata['name'] ?? '')) === '') {
             $mergedata['name'] = $fromsql
-                ? query::name_from_sql($airesult->sql)
-                : query::name_from_question($aiquestion);
+                ? query_naming::from_sql($airesult->sql)
+                : query_naming::from_question($aiquestion);
         }
         if (trim((string) ($mergedata['description'] ?? '')) === '') {
             $mergedata['description'] = $fromsql
-                ? query::description_from_sql($airesult->sql)
+                ? query_naming::description_from_sql($airesult->sql)
                 : $aiquestion;
         }
         $formdefaults = (object) $mergedata;
