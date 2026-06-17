@@ -366,6 +366,11 @@ const buildEditor = (textarea, schema, fkMap) => {
                 return;
             }
 
+            // Preserve the clicked submit button so the programmatic resubmit below carries its
+            // name/value (e.g. "saveandpublish"). requestSubmit() without a submitter drops it,
+            // which would silently downgrade "Save and publish" to a plain draft save.
+            const submitter = e.submitter;
+
             e.preventDefault();
             errorBanner.className = 'alert alert-info mt-1';
             errorBanner.textContent = 'Checking query…';
@@ -407,12 +412,12 @@ const buildEditor = (textarea, schema, fkMap) => {
                     } else {
                         warningBanner.style.display = 'none';
                     }
-                    textarea.form.requestSubmit();
+                    textarea.form.requestSubmit(submitter);
                 }
             })
             .catch(() => {
                 serverValidated = true;
-                textarea.form.requestSubmit();
+                textarea.form.requestSubmit(submitter);
             });
         });
 
