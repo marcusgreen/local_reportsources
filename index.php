@@ -206,11 +206,24 @@ foreach ($queries as $rec) {
     $chartmeta = $rec->chartmeta ? json_decode($rec->chartmeta, true) : [];
     $haschart = !empty($chartmeta['type']) && $chartmeta['type'] !== 'none';
     $reportname = format_string($rec->name);
-    // Mark queries that have a chart configured with the same graph icon shown in the action menu.
+    // Mark queries that have a chart configured with a glyph matching the chart type, so the list
+    // tells bar/line/pie apart at a glance (doughnut shares the pie glyph; FA6 has no doughnut icon).
     $namecell = $reportname;
     if ($haschart) {
-        $namecell = $OUTPUT->pix_icon('i/chartbar', get_string('viewchart', 'local_reportsources'),
-            'moodle', ['class' => 'me-1']) . $reportname;
+        // Glyph + Bootstrap text-colour class per type (theme-aware, dark-mode safe).
+        $charticons = [
+            'bar'      => ['fa-chart-column', 'text-primary'],
+            'line'     => ['fa-chart-line', 'text-danger'],
+            'pie'      => ['fa-chart-pie', 'text-success'],
+            'doughnut' => ['fa-chart-pie', 'text-info'],
+        ];
+        [$faclass, $colourclass] = $charticons[$chartmeta['type']] ?? ['fa-chart-column', 'text-primary'];
+        $icon = html_writer::tag('i', '', [
+            'class'       => 'fa ' . $faclass . ' ' . $colourclass . ' me-1',
+            'title'       => get_string('viewchart', 'local_reportsources'),
+            'aria-hidden' => 'true',
+        ]);
+        $namecell = $icon . $reportname;
     }
 
     // The most-used action (open the published report) stays as an inline button; everything else
