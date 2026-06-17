@@ -396,6 +396,11 @@ if (empty($table->data)) {
     echo $OUTPUT->notification(get_string('noqueries', 'local_reportsources'), 'info');
 } else {
     echo html_writer::table($table);
+    // Tally of the rows actually rendered (after the per-report audience filter), shown at the foot.
+    echo html_writer::div(
+        get_string('reportsourcecount', 'local_reportsources', count($table->data)),
+        'text-muted mt-2'
+    );
 }
 $rendertransferbuttons();
 echo $OUTPUT->footer();

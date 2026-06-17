@@ -166,6 +166,7 @@ For the Moodle database schema see <a href="https://www.examulator.com/er/output
 
 For sample queries and inspiration see <a href="https://docs.moodle.org/502/en/ad-hoc_contributed_reports" target="_blank">Moodle ad-hoc contributed reports</a>.';
 $string['reportsource'] = 'Report view';
+$string['reportsourcecount'] = 'Showing {$a} report view(s).';
 $string['reportsourceheader'] = '{$a}';
 $string['reportsources'] = 'Report sources';
 
