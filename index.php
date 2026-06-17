@@ -30,7 +30,13 @@ $courseid = optional_param('courseid', 0, PARAM_INT);
 // Column sort: blank keeps the default timemodified DESC ordering from visible_to_current_user().
 $tsort = optional_param('tsort', '', PARAM_ALPHA);
 $tdir  = optional_param('tdir', 'asc', PARAM_ALPHA) === 'desc' ? 'desc' : 'asc';
-if (!in_array($tsort, ['name', 'owner', 'status'], true)) {
+// Admin toggle: the "Last modified" column (and its sort) only appears when enabled.
+$showmodified = (bool) get_config('local_reportsources', 'showlastmodified');
+$sortable = ['name', 'owner', 'status'];
+if ($showmodified) {
+    $sortable[] = 'modified';
+}
+if (!in_array($tsort, $sortable, true)) {
     $tsort = '';
 }
 
@@ -139,6 +145,9 @@ if ($tsort) {
             case 'status':
                 $cmp = strcasecmp($a->status, $b->status);
                 break;
+            case 'modified':
+                $cmp = (int) $a->timemodified <=> (int) $b->timemodified;
+                break;
             default:
                 $cmp = strcasecmp($a->name, $b->name);
         }
@@ -164,15 +173,28 @@ $table->id = 'rs-tour-table';
 $table->attributes['class'] = 'generaltable table table-hover';
 // Spread the columns evenly across the full page width rather than letting the long Name column
 // absorb all the slack.
-$table->size = ['40%', '20%', '15%', '25%'];
-$table->head = [
-    $sortheader('name', get_string('name', 'local_reportsources')),
-    $sortheader('owner', get_string('owner', 'local_reportsources')),
-    $sortheader('status', get_string('status', 'local_reportsources')),
-    get_string('actions', 'local_reportsources'),
-];
-// Keep the actions cell on one line so the kebab menu and buttons never wrap.
-$table->colclasses = ['', '', '', 'text-nowrap'];
+if ($showmodified) {
+    $table->size = ['33%', '17%', '12%', '18%', '20%'];
+    $table->head = [
+        $sortheader('name', get_string('name', 'local_reportsources')),
+        $sortheader('owner', get_string('owner', 'local_reportsources')),
+        $sortheader('status', get_string('status', 'local_reportsources')),
+        $sortheader('modified', get_string('lastmodified', 'local_reportsources')),
+        get_string('actions', 'local_reportsources'),
+    ];
+    // Keep the actions and modified cells on one line so they never wrap.
+    $table->colclasses = ['', '', '', 'text-nowrap', 'text-nowrap'];
+} else {
+    $table->size = ['40%', '20%', '15%', '25%'];
+    $table->head = [
+        $sortheader('name', get_string('name', 'local_reportsources')),
+        $sortheader('owner', get_string('owner', 'local_reportsources')),
+        $sortheader('status', get_string('status', 'local_reportsources')),
+        get_string('actions', 'local_reportsources'),
+    ];
+    // Keep the actions cell on one line so the kebab menu and buttons never wrap.
+    $table->colclasses = ['', '', '', 'text-nowrap'];
+}
 
 // Audience-allowed report ids for the current user, fetched once. can_view_report() would run this
 // same query per row, so we hoist it and do the remaining (cheap, cached) capability checks inline.
@@ -358,12 +380,15 @@ foreach ($queries as $rec) {
         'd-flex align-items-center flex-nowrap'
     );
 
-    $table->data[] = [
-        $namecell,
-        $ownernames[$rec->id],
-        $statusbadge,
-        $actionscell,
-    ];
+    $row = [$namecell, $ownernames[$rec->id], $statusbadge];
+    if ($showmodified) {
+        // Localised date-time; the column carries text-nowrap so it stays on one line.
+        $row[] = $rec->timemodified
+            ? userdate($rec->timemodified, get_string('strftimedatetimeshort', 'langconfig'))
+            : '-';
+    }
+    $row[] = $actionscell;
+    $table->data[] = $row;
 }
 
 if (empty($table->data)) {
