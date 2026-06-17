@@ -31,6 +31,14 @@ if ($hassiteconfig) {
     );
     $ADMIN->add('localplugins', $settings);
 
+    $ADMIN->add('reports', new admin_externalpage(
+        'local_reportsources_index',
+        get_string('reportsources', 'local_reportsources'),
+        new moodle_url('/local/reportsources/index.php'),
+        'local/reportsources:viewall',
+        false
+    ));
+
     $settings->add(new admin_setting_configtextarea(
         'local_reportsources/denycolumns',
         get_string('settings:denycolumns', 'local_reportsources'),
