@@ -87,23 +87,29 @@ if (has_capability('local/reportsources:author', $syscontext)) {
     );
 }
 
-// Render the Export / Import buttons shown at the foot of the listing.
+// Render the Bulk actions menu (export / import / delete) shown at the foot of the listing.
 $rendertransferbuttons = function () use ($OUTPUT, $syscontext) {
     if (!has_capability('local/reportsources:author', $syscontext)) {
         return;
     }
-    echo html_writer::start_div('d-flex flex-wrap gap-2 mt-4');
-    echo $OUTPUT->single_button(
+    $menu = new action_menu();
+    $menu->set_menu_trigger(get_string('bulkactions', 'local_reportsources'), 'btn btn-secondary');
+    $menu->add(new action_menu_link_secondary(
         new moodle_url('/local/reportsources/export.php'),
-        get_string('export', 'local_reportsources'),
-        'get'
-    );
-    echo $OUTPUT->single_button(
+        null,
+        get_string('export', 'local_reportsources')
+    ));
+    $menu->add(new action_menu_link_secondary(
         new moodle_url('/local/reportsources/import.php'),
-        get_string('import', 'local_reportsources'),
-        'get'
-    );
-    echo html_writer::end_div();
+        null,
+        get_string('import', 'local_reportsources')
+    ));
+    $menu->add(new action_menu_link_secondary(
+        new moodle_url('/local/reportsources/deletemany.php'),
+        null,
+        get_string('delete', 'local_reportsources')
+    ));
+    echo html_writer::div($OUTPUT->render($menu), 'd-flex flex-wrap gap-2 mt-4');
 };
 
 $queries = query::visible_to_current_user($courseid);

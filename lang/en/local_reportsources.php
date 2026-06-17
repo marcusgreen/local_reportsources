@@ -56,6 +56,7 @@ $string['audiencetype_help'] = 'Controls who can open the published Report Build
 * **All site users**, **Members of cohorts**, **Nobody** — apply site-wide.
 
 You can refine the audience further on the Audiences tab in Report Builder, but re-publishing the report resets it to this choice.';
+$string['bulkactions'] = 'Bulk actions';
 $string['chartbar'] = 'Bar chart';
 $string['chartdoughnut'] = 'Doughnut chart';
 $string['chartdownloadpng'] = 'Download PNG';
@@ -81,7 +82,10 @@ $string['coursescope_help'] = 'The course this report belongs to. Leave empty fo
 The course determines two things when the report is published: the context its "View report" permission is checked in, and its default audience (course participants for a course-scoped report, all users for a site-wide one).
 
 Change this to re-scope a query — for example an imported draft that was set site-wide because its original course did not exist on this site. The course-specific audience options refresh after you save and reopen the form. You can only choose courses you are allowed to view reports in.';
+$string['confirmdeletemany'] = 'Are you sure you want to delete these {$a} report view(s)? This drops each backing view and report and cannot be undone.';
 $string['delete'] = 'Delete';
+$string['deleteselected'] = 'Delete selected';
+$string['deleteselecthelp'] = 'Tick the report views to delete. Deleting drops each backing database view and report and cannot be undone.';
 $string['description'] = 'Description';
 $string['duplicate'] = 'Duplicate';
 $string['edit'] = 'Edit';
@@ -103,6 +107,7 @@ $string['errimportempty'] = 'The export file contains no report views.';
 $string['errimportformat'] = 'This file is not a valid Report sources export.';
 $string['errjoinnoon'] = 'A JOIN is missing its ON (or USING) condition. Each JOIN needs a join condition, e.g. JOIN {user_enrolments} ue ON ue.userid = u.id';
 $string['errmultistatement'] = 'Multiple statements are not allowed.';
+$string['errnodeleteselection'] = 'Select at least one report view to delete.';
 $string['errnoexportselection'] = 'Select at least one report view to export.';
 $string['errnoimportselection'] = 'Select at least one report view to import.';
 $string['errnotselect'] = 'Only SELECT queries are allowed.';
