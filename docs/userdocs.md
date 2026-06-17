@@ -187,6 +187,7 @@ The plugin supports a small, fixed set of placeholder forms in your SQL. Everyth
 | `%%COURSEID%%` | The report's bound course id | Requires a course scope on the query |
 | `%%COURSECONTEXT%%` | The bound course's context row id (`mdl_context.id`) | Requires a course scope on the query |
 | `%%NOW%%` | Current Unix time (integer seconds) | Cross-database |
+| `%%EPOCH(datetime)%%` | A datetime literal/expression as Unix time (integer seconds) | Cross-database |
 | `%%TIMESTAMP(expr[, format])%%` | `expr` (an epoch column) as a date, optionally formatted | Cross-database; date-sortable |
 
 All are substituted once, when the view is built — the view is a fixed `CREATE VIEW`, so these bake a value in; they are **not** per-request parameters.
@@ -248,6 +249,28 @@ SELECT id, username
 FROM user
 WHERE lastlogin > %%NOW%% - (120 * 86400)
 ```
+
+### `%%EPOCH(datetime)%%` — date literal to epoch
+
+The mirror image of `%%TIMESTAMP%%`. It converts a **date/time you write** into Unix epoch seconds, so you can compare it against an epoch column (like `timecreated`, `lastaccess`) on **both** MySQL/MariaDB and PostgreSQL. It expands to `UNIX_TIMESTAMP(arg)` on MySQL and `EXTRACT(EPOCH FROM arg)::int` on PostgreSQL — pick the token and the plugin emits the right one.
+
+Use it for fixed date-window filters:
+
+```sql
+-- Log writes in January 2015
+SELECT COUNT(*) AS writes
+FROM logstore_standard_log
+WHERE timecreated >  %%EPOCH('2015-01-01 00:00:00')%%
+  AND timecreated <= %%EPOCH('2015-01-31 23:59:59')%%
+```
+
+Notes:
+
+- Quote string literals: `%%EPOCH('2015-01-01 00:00:00')%%`. The argument can also be a column or expression.
+- The argument **cannot contain a `%` character** (the token scan stops at `%`).
+- Use a **real calendar date**. An impossible date such as `'2027-06-31'` (June has 30 days) returns `NULL` on MySQL, and `timecreated <= NULL` is never true — the query silently returns **0 rows**.
+- For the **current** time use [`%%NOW%%`](#now--current-unix-time), not `%%EPOCH%%`.
+- Native `UNIX_TIMESTAMP()` still works but is MySQL-only and raises a portability warning — prefer the token.
 
 ### `%%TIMESTAMP(expr)%%` — epoch to date
 
@@ -552,6 +575,7 @@ Replace `moodle`, `mdluser`, and `localhost` with your schema name, DB user, and
 | Chart settings / per-user filter missing | Both appear only after publishing | Publish the view first |
 | Scheduled email never arrives | Cron not running, custom reports disabled, or report has no audience | Run cron, enable Report Builder, give the report an audience |
 | Everyone gets the same rows in a per-user scheduled report | Schedule set to "view as fixed user" | Set the schedule's **View report as** to **Recipient** |
+| Report returns 0 rows unexpectedly | Invalid calendar date in `%%EPOCH(...)%%` (e.g. `'2027-06-31'`) resolves to `NULL`, so `timecreated <= NULL` is never true; or `%%COURSECONTEXT%%` used where a context *level* (`50`) was meant | Use a real date (June has 30 days); compare `contextlevel = 50`, not `%%COURSECONTEXT%%` |
 | Autocomplete not appearing | Syntax highlight disabled or JS cache stale | Enable the setting and purge caches |
 | AI panel missing | local_sqlchat not installed/enabled | Install and configure it, then enable AI SQL generation |
 
