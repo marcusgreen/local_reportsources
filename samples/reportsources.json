@@ -1,8 +1,21 @@
 {
     "format": "local_reportsources",
     "version": 1,
-    "exported": 1781643120,
+    "exported": 1781733510,
     "sources": [
+        {
+            "name": "Bar chart of user enrolments",
+            "description": "",
+            "querysql": "SELECT r.shortname, COUNT(DISTINCT ra.userid) AS usercount\r\nFROM {role} r\r\nJOIN {role_assignments} ra ON r.id = ra.roleid\r\nGROUP BY r.shortname\r\nHAVING COUNT(DISTINCT ra.userid) > 0\r\nLIMIT 100",
+            "courseid": 0,
+            "visible": 1,
+            "chartmeta": {
+                "type": "bar",
+                "xcol": "shortname",
+                "ycol": "usercount",
+                "rowlimit": 200
+            }
+        },
         {
             "name": "Course enrolments for current user",
             "description": "show user id field and course shortname the user is enrolled on",
@@ -77,6 +90,19 @@
             }
         },
         {
+            "name": "Most Active courses",
+            "description": "",
+            "querysql": "SELECT\r\n    c.fullname AS Course,\r\n    COUNT(l.userid) AS Views\r\nFROM {logstore_standard_log} l\r\nJOIN {course} c ON c.id = l.courseid\r\nWHERE l.timecreated >  %%EPOCH('2015-01-01 00:00:00')%%\r\n  AND l.timecreated <= %%EPOCH('2027-06-30 23:59:59')%%\r\n  AND l.courseid > 1\r\nGROUP BY c.id, c.fullname\r\nORDER BY Views DESC",
+            "courseid": 4,
+            "visible": 1,
+            "chartmeta": {
+                "type": "none",
+                "xcol": "",
+                "ycol": "",
+                "rowlimit": 200
+            }
+        },
+        {
             "name": "Pie chart of user enrolments",
             "description": "",
             "querysql": "SELECT r.shortname, COUNT(DISTINCT ra.userid) AS usercount\r\nFROM {role} r\r\nJOIN {role_assignments} ra ON r.id = ra.roleid\r\nGROUP BY r.shortname\r\nHAVING COUNT(DISTINCT ra.userid) > 0\r\nLIMIT 100",
@@ -103,30 +129,12 @@
             }
         },
         {
-            "name": "User logs",
-            "description": "show id, firstname,lastname last access and format last access as human readable",
-            "querysql": "SELECT id, firstname, lastname, %%TIMESTAMP(lastaccess)%% AS lastaccess FROM {user} LIMIT 100",
-            "courseid": 0,
+            "name": "usernames",
+            "description": "",
+            "querysql": "select username, email from {user}",
+            "courseid": 17,
             "visible": 1,
-            "chartmeta": {
-                "type": "none",
-                "xcol": "",
-                "ycol": "",
-                "rowlimit": 200
-            }
-        },
-        {
-            "name": "Users who logged in since a fixed date",
-            "description": "Uses %%EPOCH('YYYY-MM-DD HH:MM:SS')%% to turn a fixed datetime into a Unix epoch, compared against the epoch lastlogin column. Portable across MySQL/MariaDB and PostgreSQL.",
-            "querysql": "SELECT id, username, %%TIMESTAMP(lastlogin)%% AS lastlogin\r\nFROM {user}\r\nWHERE lastlogin > %%EPOCH('2015-01-01 00:00:00')%%\r\nORDER BY lastlogin DESC\r\nLIMIT 100",
-            "courseid": 0,
-            "visible": 1,
-            "chartmeta": {
-                "type": "none",
-                "xcol": "",
-                "ycol": "",
-                "rowlimit": 200
-            }
+            "chartmeta": null
         }
     ]
 }
