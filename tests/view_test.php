@@ -50,6 +50,43 @@ final class view_test extends \advanced_testcase {
     }
 
     /**
+     * %%EPOCH('literal')%% expands to the live family's datetime → epoch spelling: UNIX_TIMESTAMP on
+     * MySQL/MariaDB, EXTRACT(EPOCH FROM TIMESTAMP '...')::int on PostgreSQL.
+     */
+    public function test_resolve_epoch_token_literal_is_dialect(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $resolved = view::resolve_placeholders(
+            "SELECT %%EPOCH('2015-01-01 00:00:00')%% AS t FROM {user}"
+        );
+
+        if ($DB->get_dbfamily() === 'postgres') {
+            $this->assertStringContainsString("EXTRACT(EPOCH FROM TIMESTAMP '2015-01-01 00:00:00')::int", $resolved);
+        } else {
+            $this->assertStringContainsString("UNIX_TIMESTAMP('2015-01-01 00:00:00')", $resolved);
+        }
+        $this->assertStringNotContainsString('%%', $resolved);
+    }
+
+    /**
+     * %%EPOCH(expr)%% wraps a non-literal expression in parens on PostgreSQL (no TIMESTAMP cast).
+     */
+    public function test_resolve_epoch_token_expr_is_dialect(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $resolved = view::resolve_placeholders('SELECT %%EPOCH(u.timecreated)%% AS t FROM {user} u');
+
+        if ($DB->get_dbfamily() === 'postgres') {
+            $this->assertStringContainsString('EXTRACT(EPOCH FROM (u.timecreated))::int', $resolved);
+        } else {
+            $this->assertStringContainsString('UNIX_TIMESTAMP(u.timecreated)', $resolved);
+        }
+        $this->assertStringNotContainsString('%%', $resolved);
+    }
+
+    /**
      * %%NOW%% expands to the current-epoch expression for the live database.
      */
     public function test_resolve_now_token_is_dialect(): void {

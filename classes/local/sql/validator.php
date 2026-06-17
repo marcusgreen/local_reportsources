@@ -28,7 +28,15 @@ namespace local_reportsources\local\sql;
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class validator {
-    /** @var string[] MySQL-specific date functions that will fail on PostgreSQL. */
+    /**
+     * MySQL-specific date functions that will fail on PostgreSQL.
+     *
+     * For datetime → Unix epoch, use the portable `%%EPOCH(datetime)%%` token instead of a native
+     * function; it expands to the live family's spelling in
+     * {@see \local_reportsources\local\sql\view::resolve_placeholders()}.
+     *
+     * @var string[]
+     */
     private const MYSQL_DATE_FUNCTIONS = [
         'DATE_FORMAT', 'STR_TO_DATE', 'DATE_ADD', 'DATE_SUB',
         'DATEDIFF', 'UNIX_TIMESTAMP', 'FROM_UNIXTIME',
@@ -193,9 +201,10 @@ class validator {
     /**
      * Whether a `%%...%%` token is one the plugin substitutes at view-build time.
      *
-     * Exact tokens: %%WWWROOT%%, %%COURSEID%%, %%NOW%%. The parameterised %%TIMESTAMP(expr)%% token
-     * (epoch column → datetime, rendered per database dialect) is matched by shape; its inner
-     * expression is resolved in {@see \local_reportsources\local\sql\view::resolve_placeholders()}.
+     * Exact tokens: %%WWWROOT%%, %%COURSEID%%, %%NOW%%. The parameterised %%TIMESTAMP(expr)%% (epoch
+     * column → datetime, rendered per dialect) and %%EPOCH(datetime)%% (datetime literal/expr → epoch
+     * int, per dialect) tokens are matched by shape; their inner expression is resolved in
+     * {@see \local_reportsources\local\sql\view::resolve_placeholders()}.
      *
      * @param string $token A token captured by the %%..%% scan, including the surrounding %%.
      * @return bool
@@ -206,7 +215,7 @@ class validator {
                 return true;
             }
         }
-        return (bool) preg_match('/^%%TIMESTAMP\(.+\)%%$/i', $token);
+        return (bool) preg_match('/^%%(?:TIMESTAMP|EPOCH)\(.+\)%%$/i', $token);
     }
 
     /**

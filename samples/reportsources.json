@@ -114,6 +114,19 @@
                 "ycol": "",
                 "rowlimit": 200
             }
+        },
+        {
+            "name": "Users who logged in since a fixed date",
+            "description": "Uses %%EPOCH('YYYY-MM-DD HH:MM:SS')%% to turn a fixed datetime into a Unix epoch, compared against the epoch lastlogin column. Portable across MySQL/MariaDB and PostgreSQL.",
+            "querysql": "SELECT id, username, %%TIMESTAMP(lastlogin)%% AS lastlogin\r\nFROM {user}\r\nWHERE lastlogin > %%EPOCH('2015-01-01 00:00:00')%%\r\nORDER BY lastlogin DESC\r\nLIMIT 100",
+            "courseid": 0,
+            "visible": 1,
+            "chartmeta": {
+                "type": "none",
+                "xcol": "",
+                "ycol": "",
+                "rowlimit": 200
+            }
         }
     ]
 }

@@ -166,6 +166,24 @@ class view {
         $postgres = $DB->get_dbfamily() === 'postgres';
         $sql = str_ireplace('%%NOW%%', $postgres ? 'EXTRACT(EPOCH FROM now())::int' : 'UNIX_TIMESTAMP()', $sql);
 
+        // %%EPOCH(datetime)%% — a datetime literal/expression → Unix epoch int, in the live dialect.
+        // String literals get Postgres's explicit TIMESTAMP cast so the value reads as a datetime;
+        // other expressions are wrapped in parens to preserve precedence. (Use %%NOW%% for "now".)
+        $sql = preg_replace_callback(
+            '/%%EPOCH\(\s*(.+?)\s*\)%%/i',
+            static function (array $m) use ($postgres): string {
+                $arg = $m[1];
+                if (!$postgres) {
+                    return "UNIX_TIMESTAMP({$arg})";
+                }
+                if (preg_match("/^'(?:[^']|'')*'$/", $arg)) {
+                    return "EXTRACT(EPOCH FROM TIMESTAMP {$arg})::int";
+                }
+                return "EXTRACT(EPOCH FROM ({$arg}))::int";
+            },
+            $sql
+        ) ?? $sql;
+
         // %%TIMESTAMP(expr[, format])%% — emit the *raw epoch* expression (no DB date function, so
         // the column stays an integer that sorts chronologically). The publish path types it as a
         // timestamp and applies the optional display format as a Report Builder callback; see
