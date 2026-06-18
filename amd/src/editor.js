@@ -230,7 +230,7 @@ const buildEditor = (textarea, schema, fkMap) => {
                 paramTypes: {custom: [
                     {regex: '\\{[A-Za-z0-9_]+\\}'},
                     // Reserved %%TOKEN%% placeholders (%%WWWROOT%%, %%COURSEID%%,
-                    // %%COURSECONTEXT%%, %%NOW%%, %%TIMESTAMP(expr[, format])%%). Treat each as a
+                    // %%COURSECONTEXT%%, %%NOW%%, %%CONTEXT_*%%, %%TIMESTAMP(expr[, format])%%). Treat each as a
                     // single opaque parameter so the formatter does not split, space, or upper-case
                     // their contents. Inner text never contains % so [^%]+ matches the whole token.
                     {regex: '%%[^%]+%%'},

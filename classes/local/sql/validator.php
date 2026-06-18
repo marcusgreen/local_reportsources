@@ -106,7 +106,7 @@ class validator {
         // Unfilled placeholder artifacts copied from ad-hoc report templates (e.g. ## or
         // %%FILTER_USERS%%) reach the DB as broken SQL. ## also starts a MySQL comment, truncating
         // the statement into a cryptic syntax error. Catch these and name the offending token.
-        // The supported tokens (%%WWWROOT%%, %%COURSEID%%, %%NOW%%, %%TIMESTAMP(expr)%%) are all
+        // The supported tokens (%%WWWROOT%%, %%COURSEID%%, %%NOW%%, %%CONTEXT_*%%, %%TIMESTAMP(expr)%%) are all
         // substituted at view-build time (see view::resolve_placeholders), so they are exempt from
         // this rejection. %%COURSEID%% additionally requires the query to carry a course scope —
         // enforced in the edit form.
@@ -201,7 +201,8 @@ class validator {
     /**
      * Whether a `%%...%%` token is one the plugin substitutes at view-build time.
      *
-     * Exact tokens: %%WWWROOT%%, %%COURSEID%%, %%NOW%%. The parameterised %%TIMESTAMP(expr)%% (epoch
+     * Exact tokens: %%WWWROOT%%, %%COURSEID%%, %%COURSECONTEXT%%, %%NOW%% and the %%CONTEXT_*%% level
+     * constants (%%CONTEXT_COURSE%% etc.). The parameterised %%TIMESTAMP(expr)%% (epoch
      * column → datetime, rendered per dialect) and %%EPOCH(datetime)%% (datetime literal/expr → epoch
      * int, per dialect) tokens are matched by shape; their inner expression is resolved in
      * {@see \local_reportsources\local\sql\view::resolve_placeholders()}.
@@ -210,7 +211,11 @@ class validator {
      * @return bool
      */
     private static function is_supported_token(string $token): bool {
-        foreach (['%%WWWROOT%%', '%%COURSEID%%', '%%COURSECONTEXT%%', '%%NOW%%'] as $exact) {
+        $exacttokens = array_merge(
+            ['%%WWWROOT%%', '%%COURSEID%%', '%%COURSECONTEXT%%', '%%NOW%%'],
+            array_keys(view::context_level_tokens())
+        );
+        foreach ($exacttokens as $exact) {
             if (strcasecmp($token, $exact) === 0) {
                 return true;
             }

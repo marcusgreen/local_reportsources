@@ -147,6 +147,27 @@ class view {
      * @param int $courseid Course id substituted for %%COURSEID%% (0 when site-wide / dry-run).
      * @return string
      */
+    /**
+     * Map of `%%CONTEXT_*%%` tokens to their Moodle context-level constant values.
+     *
+     * Mirrors core's CONTEXT_* constants by name so the token reads like the constant a Moodle
+     * developer already knows (e.g. `%%CONTEXT_COURSE%%` → CONTEXT_COURSE → 50) instead of a magic
+     * number in `mdl_context.contextlevel = 50`. Values come from the live constants so they can
+     * never drift from core.
+     *
+     * @return array<string,int> Uppercase token (with surrounding %%) => context level.
+     */
+    public static function context_level_tokens(): array {
+        return [
+            '%%CONTEXT_SYSTEM%%'    => CONTEXT_SYSTEM,
+            '%%CONTEXT_USER%%'      => CONTEXT_USER,
+            '%%CONTEXT_COURSECAT%%' => CONTEXT_COURSECAT,
+            '%%CONTEXT_COURSE%%'    => CONTEXT_COURSE,
+            '%%CONTEXT_MODULE%%'    => CONTEXT_MODULE,
+            '%%CONTEXT_BLOCK%%'     => CONTEXT_BLOCK,
+        ];
+    }
+
     public static function resolve_placeholders(string $sql, int $courseid = 0): string {
         global $CFG, $DB;
         $sql = str_ireplace('%%WWWROOT%%', $CFG->wwwroot, $sql);
@@ -160,6 +181,14 @@ class view {
         if (stripos($sql, '%%COURSECONTEXT%%') !== false) {
             $contextid = $courseid > 0 ? \context_course::instance($courseid)->id : 0;
             $sql = str_ireplace('%%COURSECONTEXT%%', (string) $contextid, $sql);
+        }
+
+        // %%CONTEXT_*%% — Moodle context-level constants (e.g. %%CONTEXT_COURSE%% → 50). These read
+        // far more clearly in SQL than the bare magic number when filtering mdl_context.contextlevel.
+        // Distinct from %%COURSECONTEXT%% above, which resolves to a specific context *row* id; these
+        // are the fixed level constants and need no course scope.
+        foreach (self::context_level_tokens() as $token => $level) {
+            $sql = str_ireplace($token, (string) $level, $sql);
         }
 
         // %%NOW%% — current Unix time, expanded to the dialect of the live database.

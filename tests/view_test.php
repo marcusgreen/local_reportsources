@@ -128,6 +128,24 @@ final class view_test extends \advanced_testcase {
     }
 
     /**
+     * %%CONTEXT_*%% tokens resolve to the matching Moodle context-level constant, case-insensitively
+     * and without needing a course scope.
+     */
+    public function test_resolve_context_level_tokens(): void {
+        $resolved = view::resolve_placeholders(
+            'SELECT id FROM {context} WHERE contextlevel = %%CONTEXT_COURSE%%'
+        );
+        $this->assertStringContainsString('contextlevel = ' . CONTEXT_COURSE, $resolved);
+        $this->assertStringNotContainsString('%%', $resolved);
+
+        // Every advertised token maps to its core constant, matched case-insensitively.
+        foreach (view::context_level_tokens() as $token => $level) {
+            $out = view::resolve_placeholders('SELECT 1 WHERE x = ' . strtolower($token));
+            $this->assertSame('SELECT 1 WHERE x = ' . $level, $out);
+        }
+    }
+
+    /**
      * timestamp_columns() maps each token's output column (AS alias, else trailing identifier) to
      * its requested format ('' when none).
      */

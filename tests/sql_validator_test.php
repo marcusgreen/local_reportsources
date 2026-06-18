@@ -109,6 +109,20 @@ final class sql_validator_test extends \advanced_testcase {
         $this->assertNotEmpty(validator::validate("SELECT 'DROP TABLE x' AS s"));
     }
 
+    public function test_context_level_token_is_supported(): void {
+        // %%CONTEXT_COURSE%% is a recognised token, so validation must not reject it as an
+        // unfilled placeholder.
+        $this->assertNotEmpty(
+            validator::validate('SELECT id FROM {context} WHERE contextlevel = %%CONTEXT_COURSE%%')
+        );
+    }
+
+    public function test_unknown_context_token_is_rejected(): void {
+        // A made-up %%CONTEXT_*%% name is not in the supported set and must be rejected.
+        $this->expectException(\moodle_exception::class);
+        validator::validate('SELECT id FROM {context} WHERE contextlevel = %%CONTEXT_GALAXY%%');
+    }
+
     public function test_join_without_on_reports_specific_error(): void {
         // A JOIN missing its ON condition should raise the dedicated, friendly message
         // rather than letting the DB return an opaque syntax error.

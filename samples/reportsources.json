@@ -32,7 +32,7 @@
         {
             "name": "Distinct enrolments per category and sub categories",
             "description": "Count number of distinct learners and teachers enrolled per category (including all its sub categories)",
-            "querysql": "SELECT\r\n    COUNT(DISTINCT lra.userid) AS learners,\r\n    COUNT(DISTINCT tra.userid) AS teachers\r\nFROM\r\n    {course} c\r\n    LEFT JOIN {context} ctx ON c.id = ctx.instanceid AND ctx.contextlevel = 50\r\n    JOIN {role_assignments} lra ON lra.contextid = ctx.id\r\n    JOIN {role_assignments} tra ON tra.contextid = ctx.id\r\n    JOIN {course_categories} cats ON c.category = cats.id\r\nWHERE\r\n    cats.path LIKE CONCAT('%/', (SELECT id FROM {course_categories} WHERE name = 'Category 1' LIMIT 1), '/%')\r\n    AND lra.roleid = (SELECT id FROM {role} WHERE shortname = 'student')\r\n    OR tra.roleid = (SELECT id FROM {role} WHERE shortname = 'editingteacher')",
+            "querysql": "SELECT\r\n    COUNT(DISTINCT lra.userid) AS learners,\r\n    COUNT(DISTINCT tra.userid) AS teachers\r\nFROM\r\n    {course} c\r\n    LEFT JOIN {context} ctx ON c.id = ctx.instanceid AND ctx.contextlevel = %%CONTEXT_COURSE%%\r\n    JOIN {role_assignments} lra ON lra.contextid = ctx.id\r\n    JOIN {role_assignments} tra ON tra.contextid = ctx.id\r\n    JOIN {course_categories} cats ON c.category = cats.id\r\nWHERE\r\n    cats.path LIKE CONCAT('%/', (SELECT id FROM {course_categories} WHERE name = 'Category 1' LIMIT 1), '/%')\r\n    AND lra.roleid = (SELECT id FROM {role} WHERE shortname = 'student')\r\n    OR tra.roleid = (SELECT id FROM {role} WHERE shortname = 'editingteacher')",
             "courseid": 0,
             "visible": 1,
             "chartmeta": {
@@ -118,7 +118,7 @@
         {
             "name": "Student (user) Count in each Course",
             "description": "Report over role_assignments, context, user, course.",
-            "querysql": "SELECT \r\n    CONCAT('<a target=_new href=\"%%WWWROOT%%/course/view.php', chr(63), 'id=', c.id, '\">', c.fullname, '</a>') AS Course,\r\n    CONCAT('<a target=_new href=\"%%WWWROOT%%/user/index.php', chr(63), 'id=', c.id, '\">Show users</a>') AS users,\r\n    COUNT(DISTINCT u.id) AS students\r\nFROM {role_assignments} asg\r\nJOIN {context} ctx ON asg.contextid = ctx.id AND ctx.contextlevel = 50\r\nJOIN {user} u ON u.id = asg.userid\r\nJOIN {course} c ON ctx.instanceid = c.id\r\nWHERE asg.roleid = (SELECT id FROM {role} WHERE shortname = 'student')\r\nGROUP BY c.id, c.fullname\r\nORDER BY Students DESC\r\nLIMIT 100",
+            "querysql": "SELECT \r\n    CONCAT('<a target=_new href=\"%%WWWROOT%%/course/view.php', chr(63), 'id=', c.id, '\">', c.fullname, '</a>') AS Course,\r\n    CONCAT('<a target=_new href=\"%%WWWROOT%%/user/index.php', chr(63), 'id=', c.id, '\">Show users</a>') AS users,\r\n    COUNT(DISTINCT u.id) AS students\r\nFROM {role_assignments} asg\r\nJOIN {context} ctx ON asg.contextid = ctx.id AND ctx.contextlevel = %%CONTEXT_COURSE%%\r\nJOIN {user} u ON u.id = asg.userid\r\nJOIN {course} c ON ctx.instanceid = c.id\r\nWHERE asg.roleid = (SELECT id FROM {role} WHERE shortname = 'student')\r\nGROUP BY c.id, c.fullname\r\nORDER BY Students DESC\r\nLIMIT 100",
             "courseid": 0,
             "visible": 1,
             "chartmeta": {

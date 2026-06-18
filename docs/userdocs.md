@@ -186,6 +186,7 @@ The plugin supports a small, fixed set of placeholder forms in your SQL. Everyth
 | `%%WWWROOT%%` | Site address (`$CFG->wwwroot`) | Case-insensitive |
 | `%%COURSEID%%` | The report's bound course id | Requires a course scope on the query |
 | `%%COURSECONTEXT%%` | The bound course's context row id (`mdl_context.id`) | Requires a course scope on the query |
+| `%%CONTEXT_COURSE%%` (and `%%CONTEXT_SYSTEM%%`, `%%CONTEXT_USER%%`, `%%CONTEXT_COURSECAT%%`, `%%CONTEXT_MODULE%%`, `%%CONTEXT_BLOCK%%`) | The matching Moodle context-**level** constant (`%%CONTEXT_COURSE%%` → `50`) | No course scope needed |
 | `%%NOW%%` | Current Unix time (integer seconds) | Cross-database |
 | `%%EPOCH(datetime)%%` | A datetime literal/expression as Unix time (integer seconds) | Cross-database |
 | `%%TIMESTAMP(expr[, format])%%` | `expr` (an epoch column) as a date, optionally formatted | Cross-database; date-sortable |
@@ -237,6 +238,30 @@ SELECT u.firstname, u.lastname
 FROM role_assignments ra
 JOIN user u ON u.id = ra.userid
 WHERE ra.contextid = %%COURSECONTEXT%%
+```
+
+### `%%CONTEXT_COURSE%%` and friends — context-level constants
+
+Replaced with the integer value of the matching Moodle context **level** constant, so you can write the name instead of a magic number when filtering `mdl_context.contextlevel`:
+
+| Token | Value | Core constant |
+|---|---|---|
+| `%%CONTEXT_SYSTEM%%` | `10` | `CONTEXT_SYSTEM` |
+| `%%CONTEXT_USER%%` | `30` | `CONTEXT_USER` |
+| `%%CONTEXT_COURSECAT%%` | `40` | `CONTEXT_COURSECAT` |
+| `%%CONTEXT_COURSE%%` | `50` | `CONTEXT_COURSE` |
+| `%%CONTEXT_MODULE%%` | `70` | `CONTEXT_MODULE` |
+| `%%CONTEXT_BLOCK%%` | `80` | `CONTEXT_BLOCK` |
+
+These are fixed constants, so no course scope is required. Don't confuse them with [`%%COURSECONTEXT%%`](#coursecontext--the-courses-context-id), which is a specific context *row* id.
+
+```sql
+SELECT c.fullname, COUNT(DISTINCT ra.userid) AS students
+FROM context ctx
+JOIN course c ON c.id = ctx.instanceid
+JOIN role_assignments ra ON ra.contextid = ctx.id
+WHERE ctx.contextlevel = %%CONTEXT_COURSE%%
+GROUP BY c.id, c.fullname
 ```
 
 ### `%%NOW%%` — current Unix time
@@ -575,7 +600,7 @@ Replace `moodle`, `mdluser`, and `localhost` with your schema name, DB user, and
 | Chart settings / per-user filter missing | Both appear only after publishing | Publish the view first |
 | Scheduled email never arrives | Cron not running, custom reports disabled, or report has no audience | Run cron, enable Report Builder, give the report an audience |
 | Everyone gets the same rows in a per-user scheduled report | Schedule set to "view as fixed user" | Set the schedule's **View report as** to **Recipient** |
-| Report returns 0 rows unexpectedly | Invalid calendar date in `%%EPOCH(...)%%` (e.g. `'2027-06-31'`) resolves to `NULL`, so `timecreated <= NULL` is never true; or `%%COURSECONTEXT%%` used where a context *level* (`50`) was meant | Use a real date (June has 30 days); compare `contextlevel = 50`, not `%%COURSECONTEXT%%` |
+| Report returns 0 rows unexpectedly | Invalid calendar date in `%%EPOCH(...)%%` (e.g. `'2027-06-31'`) resolves to `NULL`, so `timecreated <= NULL` is never true; or `%%COURSECONTEXT%%` used where a context *level* (`50`) was meant | Use a real date (June has 30 days); compare `contextlevel = %%CONTEXT_COURSE%%`, not `%%COURSECONTEXT%%` |
 | Autocomplete not appearing | Syntax highlight disabled or JS cache stale | Enable the setting and purge caches |
 | AI panel missing | local_sqlchat not installed/enabled | Install and configure it, then enable AI SQL generation |
 
