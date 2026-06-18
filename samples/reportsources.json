@@ -1,7 +1,7 @@
 {
     "format": "local_reportsources",
     "version": 1,
-    "exported": 1781733510,
+    "exported": 1781791537,
     "sources": [
         {
             "name": "Bar chart of user enrolments",
@@ -30,7 +30,7 @@
             }
         },
         {
-            "name": "Distinct enrolments per category and sub categories",
+            "name": "Distinct enrolments per category and sub categories: demonstrates %%CONTEXT_COURSE%%",
             "description": "Count number of distinct learners and teachers enrolled per category (including all its sub categories)",
             "querysql": "SELECT\r\n    COUNT(DISTINCT lra.userid) AS learners,\r\n    COUNT(DISTINCT tra.userid) AS teachers\r\nFROM\r\n    {course} c\r\n    LEFT JOIN {context} ctx ON c.id = ctx.instanceid AND ctx.contextlevel = %%CONTEXT_COURSE%%\r\n    JOIN {role_assignments} lra ON lra.contextid = ctx.id\r\n    JOIN {role_assignments} tra ON tra.contextid = ctx.id\r\n    JOIN {course_categories} cats ON c.category = cats.id\r\nWHERE\r\n    cats.path LIKE CONCAT('%/', (SELECT id FROM {course_categories} WHERE name = 'Category 1' LIMIT 1), '/%')\r\n    AND lra.roleid = (SELECT id FROM {role} WHERE shortname = 'student')\r\n    OR tra.roleid = (SELECT id FROM {role} WHERE shortname = 'editingteacher')",
             "courseid": 0,
@@ -43,10 +43,10 @@
             }
         },
         {
-            "name": "Enrolled students and completion dates in current course",
-            "description": "List Students with enrollment and completion dates in current course\r\n",
+            "name": "Enrolled students in current course: demonstrates %%TIMESTAMP and %%COURSECONTEXT",
+            "description": "List Students with enrollment and completion dates in current course. Demonstrates %%TIMESTAMP allowing for queries that will work with both MySQL and Postgres\r\n",
             "querysql": "SELECT\r\n    u.firstname,\r\n    u.lastname,\r\n    u.idnumber,\r\n    u.institution,\r\n    u.department,\r\n    u.email,\r\n    %%TIMESTAMP(cc.timeenrolled)%% AS timeenrolled,\r\n    %%TIMESTAMP(cc.timecompleted)%% AS timecompleted\r\nFROM {role_assignments} AS ra\r\nJOIN {context} AS ctx ON ctx.id = ra.contextid AND ctx.id = %%COURSECONTEXT%%\r\nJOIN {course} AS c ON c.id = ctx.instanceid AND c.id = %%COURSEID%%\r\nJOIN {user} AS u ON u.id = ra.userid\r\nJOIN {course_completions} AS cc ON cc.course = c.id AND cc.userid = u.id\r\nLIMIT 100",
-            "courseid": 3,
+            "courseid": 16,
             "visible": 1,
             "chartmeta": {
                 "type": "none",
@@ -59,7 +59,7 @@
             "name": "Enrolled users who have never accessed a given course ",
             "description": "",
             "querysql": "SELECT username, firstname, lastname, idnumber\r\nFROM {user_enrolments} ue\r\nJOIN {enrol}           en ON ue.enrolid = en.id\r\nJOIN {user}            uu ON uu.id      = ue.userid\r\nWHERE en.courseid = 2\r\nAND NOT EXISTS (\r\n    SELECT * FROM {user_lastaccess} la\r\n    WHERE la.userid = ue.userid\r\n    AND la.courseid = en.courseid\r\n)",
-            "courseid": 0,
+            "courseid": 15,
             "visible": 1,
             "chartmeta": null
         },
@@ -77,8 +77,8 @@
             }
         },
         {
-            "name": "Lists \"loggedin users\" from the last 120 days",
-            "description": "",
+            "name": "Lists \"loggedin users\" from the last 120 days demonstrates %%NOW%%",
+            "description": "The %%NOW%% token gets the current time and will worth with both Postgres and MySQL",
             "querysql": "SELECT id, username, %%TIMESTAMP(lastlogin)%% AS lastlogin\r\nFROM {user}\r\nWHERE lastlogin > %%NOW%% - (120 * 86400)",
             "courseid": 0,
             "visible": 1,
@@ -93,7 +93,7 @@
             "name": "Most Active courses",
             "description": "",
             "querysql": "SELECT\r\n    c.fullname AS Course,\r\n    COUNT(l.userid) AS Views\r\nFROM {logstore_standard_log} l\r\nJOIN {course} c ON c.id = l.courseid\r\nWHERE l.timecreated >  %%EPOCH('2015-01-01 00:00:00')%%\r\n  AND l.timecreated <= %%EPOCH('2027-06-30 23:59:59')%%\r\n  AND l.courseid > 1\r\nGROUP BY c.id, c.fullname\r\nORDER BY Views DESC",
-            "courseid": 4,
+            "courseid": 0,
             "visible": 1,
             "chartmeta": {
                 "type": "none",
@@ -127,14 +127,6 @@
                 "ycol": "",
                 "rowlimit": 200
             }
-        },
-        {
-            "name": "usernames",
-            "description": "",
-            "querysql": "select username, email from {user}",
-            "courseid": 17,
-            "visible": 1,
-            "chartmeta": null
         }
     ]
 }
