@@ -51,6 +51,25 @@ Assign these to roles at **Site admin → Users → Permissions → Define roles
 
 > **Two separate gates.** These capabilities control the **plugin's own** pages (the list, edit, run links). *Who can open the finished Report Builder report* is controlled separately by the report's **audience** and **course scope** — see [Who can view the report](#who-can-view-the-report-audiences).
 
+### Letting non-administrators author reports
+
+By default only **site managers** (and site admins) can author report views, because `author`, `approve`, and `viewall` are defined at the **system** context and ship on the Manager archetype. A Manager assigned only in a **course or category** does **not** get them — authoring is always a site-wide privilege.
+
+To let specific trusted people author and publish reports without making them full site Managers, create a dedicated role:
+
+1. **Site admin → Users → Permissions → Define roles → Add a new role.**
+2. Start from **No role / archetype**.
+3. Under **Context types where this role may be assigned**, tick **System**.
+4. Name it e.g. *Report author*, and **Allow**:
+   - `local/reportsources:author` — write and save report views.
+   - `local/reportsources:approve` — publish them (omit this if a separate approver should publish).
+   - `local/reportsources:viewall` — see and manage everyone's report views (optional).
+5. Save, then assign people via **Site admin → Users → Permissions → Assign system roles → Report author**.
+
+Holders can then create report views **anywhere** (authoring is system-wide; there is no per-course authoring) and — with `approve` — publish them.
+
+> **⚠️ This is a high-trust role.** Authoring a report means writing an arbitrary SQL `SELECT`, which can read almost any table in the database (only a small denylist such as `config`, `sessions`, and password tables is blocked). The role is therefore effectively a **site-wide data-read** grant — Moodle flags it as carrying *personal-data* and *data-loss* risk. Assign it only to people you would trust with direct read access to the database, and confirm any tables/columns that must never be exposed are covered by the denylist (see [Admin settings](#admin-settings)).
+
 ---
 
 ## Quick start
