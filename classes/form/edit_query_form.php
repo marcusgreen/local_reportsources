@@ -237,6 +237,17 @@ class edit_query_form extends moodleform {
         $mform->setDefault('useridcolumn', $record->useridcolumn ?? '');
         $mform->addHelpButton('useridcolumn', 'useridcolumn', 'local_reportsources');
 
+        // Teacher-course filter: restrict the report to rows whose course the viewer teaches.
+        $mform->addElement(
+            'select',
+            'coursecolumn',
+            get_string('coursecolumn', 'local_reportsources'),
+            $xopts
+        );
+        $mform->setType('coursecolumn', PARAM_ALPHANUMEXT);
+        $mform->setDefault('coursecolumn', $record->coursecolumn ?? '');
+        $mform->addHelpButton('coursecolumn', 'coursecolumn', 'local_reportsources');
+
         $mform->addElement('header', 'chartheader', get_string('chartsettings', 'local_reportsources'));
 
         $mform->addElement('select', 'chart_type', get_string('charttype', 'local_reportsources'), [

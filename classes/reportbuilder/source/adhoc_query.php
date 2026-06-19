@@ -95,6 +95,25 @@ class adhoc_query extends datasource {
             $param = \core_reportbuilder\local\helpers\database::generate_param_name();
             $this->add_base_condition_sql("{$alias}.{$useridcolumn} = :{$param}", [$param => (int) $USER->id]);
         }
+
+        // Teacher-course filter: limit rows to courses the viewer teaches. The column stays visible
+        // in output (a teacher may teach several courses), so it is not stripped from the entity.
+        $coursecolumn = $query->coursecolumn();
+        if ($coursecolumn !== '' && array_key_exists($coursecolumn, $meta)) {
+            global $DB, $USER;
+            $courseids = query::teacher_course_ids((int) $USER->id);
+            if (!$courseids) {
+                // The viewer teaches no courses, so the report returns no rows.
+                $this->add_base_condition_sql('1 = 0');
+            } else {
+                [$insql, $params] = $DB->get_in_or_equal(
+                    $courseids,
+                    SQL_PARAMS_NAMED,
+                    \core_reportbuilder\local\helpers\database::generate_param_name('_')
+                );
+                $this->add_base_condition_sql("{$alias}.{$coursecolumn} {$insql}", $params);
+            }
+        }
     }
 
     /**

@@ -183,6 +183,180 @@ class query {
     }
 
     /**
+     * Output column holding a course id. When set, the report shows only rows whose course the
+     * viewing user teaches (editingteacher/teacher role at the course context). Empty = no filter.
+     *
+     * @return string
+     */
+    public function coursecolumn(): string {
+        return (string) ($this->record->coursecolumn ?? '');
+    }
+
+    /**
+     * Course ids the given user teaches: courses where they have an **active enrolment** AND hold an
+     * editingteacher or teacher role at the course context. Requiring the enrolment (not just the
+     * role assignment) means a suspended/expired enrolment, or a role assigned without enrolment,
+     * does not count. Used by the datasource to scope rows to "courses I teach".
+     *
+     * @param int $userid
+     * @return int[] Distinct course ids; empty if the user teaches nothing.
+     */
+    public static function teacher_course_ids(int $userid): array {
+        global $DB;
+
+        $roles = get_archetype_roles('editingteacher') + get_archetype_roles('teacher');
+        $roleids = array_map('intval', array_keys($roles));
+        if (!$roleids) {
+            return [];
+        }
+
+        [$insql, $params] = $DB->get_in_or_equal($roleids, SQL_PARAMS_NAMED);
+        $params['userid']       = $userid;
+        $params['courselevel']  = CONTEXT_COURSE;
+        $params['enrolenabled'] = ENROL_INSTANCE_ENABLED;
+        $params['ueactive']     = ENROL_USER_ACTIVE;
+        $params['now']          = time();
+
+        // Teacher role at the course context, plus an active (enabled instance, active, in-window)
+        // enrolment in that same course.
+        $sql = "SELECT DISTINCT c.id
+                  FROM {course} c
+                  JOIN {context} ctx ON ctx.instanceid = c.id AND ctx.contextlevel = :courselevel
+                  JOIN {role_assignments} ra
+                        ON ra.contextid = ctx.id AND ra.userid = :userid AND ra.roleid {$insql}
+                  JOIN {enrol} e ON e.courseid = c.id AND e.status = :enrolenabled
+                  JOIN {user_enrolments} ue
+                        ON ue.enrolid = e.id AND ue.userid = :userid2 AND ue.status = :ueactive
+                 WHERE (ue.timestart = 0 OR ue.timestart <= :now)
+                   AND (ue.timeend = 0 OR ue.timeend >= :now2)";
+
+        $params['userid2'] = $userid;
+        $params['now2']    = $params['now'];
+
+        return array_map('intval', $DB->get_fieldset_sql($sql, $params));
+    }
+
+    /**
+     * Menu of published queries as id => name, ordered by name. Used by block_reportsources to offer
+     * a report picker. Lists every published query; per-report view access is still enforced at
+     * render time by {@see current_user_can_view_report()}.
+     *
+     * @return array<int, string>
+     */
+    public static function published_menu(): array {
+        global $DB;
+        $records = $DB->get_records_menu(
+            self::TABLE,
+            ['status' => self::STATUS_PUBLISHED],
+            'name ASC',
+            'id, name'
+        );
+        return array_map(static fn($name): string => format_string($name), $records);
+    }
+
+    /**
+     * Whether the current user may view the published report's data (table or chart). Mirrors the
+     * core Report Builder gate used by the report viewer: plugin managers always, everyone else only
+     * when core RB's context + audience admit them. Shared by chart.php and block_reportsources so
+     * every surface honours the same access as /reportbuilder/view.php.
+     *
+     * @return bool
+     */
+    public function current_user_can_view_report(): bool {
+        $rec = $this->record();
+        if ($rec->status !== self::STATUS_PUBLISHED) {
+            return false;
+        }
+        $syscontext = \context_system::instance();
+        if (
+            has_capability('local/reportsources:author', $syscontext) ||
+            has_capability('local/reportsources:approve', $syscontext) ||
+            has_capability('local/reportsources:viewall', $syscontext)
+        ) {
+            return true;
+        }
+        if (empty($rec->reportid)) {
+            return false;
+        }
+        $model = \core_reportbuilder\local\models\report::get_record(['id' => (int) $rec->reportid]);
+        return $model && \core_reportbuilder\permission::can_view_report($model);
+    }
+
+    /**
+     * Fetch the published view's rows scoped exactly as the RB report shows them to the current user:
+     * only the denylist-stripped published columns, with the per-user (useridcolumn) and teacher-course
+     * (coursecolumn) filters applied. The single fetch+filter path shared by chart.php and the block,
+     * so no surface can leak rows the report table would hide. A filter naming a missing column fails
+     * closed (throws). Does not check view access — call {@see current_user_can_view_report()} first.
+     *
+     * @param int $rowlimit Maximum rows to return; 0 means no limit (capped at 5000).
+     * @return array<int, array<string, mixed>> Result rows as associative arrays.
+     */
+    public function fetch_rows_for_viewer(int $rowlimit = 0): array {
+        global $DB, $USER;
+
+        $rec = $this->record();
+        if ($rec->status !== self::STATUS_PUBLISHED || empty($rec->viewname)) {
+            return [];
+        }
+        $meta = $this->columns_meta();
+        if (!$meta) {
+            return [];
+        }
+
+        $wheres = [];
+        $params = [];
+
+        $useridcolumn = $this->useridcolumn();
+        if ($useridcolumn !== '') {
+            if (!array_key_exists($useridcolumn, $meta)) {
+                throw new \moodle_exception('errchartnotconfigured', 'local_reportsources');
+            }
+            $wheres[] = "{$useridcolumn} = :rs_uid";
+            $params['rs_uid'] = (int) $USER->id;
+            // Hide the filter column from output: after filtering its value is always the viewer's id.
+            if (count($meta) > 1) {
+                unset($meta[$useridcolumn]);
+            }
+        }
+
+        $coursecolumn = $this->coursecolumn();
+        if ($coursecolumn !== '') {
+            if (!array_key_exists($coursecolumn, $meta)) {
+                throw new \moodle_exception('errchartnotconfigured', 'local_reportsources');
+            }
+            $courseids = self::teacher_course_ids((int) $USER->id);
+            if (!$courseids) {
+                // The viewer teaches no courses, so no rows are returned.
+                $wheres[] = '1 = 0';
+            } else {
+                [$insql, $inparams] = $DB->get_in_or_equal($courseids, SQL_PARAMS_NAMED, 'rs_c');
+                $wheres[] = "{$coursecolumn} {$insql}";
+                $params += $inparams;
+            }
+            // The course column stays visible: a teacher may teach many courses.
+        }
+
+        $select = $wheres ? implode(' AND ', $wheres) : '';
+        $fields = implode(', ', array_keys($meta));
+        $limit  = $rowlimit > 0 ? min(5000, $rowlimit) : 0;
+
+        $rows = [];
+        try {
+            $rs = $DB->get_recordset_select($rec->viewname, $select, $params, '', $fields, 0, $limit);
+            foreach ($rs as $row) {
+                $rows[] = (array) $row;
+            }
+            $rs->close();
+        } catch (\dml_exception $e) {
+            // Never surface raw DB errors to ordinary viewers (they can leak SQL/table names).
+            debugging($e->getMessage(), DEBUG_DEVELOPER);
+            throw new \moodle_exception('errchartdata', 'local_reportsources');
+        }
+        return $rows;
+    }
+
+    /**
      * Decoded column metadata cached on save (introspected from the live VIEW).
      *
      * @return array<string, array{type:string,label:string}>
@@ -194,14 +368,15 @@ class query {
     }
 
     /**
-     * Coerce a submitted per-user column choice to a valid value: it must name one of the columns
-     * in the supplied columnsmeta JSON, otherwise the filter is cleared (returns null).
+     * Coerce a submitted column choice to a valid value: it must name one of the columns in the
+     * supplied columnsmeta JSON, otherwise the filter is cleared (returns null). Used for both the
+     * per-user (useridcolumn) and teacher-course (coursecolumn) filters.
      *
      * @param string $choice Raw submitted column name.
      * @param string|null $columnsmeta JSON column metadata of the published query.
      * @return string|null Validated column name, or null for no filter.
      */
-    private static function valid_useridcolumn(string $choice, ?string $columnsmeta): ?string {
+    private static function valid_column_choice(string $choice, ?string $columnsmeta): ?string {
         $choice = clean_param($choice, PARAM_ALPHANUMEXT);
         if ($choice === '') {
             return null;
@@ -287,6 +462,7 @@ class query {
                 $record->columnsmeta  = null;
                 // Old column names no longer apply once the view is rebuilt.
                 $record->useridcolumn = null;
+                $record->coursecolumn = null;
                 $DB->update_record(self::TABLE, $record);
                 self::tear_down((int) $existing->id, $existing);
                 \local_reportsources\event\query_updated::create_and_trigger($record->id, $record->name);
@@ -294,8 +470,14 @@ class query {
             }
             // The per-user column is picked from the live view's columns, so only accept it for an
             // already-published query and only when it names one of that query's output columns.
-            $record->useridcolumn = self::valid_useridcolumn(
+            $record->useridcolumn = self::valid_column_choice(
                 (string) ($data->useridcolumn ?? ''),
+                $existing->columnsmeta
+            );
+            // Teacher-course filter column. Unlike the per-user column it stays visible in output
+            // (a teacher may teach many courses), so no report instances need purging.
+            $record->coursecolumn = self::valid_column_choice(
+                (string) ($data->coursecolumn ?? ''),
                 $existing->columnsmeta
             );
             // The datasource stops offering a per-user filter column; purge any saved instances

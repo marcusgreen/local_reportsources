@@ -76,6 +76,10 @@ $string['chartycol'] = 'Value column (Y axis)';
 $string['chartycol_help'] = 'Column whose values are plotted. Must contain numeric data.';
 $string['copyof'] = 'Copy of {$a}';
 $string['copysuccess'] = 'Report view copied. You are now editing the copy.';
+$string['coursecolumn'] = 'Restrict to courses the viewer teaches';
+$string['coursecolumn_help'] = 'Optionally scope this report so each viewer sees only rows for courses they teach. Pick the output column holding a course id; at view time the report shows only rows where that column is one of the courses where the viewer has an editing teacher or teacher role.
+
+A viewer who teaches no courses sees no rows. This lets you publish a single report to a wide audience (for example all staff) while each teacher still sees only their own courses. Leave as "Choose a column…" for no teacher-course filter.';
 $string['coursescope'] = 'Course scope';
 $string['coursescope_help'] = 'The course this report belongs to. Leave empty for a site-wide report.
 

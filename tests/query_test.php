@@ -207,4 +207,125 @@ final class query_test extends \advanced_testcase {
         $this->assertArrayHasKey($draftid, $visible);
         $this->assertArrayHasKey($pubid, $visible);
     }
+
+    public function test_teacher_course_ids_returns_only_taught_courses(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $gen = $this->getDataGenerator();
+        $teacher = $gen->create_user();
+        $taught = $gen->create_course();
+        $studied = $gen->create_course();
+
+        $gen->enrol_user($teacher->id, $taught->id, 'editingteacher');
+        $gen->enrol_user($teacher->id, $studied->id, 'student');
+
+        $ids = query::teacher_course_ids((int) $teacher->id);
+
+        $this->assertContains((int) $taught->id, $ids);
+        $this->assertNotContains((int) $studied->id, $ids);
+    }
+
+    public function test_teacher_course_ids_requires_active_enrolment(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $gen     = $this->getDataGenerator();
+        $teacher = $gen->create_user();
+        $course  = $gen->create_course();
+
+        // Teacher role assigned at the course context, but NOT enrolled.
+        $coursecontext = \context_course::instance($course->id);
+        $editingteacher = $DB->get_field('role', 'id', ['shortname' => 'editingteacher']);
+        role_assign($editingteacher, $teacher->id, $coursecontext->id);
+
+        // Role without an enrolment must not count.
+        $this->assertNotContains((int) $course->id, query::teacher_course_ids((int) $teacher->id));
+
+        // Suspended enrolment must not count either.
+        $gen->enrol_user($teacher->id, $course->id, 'editingteacher', 'manual', 0, 0, ENROL_USER_SUSPENDED);
+        $this->assertNotContains((int) $course->id, query::teacher_course_ids((int) $teacher->id));
+    }
+
+    public function test_teacher_course_ids_empty_when_teaches_nothing(): void {
+        $this->resetAfterTest();
+        $student = $this->getDataGenerator()->create_user();
+        $this->assertSame([], query::teacher_course_ids((int) $student->id));
+    }
+
+    public function test_save_coursecolumn_accepts_valid_and_rejects_unknown_column(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        // courseid is a real column of this query, gibberish is not.
+        $id = query::save($this->formdata(['querysql' => 'SELECT id, courseid FROM {enrol}']));
+        query::get($id)->publish();
+
+        query::save($this->formdata([
+            'id'           => $id,
+            'querysql'     => 'SELECT id, courseid FROM {enrol}',
+            'coursecolumn' => 'courseid',
+        ]));
+        $this->assertSame('courseid', $DB->get_field(query::TABLE, 'coursecolumn', ['id' => $id]));
+
+        query::save($this->formdata([
+            'id'           => $id,
+            'querysql'     => 'SELECT id, courseid FROM {enrol}',
+            'coursecolumn' => 'nosuchcolumn',
+        ]));
+        $this->assertNull($DB->get_field(query::TABLE, 'coursecolumn', ['id' => $id]));
+    }
+
+    public function test_published_menu_lists_only_published(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $draft = query::save($this->formdata(['name' => 'Draft menu']));
+        $pub   = query::save($this->formdata(['name' => 'Published menu']));
+        query::get($pub)->publish();
+
+        $menu = query::published_menu();
+        $this->assertArrayHasKey($pub, $menu);
+        $this->assertArrayNotHasKey($draft, $menu);
+        $this->assertSame('Published menu', $menu[$pub]);
+    }
+
+    public function test_fetch_rows_for_viewer_scopes_to_taught_courses(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $gen     = $this->getDataGenerator();
+        $teacher = $gen->create_user();
+        $taught  = $gen->create_course();
+        $other   = $gen->create_course();
+        $gen->enrol_user($teacher->id, $taught->id, 'editingteacher');
+
+        $sql = 'SELECT id AS courseid, shortname FROM {course}';
+        $id  = query::save($this->formdata(['querysql' => $sql]));
+        query::get($id)->publish();
+        // Designate the course filter column (published-edit path; SQL unchanged so stays published).
+        query::save($this->formdata(['id' => $id, 'querysql' => $sql, 'coursecolumn' => 'courseid']));
+
+        $this->setUser($teacher);
+        $rows = query::get($id)->fetch_rows_for_viewer();
+        $ids  = array_map(static fn($r): int => (int) $r['courseid'], $rows);
+
+        $this->assertContains((int) $taught->id, $ids);
+        $this->assertNotContains((int) $other->id, $ids);
+    }
+
+    public function test_fetch_rows_for_viewer_empty_when_teaches_nothing(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $student = $this->getDataGenerator()->create_user();
+        $sql = 'SELECT id AS courseid, shortname FROM {course}';
+        $id  = query::save($this->formdata(['querysql' => $sql]));
+        query::get($id)->publish();
+        query::save($this->formdata(['id' => $id, 'querysql' => $sql, 'coursecolumn' => 'courseid']));
+
+        $this->setUser($student);
+        $this->assertSame([], query::get($id)->fetch_rows_for_viewer());
+    }
 }

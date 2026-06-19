@@ -40,25 +40,6 @@ if ($courseid) {
 
 $PAGE->set_context($context);
 
-if ($courseid) {
-    if (
-        !has_capability('local/reportsources:view', $context) &&
-        !has_capability('local/reportsources:viewown', $context) &&
-        !has_capability('local/reportsources:author', context_system::instance()) &&
-        !has_capability('local/reportsources:viewall', context_system::instance())
-    ) {
-        require_capability('local/reportsources:view', $context);
-    }
-} else {
-    if (
-        !has_capability('local/reportsources:viewall', $context) &&
-        !has_capability('local/reportsources:author', $context) &&
-        !has_capability('local/reportsources:view', $context)
-    ) {
-        require_capability('local/reportsources:view', $context);
-    }
-}
-
 $q   = query::get($id);
 $rec = $q->record();
 
@@ -66,21 +47,13 @@ if ($rec->status !== query::STATUS_PUBLISHED) {
     throw new moodle_exception('errchartnotpublished', 'local_reportsources');
 }
 
-// The chart reads the same data as the RB report, so it must honour the same report-level
-// access: managers always, everyone else only if core RB's context + audience admit them.
-$syscontext = context_system::instance();
-$canmanage = has_capability('local/reportsources:author', $syscontext)
-    || has_capability('local/reportsources:approve', $syscontext)
-    || has_capability('local/reportsources:viewall', $syscontext);
-
-$reportmodel = $rec->reportid
-    ? \core_reportbuilder\local\models\report::get_record(['id' => $rec->reportid])
-    : null;
-
-if (
-    !$canmanage && (!$reportmodel
-        || !\core_reportbuilder\permission::can_view_report($reportmodel))
-) {
+// The chart reads the same data as the RB report, so it is gated by exactly the same report-level
+// access as /reportbuilder/view.php and the block: managers always, everyone else only if core RB's
+// context + audience admit them. This is the single authoritative gate — a wide-audience report is
+// reachable here by any audience member (e.g. a teacher), with rows still scoped by the per-user /
+// teacher-course filters. (No separate plugin-capability gate: that was stricter than the audience
+// and wrongly blocked course-level teachers from a site-wide report's chart.)
+if (!$q->current_user_can_view_report()) {
     throw new moodle_exception(
         'nopermissions',
         'error',
@@ -102,40 +75,12 @@ $type     = $chartmeta['type'];
 // Fetch only the published columns: columnsmeta is denylist-stripped at publish time, while the
 // physical VIEW may still hold denied columns (password etc.) — never select *. Per-user queries
 // are additionally scoped to the viewing user, mirroring the RB base condition in adhoc_query.
-$meta = $q->columns_meta();
-if (!$meta) {
+if (!$q->columns_meta()) {
     throw new moodle_exception('errchartnotconfigured', 'local_reportsources');
 }
-$conditions = null;
-$useridcolumn = $q->useridcolumn();
-if ($useridcolumn !== '') {
-    if (!array_key_exists($useridcolumn, $meta)) {
-        // Fail closed: a per-user query whose filter column is no longer in the published
-        // metadata must not fall through to showing every user's rows.
-        throw new moodle_exception('errchartnotconfigured', 'local_reportsources');
-    }
-    $conditions = [$useridcolumn => $USER->id];
-    // Hide the filter column from chart and CSV output: after filtering, its value is always
-    // the viewer's own id. get_recordset() applies $conditions independently of $fields.
-    if (count($meta) > 1) {
-        unset($meta[$useridcolumn]);
-    }
-}
-$fields = implode(', ', array_keys($meta));
-
-$rows = [];
-try {
-    $rs = $DB->get_recordset($rec->viewname, $conditions, '', $fields, 0, $rowlimit);
-    foreach ($rs as $row) {
-        $rows[] = (array) $row;
-    }
-    $rs->close();
-} catch (\dml_exception $e) {
-    // Viewers may be ordinary audience members: never surface the raw DB error (it can
-    // contain SQL fragments and physical table names). Detail goes to developer debugging.
-    debugging($e->getMessage(), DEBUG_DEVELOPER);
-    throw new moodle_exception('errchartdata', 'local_reportsources');
-}
+// Single shared fetch path: applies the same per-user / teacher-course row scoping as the RB
+// report, so chart and CSV output cannot leak rows the report table would hide.
+$rows = $q->fetch_rows_for_viewer($rowlimit);
 
 // CSV export — stream and exit before any HTML output.
 if ($format === 'csv') {

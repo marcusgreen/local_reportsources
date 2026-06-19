@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="local/reportsources/db" VERSION="20260612" COMMENT="Ad-hoc reports schema"
+<XMLDB PATH="local/reportsources/db" VERSION="20260618" COMMENT="Ad-hoc reports schema"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
 >
@@ -29,6 +29,8 @@
                COMMENT="Hidden queries are excluded from the per-course list."/>
         <FIELD NAME="useridcolumn" TYPE="char" LENGTH="64" NOTNULL="false" SEQUENCE="false"
                COMMENT="Output column matched against the viewing user's id; NULL = no per-user filter."/>
+        <FIELD NAME="coursecolumn" TYPE="char" LENGTH="64" NOTNULL="false" SEQUENCE="false"
+               COMMENT="Output column holding a course id; when set, rows are limited to courses the viewer teaches. NULL = no teacher-course filter."/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
       </FIELDS>
