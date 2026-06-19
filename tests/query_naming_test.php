@@ -58,6 +58,21 @@ final class query_naming_test extends \advanced_testcase {
         $this->assertFalse(query_naming::is_error_fix_prompt('fix the report layout'));
     }
 
+    public function test_refers_to_existing_sql_demonstratives(): void {
+        $this->assertTrue(query_naming::refers_to_existing_sql('add a column to this query'));
+        $this->assertTrue(query_naming::refers_to_existing_sql('modify the above report to exclude guests'));
+        $this->assertTrue(query_naming::refers_to_existing_sql('also show the email address'));
+        // The word "also" alone pulls in the existing SQL.
+        $this->assertTrue(query_naming::refers_to_existing_sql('also the last login time'));
+        // Error-fix prompts always refer to the current SQL.
+        $this->assertTrue(query_naming::refers_to_existing_sql('Fix this SQL error: bad column'));
+    }
+
+    public function test_refers_to_existing_sql_fresh_description_is_false(): void {
+        $this->assertFalse(query_naming::refers_to_existing_sql('list all active users'));
+        $this->assertFalse(query_naming::refers_to_existing_sql('show students enrolled in more than 3 courses'));
+    }
+
     public function test_from_sql_single_table(): void {
         $name = query_naming::from_sql('SELECT id FROM {user}');
         $this->assertSame(

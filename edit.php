@@ -35,6 +35,9 @@ $id = optional_param('id', 0, PARAM_INT);
 $courseid = optional_param('courseid', 0, PARAM_INT);
 $aiquestion = optional_param('aiquestion', '', PARAM_RAW_TRIMMED);
 $aiaction = optional_param('aiaction', '', PARAM_ALPHA);
+// SQL currently in the "SQL (select only)" field, posted alongside an AI generate request so a
+// prompt that refers to existing SQL ("add a column to this", "fix this error") can use it as basis.
+$aicurrentsql = optional_param('querysql', '', PARAM_RAW);
 $context = context_system::instance();
 require_capability('local/reportsources:author', $context);
 
@@ -87,7 +90,19 @@ if ($aisqlchatavailable && get_config('local_reportsources', 'syntaxhighlight'))
 if ($aisqlchatavailable && $aiaction === 'generate' && $aiquestion !== '') {
     require_sesskey();
     try {
-        $airesult = \local_sqlchat\api::generate_sql($aiquestion, $context->id);
+        // When the question refers to the SQL already in the editor, feed that SQL to the AI as the
+        // basis of the prompt. Skip if the SQL is already embedded (the error-fix path appends it
+        // client-side) so it isn't duplicated.
+        $prompt = $aiquestion;
+        $currentsql = trim($aicurrentsql);
+        if (
+            $currentsql !== '' &&
+            query_naming::refers_to_existing_sql($aiquestion) &&
+            strpos($aiquestion, $currentsql) === false
+        ) {
+            $prompt = $aiquestion . "\n\nExisting SQL to use as the basis:\n" . $currentsql;
+        }
+        $airesult = \local_sqlchat\api::generate_sql($prompt, $context->id);
         $mergedata = $formdefaults ? (array) $formdefaults : [];
         $mergedata['querysql'] = validator::strip_braces($airesult->sql);
         // Make up a name/description when none exist yet, so the generated query is immediately
@@ -177,7 +192,12 @@ echo $OUTPUT->heading($existing
 if ($aisqlchatavailable) {
     echo html_writer::start_div('card mb-3');
     echo html_writer::start_div('card-body');
-    echo html_writer::tag('h5', get_string('ai:heading', 'local_reportsources'), ['class' => 'card-title mt-0']);
+    echo html_writer::tag(
+        'h5',
+        get_string('ai:heading', 'local_reportsources')
+            . $OUTPUT->help_icon('ai:heading', 'local_reportsources'),
+        ['class' => 'card-title mt-0']
+    );
 
     if ($aierror) {
         echo $OUTPUT->notification($aierror, 'error');
@@ -206,6 +226,16 @@ if ($aisqlchatavailable) {
     ]);
     echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'aiaction', 'value' => 'generate']);
     echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
+    // Carries the SQL currently in the editor so a prompt that refers to it ("add a column to this")
+    // can use it as the basis. This AI box is a separate form from the main mform, so the SQL would
+    // not otherwise post. Prefilled server-side for the no-JS case; editor.js overwrites it with the
+    // live editor value on submit when syntax highlighting is on.
+    echo html_writer::empty_tag('input', [
+        'type'  => 'hidden',
+        'name'  => 'querysql',
+        'id'    => 'rs-ai-currentsql',
+        'value' => is_object($formdefaults) ? ($formdefaults->querysql ?? '') : '',
+    ]);
     if ($id) {
         echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'id', 'value' => $id]);
     }

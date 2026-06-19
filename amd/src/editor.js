@@ -330,6 +330,13 @@ const buildEditor = (textarea, schema, fkMap) => {
         // Generation is a slow server round-trip to the LLM. Show a spinner and disable the
         // button on submit so the user sees that something is happening (covers click + Enter).
         aiQuestion.form.addEventListener('submit', () => {
+            // The AI box is a separate form from the main mform, so the SQL field would not post
+            // with it. Copy the live editor value into the AI form's hidden input so a prompt that
+            // refers to the existing SQL ("add a column to this") reaches the server.
+            const sqlField = document.getElementById('rs-ai-currentsql');
+            if (sqlField) {
+                sqlField.value = textarea.value;
+            }
             const btn = document.getElementById('rs-ai-generate');
             if (btn) {
                 const label = btn.dataset.generating || btn.textContent;

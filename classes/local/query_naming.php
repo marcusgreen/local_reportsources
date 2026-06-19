@@ -75,6 +75,33 @@ class query_naming {
     }
 
     /**
+     * Whether an AI question is talking about the SQL already in the editor rather than describing a
+     * brand-new report from scratch. When true, the caller feeds the current SQL (select-only) field
+     * to the AI as the basis of the prompt, so "add a column to this", "fix this error", "also show
+     * the email" etc. operate on what the author already has instead of starting over.
+     *
+     * @param string $question
+     * @return bool
+     */
+    public static function refers_to_existing_sql(string $question): bool {
+        // A "fix this SQL error" prompt always refers to the current SQL.
+        if (self::is_error_fix_prompt($question)) {
+            return true;
+        }
+        // Demonstratives pointing at the SQL ("this query", "the above report", "existing select"...).
+        if (preg_match('/\b(this|that|the\s+above|above|existing|current)\s+(sql|query|report|statement|view|select)\b/i', $question)) {
+            return true;
+        }
+        // Verbs that act on something already present rather than create from nothing.
+        return (bool) preg_match(
+            '/\b(modif(?:y|ies)|amend|change|adjust|tweak|extend|update|rewrite|refactor|'
+                . 'add\s+(?:a\s+)?(?:column|field|to\s+this)|also|'
+                . 'instead\s+of|rather\s+than)\b/i',
+            $question
+        );
+    }
+
+    /**
      * Derive a query name from the meaning of a SQL statement: the tables it reads from.
      *
      * @param string $sql

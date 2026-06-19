@@ -31,6 +31,15 @@ $string['ai:generate'] = 'Generate SQL';
 $string['ai:generatedname'] = 'Generated query';
 $string['ai:generating'] = 'Generating…';
 $string['ai:heading'] = 'Generate SQL with AI';
+$string['ai:heading_help'] = 'Describe the data you want in plain English, then click **Generate SQL**. The AI writes a SELECT query into the SQL editor below.
+
+For example: "Show all students enrolled in more than 3 courses".
+
+You can also refer to the SQL already in the editor — prompts like "add a column to this", "also show the email address", or "fix this error" use your current query as the starting point rather than building a new one from scratch.
+
+In particular, starting your prompt with the word **also** pulls in your existing SQL and builds on it — for example "also show the user\'s last login" adds to the current query instead of replacing it.
+
+Always review the generated SQL before saving — the AI can make mistakes.';
 $string['ai:latency'] = 'Generated in {$a} ms — review the SQL before saving.';
 $string['ai:placeholder'] = 'e.g. Show all students enrolled in more than 3 courses';
 $string['ai:question'] = 'Describe the data you want';
