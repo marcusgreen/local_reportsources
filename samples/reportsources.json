@@ -19,7 +19,7 @@
         {
             "name": "Course enrolments for current user",
             "description": "show user id field and course shortname the user is enrolled on",
-            "querysql": "SELECT\r\n    ue.userid,\r\n    c.shortname as course_shortname\r\nFROM\r\n    {user_enrolments} ue\r\n    JOIN {enrol} e ON ue.enrolid = e.id\r\n    JOIN {course} c ON e.courseid = c.id",
+            "querysql": "SELECT\r\n    ue.userid,\r\n    CONCAT('<a target=_new href=\"%%WWWROOT%%/course/view.php', chr(63), 'id=', c.id, '\">', c.shortname, '</a>') AS course\r\nFROM\r\n    {user_enrolments} ue\r\n    JOIN {enrol} e ON ue.enrolid = e.id\r\n    JOIN {course} c ON e.courseid = c.id",
             "courseid": 0,
             "visible": 1,
             "chartmeta": {
@@ -119,6 +119,19 @@
             "name": "Student (user) Count in each Course",
             "description": "Report over role_assignments, context, user, course.",
             "querysql": "SELECT \r\n    CONCAT('<a target=_new href=\"%%WWWROOT%%/course/view.php', chr(63), 'id=', c.id, '\">', c.fullname, '</a>') AS Course,\r\n    CONCAT('<a target=_new href=\"%%WWWROOT%%/user/index.php', chr(63), 'id=', c.id, '\">Show users</a>') AS users,\r\n    COUNT(DISTINCT u.id) AS students\r\nFROM {role_assignments} asg\r\nJOIN {context} ctx ON asg.contextid = ctx.id AND ctx.contextlevel = %%CONTEXT_COURSE%%\r\nJOIN {user} u ON u.id = asg.userid\r\nJOIN {course} c ON ctx.instanceid = c.id\r\nWHERE asg.roleid = (SELECT id FROM {role} WHERE shortname = 'student')\r\nGROUP BY c.id, c.fullname\r\nORDER BY Students DESC\r\nLIMIT 100",
+            "courseid": 0,
+            "visible": 1,
+            "chartmeta": {
+                "type": "none",
+                "xcol": "",
+                "ycol": "",
+                "rowlimit": 200
+            }
+        },
+        {
+            "name": "Course activity for courses you teach: demonstrates the teacher-course filter",
+            "description": "Log events per course. After importing, publish this query, then in the edit form set \"Restrict to courses the viewer teaches\" to the courseid column. Publish to a wide audience (e.g. all staff): each teacher then sees only the courses they teach, and a user who teaches nothing sees no rows.",
+            "querysql": "SELECT\r\n    c.id AS courseid,\r\n    CONCAT('<a target=_new href=\"%%WWWROOT%%/course/view.php', chr(63), 'id=', c.id, '\">', c.shortname, '</a>') AS course,\r\n    COUNT(l.id) AS events\r\nFROM {course} c\r\nJOIN {logstore_standard_log} l ON l.courseid = c.id\r\nWHERE c.id > 1\r\nGROUP BY c.id, c.shortname\r\nORDER BY events DESC\r\nLIMIT 200",
             "courseid": 0,
             "visible": 1,
             "chartmeta": {
