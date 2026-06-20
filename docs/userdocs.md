@@ -387,6 +387,10 @@ When **SQL syntax highlight and autocomplete** is enabled (admin setting), the S
 - **Alias-aware columns** — write `FROM user u`, then type `u.` to list user columns.
 - **Tab** accepts the highlighted completion; Space does not (so you can type aliases freely after a table name).
 
+![SQL editor autocomplete showing alias-aware column suggestions with foreign-key hints](intellisense.png)
+
+Above, typing `ue.` after `JOIN user_enrolments ue` lists that table's columns. Columns that are foreign keys are shown first with a `→ target.column` hint (e.g. `userid → user.id`), so you can see which table each column joins to as you build the query. See [Support for third-party plugins](#support-for-third-party-plugins) for where these relationships come from.
+
 A **Format SQL** button is also available to tidy indentation.
 
 ### Support for third-party plugins
