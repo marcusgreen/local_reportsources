@@ -117,6 +117,7 @@ class view {
         global $DB;
         $pg = $DB->get_dbfamily() === 'postgres';
         return preg_replace_callback(
+            // phpcs:ignore moodle.Strings.ForbiddenStrings.Found
             '/\bAS\s+(["`])([^"`]+)\1/i',
             static function (array $m) use ($pg): string {
                 $alias = str_replace(' ', '_', $m[2]);
@@ -249,6 +250,7 @@ class view {
      */
     public static function timestamp_columns(string $sql): array {
         $pattern = '/%%TIMESTAMP\(\s*([^,)]+?)\s*(?:,\s*([^)]*?)\s*)?\)%%'
+            // phpcs:ignore moodle.Strings.ForbiddenStrings.Found
             . '(?:\s+AS\s+(["`]?)([A-Za-z0-9_]+)\3)?/i';
         if (!preg_match_all($pattern, $sql, $matches, PREG_SET_ORDER)) {
             return [];

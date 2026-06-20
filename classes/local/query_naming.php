@@ -193,12 +193,14 @@ class query_naming {
         $cols = [];
         foreach (explode(',', $list) as $part) {
             $part = trim($part);
+            // phpcs:ignore moodle.Strings.ForbiddenStrings.Found
             if (preg_match('/\bAS\s+["`]?([a-z0-9_ ]+)["`]?$/i', $part, $am)) {
                 $cols[] = trim($am[1]);
             } else {
                 $tokens = preg_split('/\s+/', $part) ?: [$part];
                 $last = (string) end($tokens);
                 $last = preg_replace('/^.*\./', '', $last);
+                // phpcs:ignore moodle.Strings.ForbiddenStrings.Found
                 $cols[] = trim((string) $last, '"`');
             }
             if (count($cols) >= 6) {
