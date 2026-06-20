@@ -61,7 +61,7 @@ $string['audiencetype'] = 'Audience';
 $string['audiencetype_help'] = 'Controls who can open the published Report Builder report.
 
 * **Automatic** — derived from the settings above: a course-scoped report is shown to that course\'s participants, a site-wide report to all users, and a hidden report only to you and site managers.
-* **Course participants / Users with a role in the course** — available when the report is bound to a course.
+* **Course participants / Users with a role in the course** — require a course scope to be set above.
 * **All site users**, **Members of cohorts**, **Nobody** — apply site-wide.
 
 You can refine the audience further on the Audiences tab in Report Builder, but re-publishing the report resets it to this choice.';
@@ -95,7 +95,7 @@ $string['coursescope_help'] = 'The course this report belongs to. Leave empty fo
 
 The course determines two things when the report is published: the context its "View report" permission is checked in, and its default audience (course participants for a course-scoped report, all users for a site-wide one).
 
-Change this to re-scope a query — for example an imported draft that was set site-wide because its original course did not exist on this site. The course-specific audience options refresh after you save and reopen the form. You can only choose courses you are allowed to view reports in.';
+Change this to re-scope a query — for example an imported draft that was set site-wide because its original course did not exist on this site. You can only choose courses you are allowed to view reports in.';
 $string['createrole:approve'] = 'Include "Approve and publish"';
 $string['createrole:approve_desc'] = 'Also grant local/reportsources:approve, so holders can publish and unpublish report views themselves. Leave unticked if a separate approver should publish their drafts.';
 $string['createrole:author'] = 'Author report views';
@@ -119,6 +119,7 @@ $string['edit'] = 'Edit';
 $string['editfor'] = 'Edit: {$a}';
 $string['editreport'] = 'Edit in Report Builder';
 $string['erraudiencecohortsempty'] = 'Choose at least one cohort.';
+$string['erraudiencecourse'] = 'This audience applies to a course. Choose a course scope above before selecting it.';
 $string['erraudiencerolesempty'] = 'Choose at least one role.';
 $string['errchartdata'] = 'The report data for this chart could not be loaded. Contact the report owner if this persists.';
 $string['errchartnotconfigured'] = 'No chart is configured for this query. Edit the query to add chart settings.';

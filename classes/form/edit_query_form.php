@@ -132,14 +132,17 @@ class edit_query_form extends moodleform {
 
         $mform->addElement('header', 'audienceheader', get_string('audiencesettings', 'local_reportsources'));
 
-        $typeopts = ['default' => get_string('audiencedefault', 'local_reportsources')];
-        if ($courseid > 0) {
-            $typeopts['courseparticipant'] = get_string('audiencecourseparticipant', 'local_reportsources');
-            $typeopts['courserole'] = get_string('audiencecourserole', 'local_reportsources');
-        }
-        $typeopts['allusers'] = get_string('audienceallusers', 'local_reportsources');
-        $typeopts['cohort']   = get_string('audiencecohort', 'local_reportsources');
-        $typeopts['none']     = get_string('audiencenone', 'local_reportsources');
+        // The course-scoped options are always offered so changing the course scope does not require
+        // saving and reopening the form to reveal them. Choosing one without a course is rejected in
+        // validation() rather than hidden, since the selected course is only known at submit time.
+        $typeopts = [
+            'default'           => get_string('audiencedefault', 'local_reportsources'),
+            'courseparticipant' => get_string('audiencecourseparticipant', 'local_reportsources'),
+            'courserole'        => get_string('audiencecourserole', 'local_reportsources'),
+            'allusers'          => get_string('audienceallusers', 'local_reportsources'),
+            'cohort'            => get_string('audiencecohort', 'local_reportsources'),
+            'none'              => get_string('audiencenone', 'local_reportsources'),
+        ];
 
         $mform->addElement(
             'select',
@@ -152,24 +155,24 @@ class edit_query_form extends moodleform {
         $mform->addHelpButton('audiencetype', 'audiencetype', 'local_reportsources');
 
         // A stored courseid may point at a course that no longer exists (course deleted, or a stale
-        // id carried in from an import on another site). Skip the course-role picker rather than
-        // fatalling on context_course::instance() when loading the form.
+        // id carried in from an import on another site), so fall back to system context for the role
+        // display names rather than fatalling on context_course::instance(). The role picker is always
+        // built so the courserole audience is usable without saving and reopening the form first.
         $coursecontext = $courseid > 0 ? \context_course::instance($courseid, IGNORE_MISSING) : false;
-        if ($coursecontext) {
-            $roleopts = [];
-            foreach (role_fix_names(get_all_roles(), $coursecontext, ROLENAME_BOTH) as $role) {
-                $roleopts[$role->id] = $role->localname;
-            }
-            $mform->addElement(
-                'autocomplete',
-                'audienceroles',
-                get_string('audienceroles', 'local_reportsources'),
-                $roleopts,
-                ['multiple' => true]
-            );
-            $mform->setType('audienceroles', PARAM_INT);
-            $mform->hideIf('audienceroles', 'audiencetype', 'neq', 'courserole');
+        $rolecontext = $coursecontext ?: \context_system::instance();
+        $roleopts = [];
+        foreach (role_fix_names(get_all_roles(), $rolecontext, ROLENAME_BOTH) as $role) {
+            $roleopts[$role->id] = $role->localname;
         }
+        $mform->addElement(
+            'autocomplete',
+            'audienceroles',
+            get_string('audienceroles', 'local_reportsources'),
+            $roleopts,
+            ['multiple' => true]
+        );
+        $mform->setType('audienceroles', PARAM_INT);
+        $mform->hideIf('audienceroles', 'audiencetype', 'neq', 'courserole');
 
         $cohortopts = $DB->get_records_menu('cohort', null, 'name', 'id, name');
         $mform->addElement(
@@ -310,6 +313,14 @@ class edit_query_form extends moodleform {
         }
 
         $audiencetype = (string) ($data['audiencetype'] ?? 'default');
+        // Course-scoped audiences need a course to resolve against; the options are always shown, so
+        // reject the combination here rather than hiding them based on the (submit-time) course value.
+        if (
+            in_array($audiencetype, ['courseparticipant', 'courserole'], true) &&
+            (int) ($data['courseid'] ?? 0) <= 0
+        ) {
+            $errors['audiencetype'] = get_string('erraudiencecourse', 'local_reportsources');
+        }
         if ($audiencetype === 'courserole' && empty($data['audienceroles'])) {
             $errors['audienceroles'] = get_string('erraudiencerolesempty', 'local_reportsources');
         }

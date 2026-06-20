@@ -82,6 +82,8 @@ The method is **idempotent**: it deletes existing audiences for the report befor
 
 `courseparticipant` (`classes/reportbuilder/audience/courseparticipant.php`) is a custom RB audience — core ships no "enrolled in course X" audience. It carries the bound course id in `configdata` (`['courseid' => int]`) and is generated programmatically only, never offered in the RB audience UI.
 
+The edit form's **Audience** picker (`edit_query_form::add_audience_elements()`) always lists every audience type, including the course-scoped ones (Course participants / Users with a role in the course), and always builds the role picker — using the bound course context for role display names when a course is set, otherwise system context. The course-scoped options are no longer conditionally rendered on `courseid`, so changing the course scope no longer requires saving and reopening the form to reveal them. Choosing a course-scoped audience without a course is caught in `validation()` (`erraudiencecourse`) rather than hidden, since the selected course is only known at submit time.
+
 ### SQL validation — two layers
 
 **Static** (`classes/local/sql/validator.php`):
