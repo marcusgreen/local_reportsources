@@ -4,6 +4,10 @@
 
 Report Sources (`local_reportsources`) lets you write a SQL `SELECT` query, click **Publish**, and get a fully-configurable Moodle **Report Builder** report — no PHP required. Publishing turns your SQL into a database view, reads its columns, and registers a Report Builder data source pointing at that view. From there you choose columns, add filters, sort, chart, schedule exports, and control who can see it. Warning report writing tools run the risk of leaking information, test and double check who can see the information in anything created.
 
+![The Saved report views list with a row's actions menu open](report-views-list.png)
+
+Everything starts from the **Saved report views** list (*Site admin → Reports → Report sources*). Each row shows the view's name, owner, status (**Draft** or **Published**) and when it was last changed. A published row offers **Open report**, **Edit**, **Edit in Report Builder** and **Unpublish**; the **⋮** menu adds **Schedule emails**, **New report from this view**, **Duplicate** and **Delete**. Draft rows only offer **Edit** until you publish them. See [Managing report views](#managing-report-views-list-page) for the full workflow.
+
 ---
 
 ## Contents
