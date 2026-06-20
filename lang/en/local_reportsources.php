@@ -151,6 +151,7 @@ $string['export'] = 'Export';
 $string['exportselected'] = 'Export selected';
 $string['exportselecthelp'] = 'Tick the report views to include in the export file, then download the JSON.';
 $string['formatsql'] = 'Format SQL';
+$string['formatsqltooltip'] = 'Reformat SQL to standard layout (Shift+Ctrl+F)';
 $string['import'] = 'Import';
 $string['importdemoted'] = 'Set to site-wide because their course was not found on this site. Edit each draft and set its Course scope before publishing: {$a}.';
 $string['importdone'] = 'Imported {$a} report view(s) as drafts.';

@@ -201,9 +201,16 @@ const buildEditor = (textarea, schema, fkMap) => {
     formatBtn.type = 'button';
     formatBtn.className = 'btn btn-outline-secondary btn-sm';
     formatBtn.textContent = 'Format SQL';
+    formatBtn.title = 'Shift+Ctrl+F';
     getString('formatsql', 'local_reportsources')
         .then(s => {
             formatBtn.textContent = s;
+            return s;
+        })
+        .catch(() => null);
+    getString('formatsqltooltip', 'local_reportsources')
+        .then(s => {
+            formatBtn.title = s;
             return s;
         })
         .catch(() => null);
