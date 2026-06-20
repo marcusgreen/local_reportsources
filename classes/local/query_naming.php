@@ -89,7 +89,9 @@ class query_naming {
             return true;
         }
         // Demonstratives pointing at the SQL ("this query", "the above report", "existing select"...).
-        if (preg_match('/\b(this|that|the\s+above|above|existing|current)\s+(sql|query|report|statement|view|select)\b/i', $question)) {
+        $demonstrative = '/\b(this|that|the\s+above|above|existing|current)\s+'
+            . '(sql|query|report|statement|view|select)\b/i';
+        if (preg_match($demonstrative, $question)) {
             return true;
         }
         // Verbs that act on something already present rather than create from nothing.

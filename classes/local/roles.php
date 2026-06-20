@@ -16,8 +16,6 @@
 
 namespace local_reportsources\local;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Create / maintain the optional "Report author" custom role.
  *
@@ -31,7 +29,6 @@ defined('MOODLE_INTERNAL') || die();
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class roles {
-
     /** @var string Shortname of the optional report-author role. */
     public const REPORT_AUTHOR_SHORTNAME = 'reportauthor';
 
@@ -66,7 +63,7 @@ class roles {
         // The role is meaningful only at the system context (where the capabilities are defined).
         set_role_contextlevels($roleid, [CONTEXT_SYSTEM]);
 
-        // :author is the reason the role exists — always granted.
+        // The :author capability is the reason the role exists — always granted.
         assign_capability('local/reportsources:author', CAP_ALLOW, $roleid, $syscontext->id, true);
 
         // Optional capabilities: grant when chosen, otherwise clear any previous grant so re-running

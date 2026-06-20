@@ -258,7 +258,7 @@ final class query_test extends \advanced_testcase {
         $this->resetAfterTest();
         $this->setAdminUser();
 
-        // courseid is a real column of this query, gibberish is not.
+        // The courseid is a real column of this query, gibberish is not.
         $id = query::save($this->formdata(['querysql' => 'SELECT id, courseid FROM {enrol}']));
         query::get($id)->publish();
 

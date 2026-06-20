@@ -130,24 +130,6 @@ class view {
     }
 
     /**
-     * Replace `{tablename}` with the prefixed table name, `%%WWWROOT%%` with the site URL,
-     * `%%COURSEID%%` with the query's course scope, and the portable date/time tokens `%%NOW%%`
-     * and `%%TIMESTAMP(expr)%%` with their dialect for the live database. The Moodle DML layer
-     * normally resolves `{table}` for parameterised queries but DDL statements bypass that path.
-     * `%%WWWROOT%%` lets authors embed absolute links (e.g. in a CONCAT building an <a href>)
-     * without hard-coding the site address. `%%COURSEID%%` bakes the bound course id into the VIEW
-     * so a course-scoped query filters to that course (the VIEW is static, so the id is fixed at
-     * publish time).
-     *
-     * The date tokens let one saved query run on both MySQL/MariaDB and PostgreSQL without the
-     * dialect-specific date functions the validator otherwise blocks: `%%NOW%%` → the current Unix
-     * epoch (int), `%%TIMESTAMP(expr)%%` → `expr` (an epoch column) cast to a datetime/timestamp.
-     *
-     * @param string $sql
-     * @param int $courseid Course id substituted for %%COURSEID%% (0 when site-wide / dry-run).
-     * @return string
-     */
-    /**
      * Map of `%%CONTEXT_*%%` tokens to their Moodle context-level constant values.
      *
      * Mirrors core's CONTEXT_* constants by name so the token reads like the constant a Moodle
@@ -168,12 +150,30 @@ class view {
         ];
     }
 
+    /**
+     * Replace `{tablename}` with the prefixed table name, `%%WWWROOT%%` with the site URL,
+     * `%%COURSEID%%` with the query's course scope, and the portable date/time tokens `%%NOW%%`
+     * and `%%TIMESTAMP(expr)%%` with their dialect for the live database. The Moodle DML layer
+     * normally resolves `{table}` for parameterised queries but DDL statements bypass that path.
+     * `%%WWWROOT%%` lets authors embed absolute links (e.g. in a CONCAT building an <a href>)
+     * without hard-coding the site address. `%%COURSEID%%` bakes the bound course id into the VIEW
+     * so a course-scoped query filters to that course (the VIEW is static, so the id is fixed at
+     * publish time).
+     *
+     * The date tokens let one saved query run on both MySQL/MariaDB and PostgreSQL without the
+     * dialect-specific date functions the validator otherwise blocks: `%%NOW%%` → the current Unix
+     * epoch (int), `%%TIMESTAMP(expr)%%` → `expr` (an epoch column) cast to a datetime/timestamp.
+     *
+     * @param string $sql
+     * @param int $courseid Course id substituted for %%COURSEID%% (0 when site-wide / dry-run).
+     * @return string
+     */
     public static function resolve_placeholders(string $sql, int $courseid = 0): string {
         global $CFG, $DB;
         $sql = str_ireplace('%%WWWROOT%%', $CFG->wwwroot, $sql);
         $sql = str_ireplace('%%COURSEID%%', (string) $courseid, $sql);
 
-        // %%COURSECONTEXT%% — the bound course's context *row* id (mdl_context.id), not the context
+        // Token %%COURSECONTEXT%% — the bound course's context *row* id (mdl_context.id), not the context
         // level (which is always CONTEXT_COURSE = 50). The id varies per course, so it cannot be
         // hard-coded; resolve it from the course scope. Site-wide queries (courseid 0) have no course
         // context, so the token resolves to 0 there (mirrors %%COURSEID%%; the form blocks publishing
@@ -183,7 +183,7 @@ class view {
             $sql = str_ireplace('%%COURSECONTEXT%%', (string) $contextid, $sql);
         }
 
-        // %%CONTEXT_*%% — Moodle context-level constants (e.g. %%CONTEXT_COURSE%% → 50). These read
+        // Tokens %%CONTEXT_*%% — Moodle context-level constants (e.g. %%CONTEXT_COURSE%% → 50). These read
         // far more clearly in SQL than the bare magic number when filtering mdl_context.contextlevel.
         // Distinct from %%COURSECONTEXT%% above, which resolves to a specific context *row* id; these
         // are the fixed level constants and need no course scope.
@@ -191,11 +191,11 @@ class view {
             $sql = str_ireplace($token, (string) $level, $sql);
         }
 
-        // %%NOW%% — current Unix time, expanded to the dialect of the live database.
+        // Token %%NOW%% — current Unix time, expanded to the dialect of the live database.
         $postgres = $DB->get_dbfamily() === 'postgres';
         $sql = str_ireplace('%%NOW%%', $postgres ? 'EXTRACT(EPOCH FROM now())::int' : 'UNIX_TIMESTAMP()', $sql);
 
-        // %%EPOCH(datetime)%% — a datetime literal/expression → Unix epoch int, in the live dialect.
+        // Token %%EPOCH(datetime)%% — a datetime literal/expression → Unix epoch int, in the live dialect.
         // String literals get Postgres's explicit TIMESTAMP cast so the value reads as a datetime;
         // other expressions are wrapped in parens to preserve precedence. (Use %%NOW%% for "now".)
         $sql = preg_replace_callback(
@@ -213,7 +213,7 @@ class view {
             $sql
         ) ?? $sql;
 
-        // %%TIMESTAMP(expr[, format])%% — emit the *raw epoch* expression (no DB date function, so
+        // Token %%TIMESTAMP(expr[, format])%% — emit the *raw epoch* expression (no DB date function, so
         // the column stays an integer that sorts chronologically). The publish path types it as a
         // timestamp and applies the optional display format as a Report Builder callback; see
         // self::timestamp_columns(). The format argument is therefore dropped from the SQL here.

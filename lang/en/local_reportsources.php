@@ -83,6 +83,7 @@ $string['chartxcol'] = 'Label column (X axis / slices)';
 $string['chartxcol_help'] = 'Column whose values label each bar, point, or pie slice.';
 $string['chartycol'] = 'Value column (Y axis)';
 $string['chartycol_help'] = 'Column whose values are plotted. Must contain numeric data.';
+$string['confirmdeletemany'] = 'Are you sure you want to delete these {$a} report view(s)? This drops each backing view and report and cannot be undone.';
 $string['copyof'] = 'Copy of {$a}';
 $string['copysuccess'] = 'Report view copied. You are now editing the copy.';
 $string['coursecolumn'] = 'Restrict to courses the viewer teaches';
@@ -95,7 +96,6 @@ $string['coursescope_help'] = 'The course this report belongs to. Leave empty fo
 The course determines two things when the report is published: the context its "View report" permission is checked in, and its default audience (course participants for a course-scoped report, all users for a site-wide one).
 
 Change this to re-scope a query — for example an imported draft that was set site-wide because its original course did not exist on this site. The course-specific audience options refresh after you save and reopen the form. You can only choose courses you are allowed to view reports in.';
-$string['confirmdeletemany'] = 'Are you sure you want to delete these {$a} report view(s)? This drops each backing view and report and cannot be undone.';
 $string['createrole:approve'] = 'Include "Approve and publish"';
 $string['createrole:approve_desc'] = 'Also grant local/reportsources:approve, so holders can publish and unpublish report views themselves. Leave unticked if a separate approver should publish their drafts.';
 $string['createrole:author'] = 'Author report views';
@@ -181,9 +181,6 @@ $string['privacy:metadata:query:ownerid'] = 'User who authored the query.';
 $string['privacy:metadata:query:querysql'] = 'The SQL of the query.';
 $string['privacy:metadata:query:timecreated'] = 'When the query was created.';
 $string['publish'] = 'Publish';
-$string['saveandpublish'] = 'Save and publish';
-$string['savedandpublished'] = 'Changes saved and report published';
-$string['savedpublishfailed'] = 'Changes saved, but publishing failed: {$a}';
 $string['queries'] = 'Saved report views';
 $string['querysql'] = 'SQL (SELECT only)';
 $string['querysql_help'] = 'A single SELECT or WITH...SELECT statement. Use Moodle table syntax (e.g. {course}). The plugin creates a database VIEW from this query and exposes its columns as a Reportbuilder source.
@@ -197,7 +194,6 @@ $string['reportsource'] = 'Report view';
 $string['reportsourcecount'] = 'Showing {$a} report view(s).';
 $string['reportsourceheader'] = '{$a}';
 $string['reportsources'] = 'Report sources';
-
 $string['reportsources:approve'] = 'Approve and publish report views';
 $string['reportsources:author'] = 'Author SQL report views';
 $string['reportsources:view'] = 'Run published report views';
@@ -213,6 +209,10 @@ $string['samples:linklabel'] = 'Load sample report views';
 $string['samples:load'] = 'Load samples';
 $string['samples:none'] = 'No bundled sample report views were found.';
 $string['samples:title'] = 'Load sample report views';
+$string['saveandpublish'] = 'Save and publish';
+$string['savedandpublished'] = 'Changes saved and report published';
+$string['savedpublishfailed'] = 'Changes saved, but publishing failed: {$a}';
+
 $string['schedule'] = 'Schedule emails';
 $string['selectcolumn'] = '(select column)';
 $string['settings:aigenerate'] = 'AI SQL generation';

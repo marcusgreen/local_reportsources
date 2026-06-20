@@ -29,7 +29,6 @@ use local_reportsources\local\roles;
  * @covers    \local_reportsources\local\roles
  */
 final class roles_test extends \advanced_testcase {
-
     /**
      * Permission level recorded for a capability on the role, or null if not set.
      *

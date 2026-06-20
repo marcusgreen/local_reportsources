@@ -151,10 +151,10 @@ final class view_test extends \advanced_testcase {
      */
     public function test_timestamp_columns_parses_aliases_and_formats(): void {
         $sql = 'SELECT '
-            . '%%TIMESTAMP(u.lastaccess)%% AS lastaccess, '          // aliased, no format
-            . '%%TIMESTAMP(u.timecreated, ddd dd Mon yyyy)%% AS created, ' // aliased + format
-            . '%%TIMESTAMP(timemodified)%%, '                        // no alias -> trailing ident
-            . "CONCAT(firstname, ' ', %%TIMESTAMP(lastlogin, dd/mm/yy)%%) AS junk " // in expr, aliased outer
+            . '%%TIMESTAMP(u.lastaccess)%% AS lastaccess, '          // Aliased, no format.
+            . '%%TIMESTAMP(u.timecreated, ddd dd Mon yyyy)%% AS created, ' // Aliased + format.
+            . '%%TIMESTAMP(timemodified)%%, '                        // No alias -> trailing ident.
+            . "CONCAT(firstname, ' ', %%TIMESTAMP(lastlogin, dd/mm/yy)%%) AS junk " // In expr, aliased outer.
             . 'FROM {user} u';
 
         $map = view::timestamp_columns($sql);

@@ -110,7 +110,7 @@ final class sql_validator_test extends \advanced_testcase {
     }
 
     public function test_context_level_token_is_supported(): void {
-        // %%CONTEXT_COURSE%% is a recognised token, so validation must not reject it as an
+        // Token %%CONTEXT_COURSE%% is a recognised token, so validation must not reject it as an
         // unfilled placeholder.
         $this->assertNotEmpty(
             validator::validate('SELECT id FROM {context} WHERE contextlevel = %%CONTEXT_COURSE%%')

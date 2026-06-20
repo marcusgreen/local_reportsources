@@ -32,14 +32,13 @@ require_once($CFG->libdir . '/formslib.php');
  * Lets the admin choose whether the role also gets :approve and :viewall before creating it.
  */
 class createrole_form extends \moodleform {
-
     /**
      * Form definition.
      */
     protected function definition() {
         $mform = $this->_form;
 
-        // :author is always included (it is the role's purpose), so it is shown as fixed text only.
+        // The :author capability is always included (the role's purpose), so it is shown as fixed text only.
         $mform->addElement(
             'static',
             'authornote',

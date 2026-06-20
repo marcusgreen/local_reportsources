@@ -154,7 +154,7 @@ if ($mform->is_cancelled()) {
     }
     $newid = query::save($data);
 
-    // "Save and publish" is a one-click convenience for approvers. The capability is re-checked here
+    // The "Save and publish" action is a one-click convenience for approvers. The capability is re-checked here
     // (not just on the form button) so a forged submit can't publish. If publishing fails the query
     // is already saved as a draft, so report the failure but keep the saved state.
     if (!empty($data->saveandpublish) && $canpublish) {

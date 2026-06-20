@@ -303,8 +303,10 @@ foreach ($queries as $rec) {
     $unpublishbtn = '';
     if ($rec->status === query::STATUS_PUBLISHED && has_capability('local/reportsources:approve', $syscontext)) {
         $unpublishbtn = html_writer::link(
-            new moodle_url('/local/reportsources/run.php',
-                ['id' => $rec->id, 'action' => 'unpublish', 'sesskey' => sesskey()]),
+            new moodle_url(
+                '/local/reportsources/run.php',
+                ['id' => $rec->id, 'action' => 'unpublish', 'sesskey' => sesskey()]
+            ),
             get_string('unpublish', 'local_reportsources'),
             ['class' => 'btn btn-sm btn-secondary me-2',
                 'aria-label' => get_string('unpublishfor', 'local_reportsources', $reportname)]
