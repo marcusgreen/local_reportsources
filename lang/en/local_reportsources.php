@@ -96,6 +96,20 @@ The course determines two things when the report is published: the context its "
 
 Change this to re-scope a query — for example an imported draft that was set site-wide because its original course did not exist on this site. The course-specific audience options refresh after you save and reopen the form. You can only choose courses you are allowed to view reports in.';
 $string['confirmdeletemany'] = 'Are you sure you want to delete these {$a} report view(s)? This drops each backing view and report and cannot be undone.';
+$string['createrole:approve'] = 'Include "Approve and publish"';
+$string['createrole:approve_desc'] = 'Also grant local/reportsources:approve, so holders can publish and unpublish report views themselves. Leave unticked if a separate approver should publish their drafts.';
+$string['createrole:author'] = 'Author report views';
+$string['createrole:author_desc'] = 'Always included: local/reportsources:author lets holders write and save report views. This is the purpose of the role.';
+$string['createrole:create'] = 'Create role';
+$string['createrole:done'] = 'The "Report author" role was created. Assign people to it below.';
+$string['createrole:exists'] = 'A "Report author" role already exists. Submitting this form will update its capabilities to match your selection below.';
+$string['createrole:intro'] = 'This creates a system-level role bundling the report-source capabilities, so you can let trusted non-administrators author reports without making them full site managers. Choose which capabilities to include, then create the role and assign people to it.';
+$string['createrole:linklabel'] = 'Create the "Report author" role';
+$string['createrole:title'] = 'Create the "Report author" role';
+$string['createrole:updated'] = 'The "Report author" role capabilities were updated. Assign people to it below.';
+$string['createrole:viewall'] = 'Include "View all report views"';
+$string['createrole:viewall_desc'] = 'Also grant local/reportsources:viewall, so holders can see and manage everyone\'s report views, not only their own.';
+$string['createrole:warning'] = 'Authoring a report means writing an arbitrary SQL SELECT, which can read almost any table in the database (only a small denylist such as config, sessions and password tables is blocked). This role is therefore effectively a site-wide data-read grant. Assign it only to people you would trust with direct read access to the database, and confirm any sensitive columns are covered by the column denylist in the plugin settings.';
 $string['delete'] = 'Delete';
 $string['deleteselected'] = 'Delete selected';
 $string['deleteselecthelp'] = 'Tick the report views to delete. Deleting drops each backing database view and report and cannot be undone.';
@@ -146,6 +160,7 @@ $string['importselecthelp'] = 'Tick the report views to import. Each is created 
 $string['importskipped'] = 'Skipped (failed SQL validation): {$a}.';
 $string['importupload'] = 'Upload and choose';
 $string['importuploadhelp'] = 'Upload a JSON file previously produced by the Export action. You will then choose which report views to import.';
+$string['install:createrole'] = 'Optionally create a "Report author" role so non-administrators can author reports. Review the security implications first: {$a}';
 $string['install:loadsamples'] = 'Report sources ships sample report views you can load to get started: {$a}';
 $string['install:privilegefail'] = 'Report sources installed, but the database user cannot create or drop views. Publishing queries will fail until the grants are fixed. Error: {$a}';
 $string['install:privilegeok'] = 'Report sources: the database user can create and drop views.';
@@ -188,6 +203,8 @@ $string['reportsources:author'] = 'Author SQL report views';
 $string['reportsources:view'] = 'Run published report views';
 $string['reportsources:viewall'] = 'View all report views regardless of audience';
 $string['reportsources:viewown'] = 'Run report views in own course';
+$string['roledescription'] = 'Create, edit and publish report sources (local_reportsources) site-wide. NOTE: authoring allows arbitrary SQL SELECT against the database, so this role grants effectively site-wide data read. Assign only to trusted report builders.';
+$string['rolename'] = 'Report author';
 $string['runreport'] = 'Open report';
 $string['runreportfor'] = 'Open report: {$a}';
 $string['samples:duplicates'] = 'Skipped (already present): {$a}.';

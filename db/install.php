@@ -96,4 +96,12 @@ function xmldb_local_reportsources_install(): void {
     \core\notification::info(
         get_string('install:loadsamples', 'local_reportsources', $samplesurl->out())
     );
+
+    // Offer (do not auto-create) the optional "Report author" role. Authoring runs arbitrary SQL, so
+    // the role is a site-wide data-read grant — it must be an informed, deliberate admin choice. The
+    // confirm page carries the warning and lets the admin pick which capabilities to include.
+    $createroleurl = new \moodle_url('/local/reportsources/createrole.php');
+    \core\notification::info(
+        get_string('install:createrole', 'local_reportsources', $createroleurl->out())
+    );
 }
