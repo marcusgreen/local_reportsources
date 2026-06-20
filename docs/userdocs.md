@@ -27,6 +27,7 @@ Report Sources (`local_reportsources`) lets you write a SQL `SELECT` query, clic
 17. [Admin settings](#admin-settings)
 18. [Database privilege check](#database-privilege-check)
 19. [Troubleshooting](#troubleshooting)
+20. [How this compares to other SQL report plugins](#how-this-compares-to-other-sql-report-plugins)
 
 ---
 
@@ -628,6 +629,38 @@ Replace `moodle`, `mdluser`, and `localhost` with your schema name, DB user, and
 | Report returns 0 rows unexpectedly | Invalid calendar date in `%%EPOCH(...)%%` (e.g. `'2027-06-31'`) resolves to `NULL`, so `timecreated <= NULL` is never true; or `%%COURSECONTEXT%%` used where a context *level* (`50`) was meant | Use a real date (June has 30 days); compare `contextlevel = %%CONTEXT_COURSE%%`, not `%%COURSECONTEXT%%` |
 | Autocomplete not appearing | Syntax highlight disabled or JS cache stale | Enable the setting and purge caches |
 | AI panel missing | local_sqlchat not installed/enabled | Install and configure it, then enable AI SQL generation |
+
+---
+
+## How this compares to other SQL report plugins
+
+Two long-standing plugins build reports from SQL: **Ad-hoc database queries** (`report_customsql`) and **Configurable reports** (`block_configurable_reports`). Report Sources takes a different route — it turns your SQL into a native **Report Builder** data source and lets core handle columns, filters, charts, scheduling and access. A companion block, **`block_reportsources`**, then pins a published report onto course, Dashboard or front-page regions.
+
+| | **Report Sources** (`local_reportsources` + `block_reportsources`) | **Ad-hoc database queries** (`report_customsql`) | **Configurable reports** (`block_configurable_reports`) |
+|---|---|---|---|
+| Report engine | Core **Report Builder** (your SQL becomes a data source) | Own renderer (HTML table + CSV) | Own renderer (table / chart types) |
+| Interactive columns, filters, sort | Yes — native Report Builder UI | No — fixed by the SQL | Limited, per report type |
+| Charts | Yes — Report Builder charts (block adds an expandable modal chart) | No (CSV download only) | Basic built-in charts |
+| Scheduled / emailed exports | Yes — Report Builder schedules | Yes — its core strength | Limited |
+| Embeddable on a page | Yes — **`block_reportsources`** pins one report on course / Dashboard / front page | No (separate report page) | Yes — it *is* a block |
+| Per-viewer rows in a shared block | Yes — one block instance shows each viewer only their own rows (same access path as the report viewer) | n/a | Depends on report type |
+| Who can view a report | Core RB **context + audience** (e.g. "course participants") | Capability only (admin/manager) | Block / role permissions |
+| Write SQL with help | CodeMirror editor: highlight, table/column autocomplete, foreign-key hints, optional AI generation | Plain textarea | Plain textarea |
+| Cross-database SQL | Tokens (`%%TIMESTAMP%%`, `%%NOW%%`, …) keep SQL portable across MySQL/Postgres | Author handles dialects | Author handles dialects |
+| Delegating authoring safely | Dedicated **Report author** role + column denylist | Typically admin-only | Custom report-builder capability |
+
+**When to choose Report Sources**
+
+- You want consumers to **filter, sort, chart and export interactively** rather than read a fixed table.
+- You want to **pin a report on a page** (block) *and* have a single shared block show each viewer only their own rows.
+- You want **"who can see it"** driven by course participation/audience, not just a capability.
+
+**When the others may still fit**
+
+- `report_customsql` is excellent for **scheduled CSV emails** of a fixed query and is very lightweight.
+- `block_configurable_reports` bundles authoring *and* display in one block; Report Sources splits these into `local_reportsources` (author) + `block_reportsources` (display).
+
+> Report Sources does not import reports from either plugin. The SQL itself is usually portable — paste it into a new report view (bare table names are auto-braced) and re-validate.
 
 ---
 
