@@ -5,7 +5,7 @@
     "sources": [
         {
             "name": "Bar chart of user enrolments",
-            "description": "",
+            "description": "Count of distinct users holding each role site-wide, rendered as a bar chart (x = role shortname, y = user count). Roles with no users are dropped.",
             "querysql": "SELECT r.shortname, COUNT(DISTINCT ra.userid) AS usercount\r\nFROM {role} r\r\nJOIN {role_assignments} ra ON r.id = ra.roleid\r\nGROUP BY r.shortname\r\nHAVING COUNT(DISTINCT ra.userid) > 0\r\nLIMIT 100",
             "courseid": 0,
             "visible": 1,
@@ -57,7 +57,7 @@
         },
         {
             "name": "Enrolled users who have never accessed a given course ",
-            "description": "",
+            "description": "Users enrolled in a course who have no last-access record for it — i.e. never opened the course. The course is hard-coded as en.courseid = 2; edit that id for your course.",
             "querysql": "SELECT username, firstname, lastname, idnumber\r\nFROM {user_enrolments} ue\r\nJOIN {enrol}           en ON ue.enrolid = en.id\r\nJOIN {user}            uu ON uu.id      = ue.userid\r\nWHERE en.courseid = 2\r\nAND NOT EXISTS (\r\n    SELECT * FROM {user_lastaccess} la\r\n    WHERE la.userid = ue.userid\r\n    AND la.courseid = en.courseid\r\n)",
             "courseid": 15,
             "visible": 1,
@@ -91,7 +91,7 @@
         },
         {
             "name": "Most Active courses",
-            "description": "",
+            "description": "Courses ranked by log-event count within a fixed date window, demonstrating %%EPOCH%% to bound a timestamp range portably across MySQL and Postgres. Site course (id 1) excluded.",
             "querysql": "SELECT\r\n    c.fullname AS Course,\r\n    COUNT(l.userid) AS Views\r\nFROM {logstore_standard_log} l\r\nJOIN {course} c ON c.id = l.courseid\r\nWHERE l.timecreated >  %%EPOCH('2015-01-01 00:00:00')%%\r\n  AND l.timecreated <= %%EPOCH('2027-06-30 23:59:59')%%\r\n  AND l.courseid > 1\r\nGROUP BY c.id, c.fullname\r\nORDER BY Views DESC",
             "courseid": 0,
             "visible": 1,
@@ -104,7 +104,7 @@
         },
         {
             "name": "Pie chart of user enrolments",
-            "description": "",
+            "description": "Count of distinct users holding each role site-wide, rendered as a pie chart (slices = role shortname, size = user count). Roles with no users are dropped.",
             "querysql": "SELECT r.shortname, COUNT(DISTINCT ra.userid) AS usercount\r\nFROM {role} r\r\nJOIN {role_assignments} ra ON r.id = ra.roleid\r\nGROUP BY r.shortname\r\nHAVING COUNT(DISTINCT ra.userid) > 0\r\nLIMIT 100",
             "courseid": 0,
             "visible": 1,
@@ -133,6 +133,19 @@
             "description": "Log events per course. After importing, publish this query, then in the edit form set \"Restrict to courses the viewer teaches\" to the courseid column. Publish to a wide audience (e.g. all staff): each teacher then sees only the courses they teach, and a user who teaches nothing sees no rows.",
             "querysql": "SELECT\r\n    c.id AS courseid,\r\n    CONCAT('<a target=_new href=\"%%WWWROOT%%/course/view.php', chr(63), 'id=', c.id, '\">', c.shortname, '</a>') AS course,\r\n    COUNT(l.id) AS events\r\nFROM {course} c\r\nJOIN {logstore_standard_log} l ON l.courseid = c.id\r\nWHERE c.id > 1\r\nGROUP BY c.id, c.shortname\r\nORDER BY events DESC\r\nLIMIT 200",
             "courseid": 0,
+            "visible": 1,
+            "chartmeta": {
+                "type": "none",
+                "xcol": "",
+                "ycol": "",
+                "rowlimit": 200
+            }
+        },
+        {
+            "name": "Course grades visible only to teachers: demonstrates the Course role audience",
+            "description": "Final grades for every student in the scoped course. After importing, set the query's course (which binds %%COURSEID%%), then in the edit form set Audience to \"Course role\" and pick Teacher / Non-editing teacher. Publish: teachers in that course see all students' grades, students see nothing (blocked by the report's audience). Audience config is not portable, so it must be set by hand after import.",
+            "querysql": "SELECT\r\n    u.id AS userid,\r\n    u.firstname,\r\n    u.lastname,\r\n    gi.itemname AS item,\r\n    gg.finalgrade AS grade,\r\n    %%TIMESTAMP(gg.timemodified, dd/mm/yyyy)%% AS graded\r\nFROM {user} u\r\nJOIN {grade_grades} gg ON gg.userid = u.id\r\nJOIN {grade_items} gi ON gi.id = gg.itemid\r\nWHERE gi.courseid = %%COURSEID%%\r\n  AND gi.itemtype = 'mod'\r\nORDER BY u.lastname, gi.itemname\r\nLIMIT 200",
+            "courseid": 16,
             "visible": 1,
             "chartmeta": {
                 "type": "none",
