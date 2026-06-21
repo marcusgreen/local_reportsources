@@ -78,6 +78,15 @@ echo $OUTPUT->heading(get_string('queries', 'local_reportsources') .
 
 $syscontext = context_system::instance();
 if (has_capability('local/reportsources:author', $syscontext)) {
+    // Authors can read the bundled user documentation in the browser.
+    echo html_writer::div(
+        html_writer::link(
+            new moodle_url('/local/reportsources/docs.php'),
+            get_string('userdocs', 'local_reportsources'),
+            ['class' => 'btn btn-link p-0']
+        ),
+        'mb-2'
+    );
     // Wrapped with a stable id so the user tour can anchor a step to the New report view button.
     echo html_writer::div(
         $OUTPUT->single_button(

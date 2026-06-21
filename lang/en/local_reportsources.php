@@ -256,6 +256,7 @@ $string['unpublishfor'] = 'Unpublish: {$a}';
 $string['useridcolumn'] = 'Restrict to viewing user';
 $string['useridcolumn_help'] = 'Optionally scope this report so each person sees only rows that belong to them. Pick the output column holding a user id; at view time the report shows only rows where that column equals the id of the logged-in user. Leave as "Choose a column…" to show all rows to everyone in the audience.';
 $string['useridfilter'] = 'Per-user filter';
+$string['userdocs'] = 'User documentation';
 $string['viewchart'] = 'View chart';
 $string['visible'] = 'Visible';
 $string['visible_help'] = 'Controls whether this published report appears in the query listing page. When unchecked, users with the view capability cannot see it. The underlying database view and report still exist — administrators and authors with the viewall capability can still see it.
