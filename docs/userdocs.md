@@ -2,6 +2,8 @@
 
 # Report Sources — User Documentation
 
+🏠 **[Project home on GitHub](https://github.com/marcusgreen/local_reportsources)**
+
 Report Sources (`local_reportsources`) lets you write a SQL `SELECT` query, click **Publish**, and get a fully-configurable Moodle **Report Builder** report — no PHP required. Publishing turns your SQL into a database view, reads its columns, and registers a Report Builder data source pointing at that view. From there you choose columns, add filters, sort, chart, schedule exports, and control who can see it. Warning report writing tools run the risk of leaking information, test and double check who can see the information in anything created.
 
 ![The Saved report views list with a row's actions menu open](report-views-list.png)
