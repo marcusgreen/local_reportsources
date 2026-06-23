@@ -299,7 +299,7 @@ foreach ($queries as $rec) {
     // Editing the underlying Report builder report sits inline next to Edit, for users who can edit
     // RB reports and only when the report exists (published rows the current user can view).
     $editreportbtn = '';
-    if ($canviewreport && has_capability('moodle/reportbuilder:edit', $syscontext)) {
+    if ($canviewreport && has_any_capability(['moodle/reportbuilder:edit', 'moodle/reportbuilder:editall'], $syscontext)) {
         $editreportbtn = html_writer::link(
             new moodle_url('/reportbuilder/edit.php', ['id' => $rec->reportid]),
             get_string('editreport', 'local_reportsources'),
@@ -335,7 +335,7 @@ foreach ($queries as $rec) {
                 get_string('viewchart', 'local_reportsources')
             ));
         }
-        if (has_capability('moodle/reportbuilder:edit', $syscontext)) {
+        if (has_any_capability(['moodle/reportbuilder:edit', 'moodle/reportbuilder:editall'], $syscontext)) {
             // Deep-link to the report's Schedules tab. The RB editor uses JS dynamic tabs whose ids
             // are the short class name (schedules); core/dynamic_tabs activates the matching tab from
             // the URL hash. Recipients are the report's RB audiences, set at publish.

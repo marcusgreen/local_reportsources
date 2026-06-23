@@ -71,6 +71,18 @@ class roles {
         // The :author capability is the reason the role exists — always granted.
         assign_capability('local/reportsources:author', CAP_ALLOW, $roleid, $syscontext->id, true);
 
+        // Core Report Builder access. The published reports live at /reportbuilder/view.php, gated by
+        // core RB (reportbuilder:view AND (reportbuilder:viewall OR can_edit OR in audience)). Grant
+        // both view and viewall so an author can open any published report regardless of its audience,
+        // matching the plugin's own site-wide authoring/viewall semantics.
+        assign_capability('moodle/reportbuilder:view', CAP_ALLOW, $roleid, $syscontext->id, true);
+        assign_capability('moodle/reportbuilder:viewall', CAP_ALLOW, $roleid, $syscontext->id, true);
+
+        // Also grant editall so the Edit button shows on every published report, including those
+        // owned by another user (can_edit_report = editall OR (owner AND edit)); plain :edit would
+        // only surface on reports the author published themselves.
+        assign_capability('moodle/reportbuilder:editall', CAP_ALLOW, $roleid, $syscontext->id, true);
+
         // Optional capabilities: grant when chosen, otherwise clear any previous grant so re-running
         // the form with a box unticked actually removes that permission.
         foreach (['approve' => $approve, 'viewall' => $viewall] as $cap => $wanted) {
