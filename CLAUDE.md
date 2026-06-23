@@ -132,6 +132,8 @@ The `queryid_for_report_<id>` config entries in `config_plugins` are the foreign
 
 `query::visible_to_current_user()` implements all five visibility rules — but only for the plugin's own pages. Who can open the generated RB report is enforced separately by core RB's context + audience, set at publish via `apply_report_visibility()` (see [Report visibility](#report-visibility-who-can-open-the-report)).
 
+**Admin tree registration** (`settings.php`): the index `admin_externalpage` (under `reports`) is registered **outside** the `if ($hassiteconfig)` guard with cap `local/reportsources:author`, so the **Site administration → Reports → Report sources** menu entry shows for the author role without `moodle/site:config`. The settings page itself (denylist, AI toggle, etc.) and the admin-only externalpages (testview, samples, createrole) stay **inside** the guard.
+
 ## Key constraints
 
 - The plugin's capabilities gate the **plugin UI only**; the RB report viewer (`/reportbuilder/view.php`) is gated by core RB context + audience, set at publish from `courseid`/`visible`. A query hidden at the plugin level but published with a wide audience would still be reachable via RB — keep the two in sync through `apply_report_visibility()`

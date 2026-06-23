@@ -77,6 +77,8 @@ To let specific trusted people author and publish reports without making them fu
 
 Holders can then create report views **anywhere** (authoring is system-wide; there is no per-course authoring) and — with `approve` — publish them.
 
+> **Finding the page.** The **Report sources** entry under *Site administration → Reports* is gated by `local/reportsources:author` alone — holders of the role see it without needing `moodle/site:config`. The plugin's **admin settings** (denylist, AI, etc.) remain admin-only. A report author therefore lands on the list page from the Reports menu; they do not see the rest of Site administration.
+
 > **⚠️ This is a high-trust role.** Authoring a report means writing an arbitrary SQL `SELECT`, which can read almost any table in the database (only a denylist of sensitive tables — `config*`, `sessions`, password, OAuth2, web-service token, MFA and key tables — is blocked). The role is therefore effectively a **site-wide data-read** grant — Moodle flags it as carrying *personal-data* and *data-loss* risk. Assign it only to people you would trust with direct read access to the database, and confirm any tables/columns that must never be exposed are covered by the denylist (see [Admin settings](#admin-settings)).
 
 ---
