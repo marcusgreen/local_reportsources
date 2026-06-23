@@ -43,7 +43,7 @@ if ($hassiteconfig) {
         'local_reportsources/denycolumns',
         get_string('settings:denycolumns', 'local_reportsources'),
         get_string('settings:denycolumns_desc', 'local_reportsources'),
-        'password,secret,sesskey',
+        'password,passwordhash,password_hash,secret,client_secret,sesskey,apikey,api_key,token,salt,hash,privatekey,private_key',
         PARAM_TEXT
     ));
 
