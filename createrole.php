@@ -45,7 +45,11 @@ $mform = new createrole_form(new moodle_url('/local/reportsources/createrole.php
 if ($mform->is_cancelled()) {
     redirect($indexurl);
 } else if ($data = $mform->get_data()) {
-    $result = roles::create_report_author_role(!empty($data->approve), !empty($data->viewall));
+    $result = roles::create_report_author_role(
+        !empty($data->approve),
+        !empty($data->viewall),
+        !empty($data->aigenerate)
+    );
 
     $message = $result['created']
         ? get_string('createrole:done', 'local_reportsources')

@@ -73,6 +73,7 @@ To let specific trusted people author and publish reports without making them fu
    - `local/reportsources:author` — write and save report views.
    - `local/reportsources:approve` — publish them (omit this if a separate approver should publish).
    - `local/reportsources:viewall` — see and manage everyone's report views (optional).
+   - `local/sqlchat:use` — **only if AI SQL generation is enabled.** The AI question box is served by the separate `local_sqlchat` plugin and gated by its own capability (ships on Manager only). Without this, an author clicking **Generate SQL** gets *"you do not currently have permissions to do that."*
 5. Save, then assign people via **Site admin → Users → Permissions → Assign system roles → Report author**.
 
 Holders can then create report views **anywhere** (authoring is system-wide; there is no per-course authoring) and — with `approve` — publish them.

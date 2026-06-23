@@ -40,9 +40,14 @@ class roles {
      *
      * @param bool $approve Also grant local/reportsources:approve (publish/unpublish).
      * @param bool $viewall Also grant local/reportsources:viewall (see all report views).
+     * @param bool $aigenerate Also grant local/sqlchat:use (AI SQL generation), if that plugin is installed.
      * @return array{created: bool, roleid: int} 'created' is false when the role already existed.
      */
-    public static function create_report_author_role(bool $approve = true, bool $viewall = true): array {
+    public static function create_report_author_role(
+        bool $approve = true,
+        bool $viewall = true,
+        bool $aigenerate = false
+    ): array {
         global $DB;
 
         $syscontext = \context_system::instance();
@@ -74,6 +79,17 @@ class roles {
                 assign_capability($capname, CAP_ALLOW, $roleid, $syscontext->id, true);
             } else {
                 unassign_capability($capname, $roleid, $syscontext->id);
+            }
+        }
+
+        // AI SQL generation is gated by a separate plugin (local_sqlchat). Grant its capability only
+        // when that plugin is installed (the capability exists); otherwise silently skip so the role
+        // still works on sites without it.
+        if (get_capability_info('local/sqlchat:use')) {
+            if ($aigenerate) {
+                assign_capability('local/sqlchat:use', CAP_ALLOW, $roleid, $syscontext->id, true);
+            } else {
+                unassign_capability('local/sqlchat:use', $roleid, $syscontext->id);
             }
         }
 

@@ -66,6 +66,19 @@ class createrole_form extends \moodleform {
         );
         $mform->setDefault('viewall', 1);
 
+        // Only offer the AI capability when local_sqlchat is installed (its capability exists).
+        if (get_capability_info('local/sqlchat:use')) {
+            $mform->addElement(
+                'advcheckbox',
+                'aigenerate',
+                get_string('createrole:aigenerate', 'local_reportsources'),
+                get_string('createrole:aigenerate_desc', 'local_reportsources'),
+                null,
+                [0, 1]
+            );
+            $mform->setDefault('aigenerate', 0);
+        }
+
         $this->add_action_buttons(true, get_string('createrole:create', 'local_reportsources'));
     }
 }
