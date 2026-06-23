@@ -53,5 +53,27 @@ function xmldb_local_reportsources_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026061800, 'local', 'reportsources');
     }
 
+    if ($oldversion < 2026062300) {
+        // Merge newly-added sensitive column names into the admin-configured denylist without
+        // clobbering any customisations. Only touch existing installs (config already set);
+        // fresh installs pick up the full default from settings.php.
+        $current = get_config('local_reportsources', 'denycolumns');
+        if ($current !== false && $current !== '') {
+            $existing = array_filter(array_map('trim', explode(',', strtolower($current))));
+            $added = [
+                'token', 'accesstoken', 'refreshtoken', 'sharekey', 'sid',
+                'signature', 'apikey', 'api_key', 'salt', 'hash',
+                'privatekey', 'private_key', 'clientid', 'client_id',
+                'client_secret',
+            ];
+            $merged = array_values(array_unique(array_merge($existing, $added)));
+            if (count($merged) > count($existing)) {
+                set_config('denycolumns', implode(',', $merged), 'local_reportsources');
+            }
+        }
+
+        upgrade_plugin_savepoint(true, 2026062300, 'local', 'reportsources');
+    }
+
     return true;
 }

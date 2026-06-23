@@ -77,7 +77,7 @@ To let specific trusted people author and publish reports without making them fu
 
 Holders can then create report views **anywhere** (authoring is system-wide; there is no per-course authoring) and — with `approve` — publish them.
 
-> **⚠️ This is a high-trust role.** Authoring a report means writing an arbitrary SQL `SELECT`, which can read almost any table in the database (only a small denylist such as `config`, `sessions`, and password tables is blocked). The role is therefore effectively a **site-wide data-read** grant — Moodle flags it as carrying *personal-data* and *data-loss* risk. Assign it only to people you would trust with direct read access to the database, and confirm any tables/columns that must never be exposed are covered by the denylist (see [Admin settings](#admin-settings)).
+> **⚠️ This is a high-trust role.** Authoring a report means writing an arbitrary SQL `SELECT`, which can read almost any table in the database (only a denylist of sensitive tables — `config*`, `sessions`, password, OAuth2, web-service token, MFA and key tables — is blocked). The role is therefore effectively a **site-wide data-read** grant — Moodle flags it as carrying *personal-data* and *data-loss* risk. Assign it only to people you would trust with direct read access to the database, and confirm any tables/columns that must never be exposed are covered by the denylist (see [Admin settings](#admin-settings)).
 
 ---
 
@@ -598,7 +598,7 @@ Common messages:
 
 | Setting | Default | Purpose |
 |---|---|---|
-| Sensitive column denylist | `password,secret,sesskey` | Comma-separated column names stripped from every introspected result |
+| Sensitive column denylist | `password,secret,sesskey,token,accesstoken,refreshtoken,sharekey,salt,hash,signature,privatekey,…` | Comma-separated column names stripped from every introspected result |
 | SQL syntax highlight and autocomplete | On | CodeMirror 6 editor with keyword/table/column autocomplete from the live database |
 | AI SQL generation | Off | Show the AI question box on the edit form. Requires **local_sqlchat** installed and configured |
 
