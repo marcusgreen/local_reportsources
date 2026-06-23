@@ -76,7 +76,7 @@ class createrole_form extends \moodleform {
                 null,
                 [0, 1]
             );
-            $mform->setDefault('aigenerate', 0);
+            $mform->setDefault('aigenerate', 1);
         }
 
         $this->add_action_buttons(true, get_string('createrole:create', 'local_reportsources'));
