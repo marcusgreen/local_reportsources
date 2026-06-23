@@ -63,10 +63,25 @@ class validator {
 
     /** @var string[] Moodle tables that must never be exposed. */
     private const DENY_TABLES = [
+        // Core configuration.
         'config', 'config_plugins', 'config_log',
+        'adminpresets_it',
+        // Passwords.
         'user_password_history', 'user_password_resets',
+        // Sessions.
+        'sessions', 'mnet_session',
+        // OAuth2.
         'oauth2_issuer', 'oauth2_endpoint', 'oauth2_user_field_mapping',
-        'sessions', 'task_adhoc',
+        'oauth2_access_token', 'oauth2_refresh_token', 'oauth2_system_account',
+        'auth_oauth2_linked_login', 'badge_backpack_oauth2',
+        // Web service / API tokens.
+        'external_tokens', 'external_services', 'external_services_users',
+        'lti_access_tokens', 'enrol_lti_lti2_share_key',
+        // Keys & secrets.
+        'user_private_key', 'tool_mfa_secrets', 'messageinbound_datakeys',
+        'message_airnotifier_devices',
+        // Tasks.
+        'task_adhoc',
     ];
 
     /**

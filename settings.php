@@ -24,6 +24,17 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+// The index page lives under Site administration → Reports. Register it OUTSIDE the
+// $hassiteconfig guard so the node's own capability governs visibility — otherwise the
+// guard (moodle/site:config) hides it from non-admins who only hold the author capability.
+$ADMIN->add('reports', new admin_externalpage(
+    'local_reportsources_index',
+    get_string('reportsources', 'local_reportsources'),
+    new moodle_url('/local/reportsources/index.php'),
+    'local/reportsources:author',
+    false
+));
+
 if ($hassiteconfig) {
     $settings = new admin_settingpage(
         'local_reportsources',
@@ -31,19 +42,11 @@ if ($hassiteconfig) {
     );
     $ADMIN->add('localplugins', $settings);
 
-    $ADMIN->add('reports', new admin_externalpage(
-        'local_reportsources_index',
-        get_string('reportsources', 'local_reportsources'),
-        new moodle_url('/local/reportsources/index.php'),
-        'local/reportsources:viewall',
-        false
-    ));
-
     $settings->add(new admin_setting_configtextarea(
         'local_reportsources/denycolumns',
         get_string('settings:denycolumns', 'local_reportsources'),
         get_string('settings:denycolumns_desc', 'local_reportsources'),
-        'password,passwordhash,password_hash,secret,client_secret,sesskey,apikey,api_key,token,salt,hash,privatekey,private_key',
+        'password,passwordhash,password_hash,secret,client_secret,sesskey,sid,apikey,api_key,token,accesstoken,refreshtoken,sharekey,salt,hash,signature,privatekey,private_key,clientid,client_id',
         PARAM_TEXT
     ));
 
