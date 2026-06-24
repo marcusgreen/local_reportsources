@@ -25,6 +25,15 @@
 defined('MOODLE_INTERNAL') || die();
 
 $capabilities = [
+    // SECURITY NOTE — broad read access by design.
+    // local/reportsources:author lets a holder write and publish an arbitrary SQL SELECT, which
+    // is then run against the live Moodle database. Access to tables is governed by a *blocklist*
+    // (validator::DENY_TABLES) and a sensitive-column blocklist (the 'denycolumns' admin setting),
+    // not an allowlist. Any table or column not explicitly denied is readable. In practice this
+    // means granting this capability is close to granting read access to most of the database —
+    // including user emails/idnumbers/auth fields, grades, logs and messages. Grant it only to
+    // trusted staff, and extend 'denycolumns' / DENY_TABLES for any sensitive tables shipped by
+    // other installed plugins. The RISK_PERSONAL | RISK_DATALOSS bitmask below reflects this.
     'local/reportsources:author' => [
         'riskbitmask' => RISK_PERSONAL | RISK_DATALOSS,
         'captype'     => 'write',
