@@ -179,4 +179,43 @@ final class sql_validator_test extends \advanced_testcase {
         );
         $this->assertSame(['cat', 'since'], $names);
     }
+
+    /**
+     * The %%USERID%% family of tokens gets the dedicated message steering authors to the
+     * "Restrict to viewing user" form field, not the generic unfilled-placeholder hint.
+     *
+     * @dataProvider userid_token_provider
+     * @param string $token
+     */
+    public function test_userid_placeholder_reports_specific_error(string $token): void {
+        $this->expectException(\moodle_exception::class);
+        $this->expectExceptionMessage(get_string('errplaceholderuserid', 'local_reportsources', $token));
+        validator::validate("SELECT id FROM {user} WHERE id = {$token}");
+    }
+
+    /**
+     * Case and spelling variants the validator routes to errplaceholderuserid.
+     *
+     * @return array<string, array{string}>
+     */
+    public static function userid_token_provider(): array {
+        return [
+            'upper'          => ['%%USERID%%'],
+            'lower'          => ['%%userid%%'],
+            'mixed'          => ['%%UserId%%'],
+            'underscore'     => ['%%USER_ID%%'],
+            'plural'         => ['%%USERIDS%%'],
+            'underscoreplur' => ['%%USER_IDS%%'],
+            'inner spaces'   => ['%% USERID %%'],
+        ];
+    }
+
+    /**
+     * A near-miss token that is not the userid family still gets the generic placeholder error.
+     */
+    public function test_non_userid_placeholder_reports_generic_error(): void {
+        $this->expectException(\moodle_exception::class);
+        $this->expectExceptionMessage(get_string('errplaceholder', 'local_reportsources', '%%FILTER_USERS%%'));
+        validator::validate('SELECT id FROM {user} WHERE id = %%FILTER_USERS%%');
+    }
 }
