@@ -41,6 +41,7 @@ In particular, starting your prompt with the word **also** pulls in your existin
 
 Always review the generated SQL before saving — the AI can make mistakes.';
 $string['ai:latency'] = 'Generated in {$a} ms — review the SQL before saving.';
+$string['ai:prompt'] = 'Prompt sent to the LLM';
 $string['ai:placeholder'] = 'e.g. Show all students enrolled in more than 3 courses';
 $string['ai:question'] = 'Describe the data you want';
 $string['ai:sqldescription'] = 'Selects {$a->columns} from {$a->tables}.';

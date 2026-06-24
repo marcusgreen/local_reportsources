@@ -114,9 +114,10 @@ The shipped samples are cross-DB: date handling uses the `%%TIMESTAMP()%%` / `%%
 
 ### DB schema
 
-Two tables:
+One table:
 - `local_reportsources_query` — stores SQL, status (`draft|published|disabled`), `viewname`, `reportid`, `columnsmeta` (JSON), `courseid` (0 = site-wide), `visible`
-- `local_reportsources_log` — audit log of `validate|preview|publish|drop|run` actions
+
+Auditing is done through Moodle's standard event log (`logstore_standard_log`), not a custom table. `classes/event/` defines five query-lifecycle events (`query_created`, `query_updated`, `query_published`, `query_unpublished`, `query_deleted`), all extending `query_event_base` (→ `\core\event\base`). They are raised at `context_system` with `objectid` = query id and the query name in `other['name']` (so delete descriptions still render after the record is gone), and are triggered from `classes/local/query.php`. Viewable at **Site admin → Reports → Logs**.
 
 The `queryid_for_report_<id>` config entries in `config_plugins` are the foreign-key glue between RB reports and query records. They are cleaned up in `tear_down()`.
 

@@ -208,6 +208,10 @@ if ($aisqlchatavailable) {
             get_string('ai:latency', 'local_reportsources', $airesult->latency_ms),
             ['class' => 'text-muted small mb-2']
         );
+        if (get_config('local_sqlchat', 'showprompt') && !empty($airesult->prompt)) {
+            echo html_writer::tag('h6', get_string('ai:prompt', 'local_reportsources'), ['class' => 'mt-2']);
+            echo html_writer::tag('pre', s($airesult->prompt), ['class' => 'bg-light p-2 small']);
+        }
     }
 
     echo html_writer::start_tag('form', ['method' => 'post', 'action' => $PAGE->url->out(false)]);
