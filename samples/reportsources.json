@@ -153,6 +153,19 @@
                 "ycol": "",
                 "rowlimit": 200
             }
+        },
+        {
+            "name": "Per-course enrolment counts for the hosting block: demonstrates the page-course filter",
+            "description": "Enrolled-user count per course. The backing query is generic (no fixed course), so the VIEW lists every course. After importing, publish this query, then in the edit form set \"Restrict to the course the block is on\" to the courseid column. Add the Report sources block to a course (or to every course via 'Add to all course pages'): each block then shows only the row for the course of the page it sits on, so one published query feeds every course its own enrolment count. Outside a course page (Dashboard / site home) the filter is skipped and all rows show. This setting is not portable, so it must be set by hand after import.",
+            "querysql": "SELECT\r\n    c.id AS courseid,\r\n    CONCAT('<a target=_new href=\"%%WWWROOT%%/course/view.php', chr(63), 'id=', c.id, '\">', c.shortname, '</a>') AS course,\r\n    COUNT(DISTINCT ue.userid) AS enrolments\r\nFROM {course} c\r\nJOIN {enrol} e ON e.courseid = c.id\r\nJOIN {user_enrolments} ue ON ue.enrolid = e.id\r\nWHERE c.id > 1\r\nGROUP BY c.id, c.shortname\r\nORDER BY enrolments DESC\r\nLIMIT 200",
+            "courseid": 0,
+            "visible": 1,
+            "chartmeta": {
+                "type": "none",
+                "xcol": "",
+                "ycol": "",
+                "rowlimit": 200
+            }
         }
     ]
 }
