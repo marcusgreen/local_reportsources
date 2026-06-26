@@ -251,6 +251,17 @@ class edit_query_form extends moodleform {
         $mform->setDefault('coursecolumn', $record->coursecolumn ?? '');
         $mform->addHelpButton('coursecolumn', 'coursecolumn', 'local_reportsources');
 
+        // Page-course filter: when shown in a block on a course page, restrict rows to that course.
+        $mform->addElement(
+            'select',
+            'pagecoursecolumn',
+            get_string('pagecoursecolumn', 'local_reportsources'),
+            $xopts
+        );
+        $mform->setType('pagecoursecolumn', PARAM_ALPHANUMEXT);
+        $mform->setDefault('pagecoursecolumn', $record->pagecoursecolumn ?? '');
+        $mform->addHelpButton('pagecoursecolumn', 'pagecoursecolumn', 'local_reportsources');
+
         $mform->addElement('header', 'chartheader', get_string('chartsettings', 'local_reportsources'));
 
         $mform->addElement('select', 'chart_type', get_string('charttype', 'local_reportsources'), [

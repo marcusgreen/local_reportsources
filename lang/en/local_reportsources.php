@@ -91,6 +91,10 @@ $string['coursecolumn'] = 'Restrict to courses the viewer teaches';
 $string['coursecolumn_help'] = 'Optionally scope this report so each viewer sees only rows for courses they teach. Pick the output column holding a course id; at view time the report shows only rows where that column is one of the courses where the viewer has an editing teacher or teacher role.
 
 A viewer who teaches no courses sees no rows. This lets you publish a single report to a wide audience (for example all staff) while each teacher still sees only their own courses. Leave as "Choose a column…" for no teacher-course filter.';
+$string['pagecoursecolumn'] = 'Restrict to the course the block is on';
+$string['pagecoursecolumn_help'] = 'Applies only when this report is shown through the Report sources block on a course page. Pick the output column holding a course id; the block then shows only rows for the course of the page it sits on, so one block (or a block added to every course) shows each course its own data.
+
+Off a course page (Dashboard or the site front page) no page-course filter is applied. The standalone report viewer also ignores this, since it has no "current course". Leave as "Choose a column…" for no page-course filter.';
 $string['coursescope'] = 'Course scope';
 $string['coursescope_help'] = 'The course this report belongs to. Leave empty for a site-wide report.
 

@@ -193,6 +193,18 @@ class query {
     }
 
     /**
+     * Output column holding a course id. When set and the report is shown in a block on a course
+     * page, rows are limited to that page's course (the block passes its current course id into
+     * {@see fetch_rows_for_viewer()}). Empty = no page-course filter. Block-only: the standalone
+     * RB report viewer has no "current page" and ignores this.
+     *
+     * @return string
+     */
+    public function pagecoursecolumn(): string {
+        return (string) ($this->record->pagecoursecolumn ?? '');
+    }
+
+    /**
      * Course ids the given user teaches: courses where they have an **active enrolment** AND hold an
      * editingteacher or teacher role at the course context. Requiring the enrolment (not just the
      * role assignment) means a suspended/expired enrolment, or a role assigned without enrolment,
@@ -289,10 +301,15 @@ class query {
      * so no surface can leak rows the report table would hide. A filter naming a missing column fails
      * closed (throws). Does not check view access — call {@see current_user_can_view_report()} first.
      *
+     * When $pagecourseid is supplied (the block passes its host page's course id) and the query
+     * carries a pagecoursecolumn, rows are additionally limited to that course. This is the only
+     * page-context-aware filter; chart.php and the RB report viewer leave it at 0 (no effect).
+     *
      * @param int $rowlimit Maximum rows to return; 0 means no limit (capped at 5000).
+     * @param int $pagecourseid Course id of the page hosting the block; 0 disables the page-course filter.
      * @return array<int, array<string, mixed>> Result rows as associative arrays.
      */
-    public function fetch_rows_for_viewer(int $rowlimit = 0): array {
+    public function fetch_rows_for_viewer(int $rowlimit = 0, int $pagecourseid = 0): array {
         global $DB, $USER;
 
         $rec = $this->record();
@@ -335,6 +352,19 @@ class query {
                 $params += $inparams;
             }
             // The course column stays visible: a teacher may teach many courses.
+        }
+
+        // Page-course filter: when shown in a block on a course page, scope rows to that course.
+        // The block supplies $pagecourseid (its host page's course id); chart.php / the RB viewer
+        // leave it 0 so this is a no-op there.
+        $pagecoursecolumn = $this->pagecoursecolumn();
+        if ($pagecoursecolumn !== '' && $pagecourseid > 0) {
+            if (!array_key_exists($pagecoursecolumn, $meta)) {
+                throw new \moodle_exception('errchartnotconfigured', 'local_reportsources');
+            }
+            $wheres[] = "{$pagecoursecolumn} = :rs_pc";
+            $params['rs_pc'] = $pagecourseid;
+            // The course column stays visible: the same block may move between course pages.
         }
 
         $select = $wheres ? implode(' AND ', $wheres) : '';
@@ -478,6 +508,11 @@ class query {
             // (a teacher may teach many courses), so no report instances need purging.
             $record->coursecolumn = self::valid_column_choice(
                 (string) ($data->coursecolumn ?? ''),
+                $existing->columnsmeta
+            );
+            // Page-course filter column (block-only). Stays visible in output, no purging needed.
+            $record->pagecoursecolumn = self::valid_column_choice(
+                (string) ($data->pagecoursecolumn ?? ''),
                 $existing->columnsmeta
             );
             // The datasource stops offering a per-user filter column; purge any saved instances

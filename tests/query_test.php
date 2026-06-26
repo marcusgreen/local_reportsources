@@ -328,4 +328,45 @@ final class query_test extends \advanced_testcase {
         $this->setUser($student);
         $this->assertSame([], query::get($id)->fetch_rows_for_viewer());
     }
+
+    public function test_fetch_rows_for_viewer_scopes_to_page_course(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $gen     = $this->getDataGenerator();
+        $oncourse = $gen->create_course();
+        $other    = $gen->create_course();
+
+        $sql = 'SELECT id AS courseid, shortname FROM {course}';
+        $id  = query::save($this->formdata(['querysql' => $sql]));
+        query::get($id)->publish();
+        // Designate the page-course filter column (published-edit path; SQL unchanged).
+        query::save($this->formdata(['id' => $id, 'querysql' => $sql, 'pagecoursecolumn' => 'courseid']));
+
+        // Passing the page's course id limits rows to that course only.
+        $rows = query::get($id)->fetch_rows_for_viewer(0, (int) $oncourse->id);
+        $ids  = array_map(static fn($r): int => (int) $r['courseid'], $rows);
+        $this->assertSame([(int) $oncourse->id], $ids);
+        $this->assertNotContains((int) $other->id, $ids);
+    }
+
+    public function test_fetch_rows_for_viewer_page_course_zero_is_unfiltered(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $gen   = $this->getDataGenerator();
+        $a     = $gen->create_course();
+        $b     = $gen->create_course();
+
+        $sql = 'SELECT id AS courseid, shortname FROM {course}';
+        $id  = query::save($this->formdata(['querysql' => $sql]));
+        query::get($id)->publish();
+        query::save($this->formdata(['id' => $id, 'querysql' => $sql, 'pagecoursecolumn' => 'courseid']));
+
+        // pagecourseid 0 (e.g. block off a course page) skips the filter: both courses present.
+        $rows = query::get($id)->fetch_rows_for_viewer(0, 0);
+        $ids  = array_map(static fn($r): int => (int) $r['courseid'], $rows);
+        $this->assertContains((int) $a->id, $ids);
+        $this->assertContains((int) $b->id, $ids);
+    }
 }

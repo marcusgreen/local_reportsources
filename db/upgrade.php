@@ -75,5 +75,26 @@ function xmldb_local_reportsources_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026062300, 'local', 'reportsources');
     }
 
+    if ($oldversion < 2026062601) {
+        // Add the pagecoursecolumn field: names the output column holding a course id, used to
+        // limit rows to the course of the page hosting the block (block_reportsources).
+        $table = new xmldb_table('local_reportsources_query');
+        $field = new xmldb_field(
+            'pagecoursecolumn',
+            XMLDB_TYPE_CHAR,
+            '64',
+            null,
+            null,
+            null,
+            null,
+            'coursecolumn'
+        );
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_plugin_savepoint(true, 2026062601, 'local', 'reportsources');
+    }
+
     return true;
 }
