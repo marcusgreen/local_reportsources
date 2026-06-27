@@ -84,8 +84,8 @@ final class transfer_test extends \advanced_testcase {
     public function test_count_bundled_matches_shipped_file(): void {
         $this->resetAfterTest();
 
-        // The bundled file ships 11 sample report views.
-        $this->assertSame(11, transfer::count_bundled());
+        // The bundled file ships 23 sample report views.
+        $this->assertSame(23, transfer::count_bundled());
     }
 
     public function test_import_bundled_is_idempotent(): void {
