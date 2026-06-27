@@ -166,6 +166,136 @@
                 "ycol": "",
                 "rowlimit": 200
             }
+        },
+        {
+            "name": "All badges available in the system, with earned count",
+            "description": "Every badge defined on the site with its scope (System / Course), the course it belongs to (or * for site-wide), whether it is currently available, and how many times it has been issued. Demonstrates correlated subqueries and CASE decoding of the badge type/status columns.",
+            "querysql": "SELECT\r\n    b.id,\r\n    b.name,\r\n    CASE WHEN b.type = 1 THEN 'System' WHEN b.type = 2 THEN 'Course' END AS context,\r\n    CASE WHEN b.courseid IS NOT NULL\r\n         THEN (SELECT c.shortname FROM {course} c WHERE c.id = b.courseid)\r\n         ELSE '*' END AS course,\r\n    CASE WHEN b.status IN (1, 3) THEN 'Yes' WHEN b.status = 4 THEN 'x' ELSE 'No' END AS available,\r\n    (SELECT COUNT(*) FROM {badge_issued} d WHERE d.badgeid = b.id) AS earned\r\nFROM {badge} b\r\nORDER BY b.name\r\nLIMIT 200",
+            "courseid": 0,
+            "visible": 1,
+            "chartmeta": {
+                "type": "none",
+                "xcol": "",
+                "ycol": "",
+                "rowlimit": 200
+            }
+        },
+        {
+            "name": "All badges issued, by user",
+            "description": "Each badge award: the recipient, badge name, scope, how the badge was earned (decoded from criteria type/method), the issue date and a link to the public badge page. Demonstrates %%TIMESTAMP%% date formatting, CASE decoding and a %%WWWROOT%% link built with chr(63) for the ? character.",
+            "querysql": "SELECT\r\n    u.username,\r\n    b.name AS badgename,\r\n    CASE WHEN b.courseid IS NOT NULL\r\n         THEN (SELECT c.shortname FROM {course} c WHERE c.id = b.courseid)\r\n         ELSE '*' END AS context,\r\n    CASE\r\n        WHEN t.criteriatype = 1 AND t.method = 1 THEN 'Activity Completion (All)'\r\n        WHEN t.criteriatype = 1 AND t.method = 2 THEN 'Activity Completion (Any)'\r\n        WHEN t.criteriatype = 2 AND t.method = 2 THEN 'Manual Award'\r\n        WHEN t.criteriatype = 4 AND t.method = 1 THEN 'Course Completion (All)'\r\n        WHEN t.criteriatype = 4 AND t.method = 2 THEN 'Course Completion (Any)'\r\n        ELSE CONCAT('Other: ', t.criteriatype)\r\n    END AS criteriatype,\r\n    %%TIMESTAMP(d.dateissued, yyyy-mm-dd)%% AS dateissued,\r\n    CONCAT('<a target=_new href=\"%%WWWROOT%%/badges/badge.php', chr(63), 'hash=', d.uniquehash, '\">link</a>') AS details\r\nFROM {badge_issued} d\r\nJOIN {badge} b ON d.badgeid = b.id\r\nJOIN {user} u ON d.userid = u.id\r\nJOIN {badge_criteria} t ON b.id = t.badgeid\r\nWHERE t.criteriatype <> 0\r\nORDER BY u.username\r\nLIMIT 200",
+            "courseid": 0,
+            "visible": 1,
+            "chartmeta": {
+                "type": "none",
+                "xcol": "",
+                "ycol": "",
+                "rowlimit": 200
+            }
+        },
+        {
+            "name": "Cohorts by user",
+            "description": "Lists every cohort membership site-wide: the member's name alongside the cohort id number and name. A simple three-table join over the cohort subsystem.",
+            "querysql": "SELECT u.firstname, u.lastname, h.idnumber, h.name\r\nFROM {cohort} h\r\nJOIN {cohort_members} hm ON h.id = hm.cohortid\r\nJOIN {user} u ON hm.userid = u.id\r\nORDER BY u.firstname\r\nLIMIT 200",
+            "courseid": 0,
+            "visible": 1,
+            "chartmeta": {
+                "type": "none",
+                "xcol": "",
+                "ycol": "",
+                "rowlimit": 200
+            }
+        },
+        {
+            "name": "Courses that use groups",
+            "description": "Courses with group mode enabled, showing the group mode, a count of activity modules and a count of groups. The course name links to the course's groups page. Demonstrates correlated count subqueries.",
+            "querysql": "SELECT\r\n    CONCAT('<a target=_new href=\"%%WWWROOT%%/group/index.php', chr(63), 'id=', c.id, '\">', c.fullname, '</a>') AS course,\r\n    c.groupmode,\r\n    (SELECT COUNT(*) FROM {course_modules} cm WHERE cm.course = c.id) AS modules,\r\n    (SELECT COUNT(*) FROM {groups} g WHERE g.courseid = c.id) AS numgroups\r\nFROM {course} c\r\nWHERE c.groupmode > 0\r\nORDER BY c.fullname\r\nLIMIT 200",
+            "courseid": 0,
+            "visible": 1,
+            "chartmeta": {
+                "type": "none",
+                "xcol": "",
+                "ycol": "",
+                "rowlimit": 200
+            }
+        },
+        {
+            "name": "Site-wide completed SCORM activities by course",
+            "description": "Every completed SCORM attempt across the site: learner, course, attempt number, status and the completion date. Rewritten for the Moodle 5 SCORM schema (scorm_attempt / scorm_scoes_value / scorm_element); matches both SCORM 1.2 (cmi.core.lesson_status) and SCORM 2004 (cmi.completion_status).",
+            "querysql": "SELECT\r\n    u.firstname,\r\n    u.lastname,\r\n    c.fullname AS course,\r\n    sa.attempt,\r\n    sv.value AS status,\r\n    %%TIMESTAMP(sv.timemodified, mm-dd-yyyy)%% AS completed\r\nFROM {scorm_scoes_value} sv\r\nJOIN {scorm_element} se ON se.id = sv.elementid AND se.element IN ('cmi.completion_status', 'cmi.core.lesson_status')\r\nJOIN {scorm_attempt} sa ON sa.id = sv.attemptid\r\nJOIN {scorm} sc ON sc.id = sa.scormid\r\nJOIN {course} c ON c.id = sc.course\r\nJOIN {user} u ON u.id = sa.userid\r\nWHERE sv.value = 'completed'\r\nORDER BY c.fullname, u.lastname, u.firstname, sa.attempt\r\nLIMIT 200",
+            "courseid": 0,
+            "visible": 1,
+            "chartmeta": {
+                "type": "none",
+                "xcol": "",
+                "ycol": "",
+                "rowlimit": 200
+            }
+        },
+        {
+            "name": "Log actions per teaching/learning role",
+            "description": "Counts log events grouped by role (editing teacher, teacher, student) and action, over the standard log store. Demonstrates %%CONTEXT_COURSE%% and selecting roles by shortname rather than hard-coded role ids. Reads the Moodle 5 logstore_standard_log (the old mdl_log table is gone).",
+            "querysql": "SELECT r.shortname, l.action, COUNT(l.userid) AS counter\r\nFROM {logstore_standard_log} l\r\nJOIN {context} ctx ON ctx.instanceid = l.courseid AND ctx.contextlevel = %%CONTEXT_COURSE%%\r\nJOIN {role_assignments} ra ON l.userid = ra.userid AND ra.contextid = ctx.id\r\nJOIN {role} r ON ra.roleid = r.id\r\nWHERE r.shortname IN ('editingteacher', 'teacher', 'student')\r\nGROUP BY r.shortname, l.action\r\nORDER BY counter DESC\r\nLIMIT 200",
+            "courseid": 0,
+            "visible": 1,
+            "chartmeta": {
+                "type": "none",
+                "xcol": "",
+                "ycol": "",
+                "rowlimit": 200
+            }
+        },
+        {
+            "name": "All site users by course enrolment, with role",
+            "description": "Every course enrolment site-wide: the user, the course they are enrolled in, and their role in that course (resolved from role assignments at course context, so it reflects the real assigned role rather than the enrolment default).",
+            "querysql": "SELECT\r\n    u.firstname,\r\n    u.lastname,\r\n    u.email,\r\n    c.fullname AS course,\r\n    r.shortname AS role,\r\n    r.name AS rolename\r\nFROM {course} c\r\nJOIN {enrol} e ON e.courseid = c.id\r\nJOIN {user_enrolments} ue ON ue.enrolid = e.id\r\nJOIN {user} u ON ue.userid = u.id\r\nLEFT JOIN {context} ctx ON ctx.instanceid = c.id AND ctx.contextlevel = %%CONTEXT_COURSE%%\r\nLEFT JOIN {role_assignments} ra ON ra.userid = u.id AND ra.contextid = ctx.id\r\nLEFT JOIN {role} r ON r.id = ra.roleid\r\nORDER BY c.fullname, u.lastname\r\nLIMIT 200",
+            "courseid": 0,
+            "visible": 1,
+            "chartmeta": {
+                "type": "none",
+                "xcol": "",
+                "ycol": "",
+                "rowlimit": 200
+            }
+        },
+        {
+            "name": "Users enrolled for more than 4 weeks",
+            "description": "Enrolments older than 28 days, showing the user, course and the date the enrolment was created. Demonstrates arithmetic on the %%NOW%% token (current epoch minus 28 days) in place of the MySQL-only DATEDIFF/NOW functions, so it runs on both MySQL and Postgres.",
+            "querysql": "SELECT\r\n    u.id AS userid,\r\n    u.username,\r\n    c.shortname AS course,\r\n    %%TIMESTAMP(ue.timecreated, yyyy-mm-dd)%% AS enrolledsince\r\nFROM {user_enrolments} ue\r\nJOIN {enrol} e ON e.id = ue.enrolid\r\nJOIN {course} c ON c.id = e.courseid\r\nJOIN {user} u ON u.id = ue.userid\r\nWHERE ue.timecreated < %%NOW%% - (28 * 86400)\r\nORDER BY ue.timecreated\r\nLIMIT 200",
+            "courseid": 0,
+            "visible": 1,
+            "chartmeta": {
+                "type": "none",
+                "xcol": "",
+                "ycol": "",
+                "rowlimit": 200
+            }
+        },
+        {
+            "name": "Users who have logged in only once",
+            "description": "Accounts that have a current login recorded but no previous login (lastlogin = 0) and have accessed the site at least once. A lightweight starter query with no joins.",
+            "querysql": "SELECT id, username, firstname, lastname, idnumber\r\nFROM {user}\r\nWHERE deleted = 0\r\n  AND lastlogin = 0\r\n  AND lastaccess > 0\r\nLIMIT 200",
+            "courseid": 0,
+            "visible": 1,
+            "chartmeta": {
+                "type": "none",
+                "xcol": "",
+                "ycol": "",
+                "rowlimit": 200
+            }
+        },
+        {
+            "name": "Site-wide grade report (course totals and items)",
+            "description": "Final grades across every course: user, course, category, grade item (course totals are labelled '<course> - Total') and the date graded. Demonstrates %%CONTEXT_COURSE%% to scope role assignments and %%TIMESTAMP%% for the graded date.",
+            "querysql": "SELECT\r\n    u.firstname,\r\n    u.lastname,\r\n    c.fullname AS course,\r\n    cc.name AS category,\r\n    CASE WHEN gi.itemtype = 'course' THEN CONCAT(c.fullname, ' - Total') ELSE gi.itemname END AS item,\r\n    ROUND(gg.finalgrade, 2) AS grade,\r\n    %%TIMESTAMP(gg.timemodified, yyyy-mm-dd)%% AS graded\r\nFROM {course} c\r\nJOIN {context} ctx ON c.id = ctx.instanceid AND ctx.contextlevel = %%CONTEXT_COURSE%%\r\nJOIN {role_assignments} ra ON ra.contextid = ctx.id\r\nJOIN {user} u ON u.id = ra.userid\r\nJOIN {grade_grades} gg ON gg.userid = u.id\r\nJOIN {grade_items} gi ON gi.id = gg.itemid\r\nJOIN {course_categories} cc ON cc.id = c.category\r\nWHERE gi.courseid = c.id\r\nORDER BY u.lastname\r\nLIMIT 200",
+            "courseid": 0,
+            "visible": 1,
+            "chartmeta": {
+                "type": "none",
+                "xcol": "",
+                "ycol": "",
+                "rowlimit": 200
+            }
         }
     ]
 }
