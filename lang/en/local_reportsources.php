@@ -140,6 +140,11 @@ $string['crimport:reasontoken'] = 'Uses an unsupported token {$a}';
 $string['crimport:reasonuserid'] = 'Uses {$a}; use the "Restrict to viewing user" setting on the imported draft instead';
 $string['crimport:rejectedheading'] = 'Rejected reports';
 $string['crimport:title'] = 'Import from Configurable Reports';
+$string['crimport:title_help'] = 'Imports the SQL reports stored in the Configurable Reports block (block_configurable_reports) as draft report sources.
+
+Each report is decoded and run through a fixed translation: MySQL date functions become portable %%TIMESTAMP%% / %%EPOCH%% / %%NOW%% tokens, double-quoted strings become single-quoted, and a literal ? in a string is rebuilt with chr(63). Reports using features that cannot be converted (such as %%USERID%% or interactive %%FILTER%% tokens) are listed as rejected with a reason.
+
+Imported reports land as drafts owned by you and must be published before they go live. No AI is used — every conversion is a fixed rule.';
 $string['crimport:unavailable'] = 'The Configurable Reports block (block_configurable_reports) is not installed, so there is nothing to import.';
 $string['delete'] = 'Delete';
 $string['deleteselected'] = 'Delete selected';

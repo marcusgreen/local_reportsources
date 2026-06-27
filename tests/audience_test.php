@@ -110,4 +110,52 @@ final class audience_test extends \advanced_testcase {
         $this->assertSame([], $flat['audienceroles']);
         $this->assertSame([], $flat['audiencecohorts']);
     }
+
+    /**
+     * Build a courserole audience instance bound to the given course/roles.
+     *
+     * @param int $courseid
+     * @param int[] $roles
+     * @return \local_reportsources\reportbuilder\audience\courserole
+     */
+    private function courserole_instance(int $courseid, array $roles): reportbuilder\audience\courserole {
+        $record = (object) ['configdata' => json_encode(['courseid' => $courseid, 'roles' => $roles])];
+        return reportbuilder\audience\courserole::instance(0, $record);
+    }
+
+    public function test_courserole_get_sql_matches_for_existing_course(): void {
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        [$join, $where, $params] = $this->courserole_instance($course->id, [3])->get_sql('u');
+
+        $this->assertNotEmpty($join);
+        $this->assertStringContainsString('role_assignments', $join);
+        $this->assertNotSame('1 = 0', $where);
+    }
+
+    public function test_courserole_get_sql_with_deleted_course_matches_no_one(): void {
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        $courseid = (int) $course->id;
+        delete_course($course, false);
+
+        // A stale audience pointing at the deleted course must not throw; it matches no one.
+        [$join, $where, $params] = $this->courserole_instance($courseid, [3])->get_sql('u');
+
+        $this->assertSame('', $join);
+        $this->assertSame('1 = 0', $where);
+        $this->assertSame([], $params);
+    }
+
+    public function test_courserole_get_sql_with_no_roles_matches_no_one(): void {
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        [$join, $where, $params] = $this->courserole_instance((int) $course->id, [])->get_sql('u');
+
+        $this->assertSame('', $join);
+        $this->assertSame('1 = 0', $where);
+    }
 }

@@ -67,7 +67,12 @@ class courserole extends base {
             return ['', '1 = 0', []];
         }
 
-        $coursecontext = context_course::instance($courseid);
+        // The bound course may have been deleted since the audience was created; a missing
+        // course context must not bubble up and break the whole report list, so match no one.
+        $coursecontext = context_course::instance($courseid, IGNORE_MISSING);
+        if (!$coursecontext) {
+            return ['', '1 = 0', []];
+        }
 
         [$ra, $ctx] = database::generate_aliases(2);
         [$insql, $inparams] = $DB->get_in_or_equal($roles, SQL_PARAMS_NAMED, database::generate_param_name('_'));

@@ -100,7 +100,8 @@ if ($hassiteconfig) {
 
     $settings->add(new admin_setting_description(
         'local_reportsources/importcrlink',
-        get_string('crimport:title', 'local_reportsources'),
+        get_string('crimport:title', 'local_reportsources') .
+            $OUTPUT->help_icon('crimport:title', 'local_reportsources'),
         html_writer::link(
             new moodle_url('/local/reportsources/import_cr.php'),
             get_string('crimport:linklabel', 'local_reportsources')
