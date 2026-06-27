@@ -125,7 +125,11 @@ class validator {
         // substituted at view-build time (see view::resolve_placeholders), so they are exempt from
         // this rejection. %%COURSEID%% additionally requires the query to carry a course scope —
         // enforced in the edit form.
-        if (preg_match_all('/##+|%%[^%\n]*%%/', $sql, $ms)) {
+        //
+        // Scan with string literals blanked (but comments kept) so a doubled LIKE wildcard
+        // such as LIKE '%%smi%%', or a literal '##' inside a string, is not misread as a token;
+        // a bare ## outside any string is still caught because comments are left intact here.
+        if (preg_match_all('/##+|%%[^%\n]*%%/', self::strip_strings($sql), $ms)) {
             foreach ($ms[0] as $token) {
                 if (!self::is_supported_token($token)) {
                     // %%USERID%% (and the USER_ID / USERIDS / USER_IDS spellings) is a common ask for a
@@ -361,6 +365,22 @@ class validator {
         $sql = preg_replace('/--[^\n]*/', ' ', $sql) ?? '';
         $sql = preg_replace('/#[^\n]*/', ' ', $sql) ?? '';
         // String literals (single, double, backtick).
+        $sql = preg_replace("/'(?:[^']|'')*'/", "''", $sql) ?? '';
+        $sql = preg_replace('/"(?:[^"]|"")*"/', '""', $sql) ?? '';
+        return $sql;
+    }
+
+    /**
+     * Replace string literals with an empty literal, leaving comments intact.
+     *
+     * Used by the placeholder-token scan so SQL inside string literals (e.g. a doubled LIKE
+     * wildcard '%%smi%%', or a literal '##') is not mistaken for an unfilled %%token%% / ## artifact,
+     * while a bare ## outside any string is still detectable.
+     *
+     * @param string $sql
+     * @return string
+     */
+    private static function strip_strings(string $sql): string {
         $sql = preg_replace("/'(?:[^']|'')*'/", "''", $sql) ?? '';
         $sql = preg_replace('/"(?:[^"]|"")*"/', '""', $sql) ?? '';
         return $sql;

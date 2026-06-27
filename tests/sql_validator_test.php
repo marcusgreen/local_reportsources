@@ -109,6 +109,23 @@ final class sql_validator_test extends \advanced_testcase {
         $this->assertNotEmpty(validator::validate("SELECT 'DROP TABLE x' AS s"));
     }
 
+    public function test_doubled_like_wildcard_is_not_mistaken_for_token(): void {
+        // A LIKE pattern with doubled wildcards (e.g. '%%smi%%') sits inside a string literal,
+        // which is blanked before the placeholder scan, so it must not be rejected as an
+        // unfilled %%...%% token.
+        $this->assertNotEmpty(
+            validator::validate("SELECT id FROM {user} WHERE username LIKE '%%smi%%'")
+        );
+    }
+
+    public function test_double_hash_inside_string_literal_is_allowed(): void {
+        // A literal '##' inside a string is not an unfilled ad-hoc artifact; only a bare ##
+        // (outside any string) should be rejected.
+        $this->assertNotEmpty(
+            validator::validate("SELECT id, '##' AS label FROM {user}")
+        );
+    }
+
     public function test_context_level_token_is_supported(): void {
         // Token %%CONTEXT_COURSE%% is a recognised token, so validation must not reject it as an
         // unfilled placeholder.
