@@ -193,4 +193,36 @@ final class audience_test extends \advanced_testcase {
         // get_context() must no longer throw.
         $this->assertInstanceOf(\core\context\system::class, $report->get_context());
     }
+
+    public function test_course_deleted_detaches_additional_reports(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $course = $this->getDataGenerator()->create_course();
+        $id = query::save($this->formdata([
+            'courseid'      => $course->id,
+            'audiencetype'  => 'courserole',
+            'audienceroles' => ['3'],
+        ]));
+        query::get($id)->publish();
+
+        // A second report bound to the same query — only tracked in config_plugins, not reportid.
+        $additionalid = query::get($id)->create_additional_report();
+        $coursecontext = \context_course::instance($course->id);
+        $additional = \core_reportbuilder\local\models\report::get_record(['id' => $additionalid]);
+        $this->assertSame((int) $coursecontext->id, (int) $additional->get('contextid'));
+
+        delete_course($course, false);
+
+        // The additional report must be detached too, not just the primary one.
+        $additional = \core_reportbuilder\local\models\report::get_record(['id' => $additionalid]);
+        $this->assertSame((int) \context_system::instance()->id, (int) $additional->get('contextid'));
+        $this->assertSame(0, \core_reportbuilder\local\models\audience::count_records(['reportid' => $additionalid]));
+        $this->assertInstanceOf(\core\context\system::class, $additional->get_context());
+
+        // And tearing the query down deletes both reports without raising debugging().
+        query::get($id)->delete();
+        $this->assertFalse(\core_reportbuilder\local\models\report::get_record(['id' => $additionalid]));
+    }
 }
