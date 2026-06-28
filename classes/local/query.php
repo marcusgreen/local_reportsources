@@ -751,19 +751,23 @@ class query {
                 'timemodified' => time(),
             ]);
 
-            if ($rec->status !== self::STATUS_PUBLISHED || empty($rec->reportid)) {
+            if ($rec->status !== self::STATUS_PUBLISHED) {
                 continue;
             }
-            $report = report_model::get_record(['id' => (int) $rec->reportid]);
-            if (!$report) {
-                continue;
-            }
-            if ((int) $report->get('contextid') !== (int) $syscontext->id) {
-                $report->set('contextid', $syscontext->id);
-                $report->save();
-            }
-            foreach (audience_model::get_records(['reportid' => (int) $rec->reportid]) as $audience) {
-                $audience->delete();
+            // A query may own several reports (see create_additional_report); every one of them was
+            // placed in the now-deleted course context, so detach them all, not just $rec->reportid.
+            foreach (self::bound_report_ids((int) $rec->id) as $rid) {
+                $report = report_model::get_record(['id' => $rid]);
+                if (!$report) {
+                    continue;
+                }
+                if ((int) $report->get('contextid') !== (int) $syscontext->id) {
+                    $report->set('contextid', $syscontext->id);
+                    $report->save();
+                }
+                foreach (audience_model::get_records(['reportid' => $rid]) as $audience) {
+                    $audience->delete();
+                }
             }
         }
     }
@@ -930,21 +934,15 @@ class query {
      * @param \stdClass $record
      */
     private static function tear_down(int $queryid, \stdClass $record): void {
-        global $DB;
-
         // Delete all Report Builder reports bound to this query via the queryid config.
-        $boundreports = $DB->get_records_sql(
-            "SELECT * FROM {config_plugins} WHERE plugin = ? AND " . $DB->sql_like('name', '?') . " AND value = ?",
-            ['local_reportsources', 'queryid\_for\_report\_%', (string) $queryid]
-        );
-        foreach ($boundreports as $cfg) {
-            $rid = (int) str_replace('queryid_for_report_', '', $cfg->name);
+        foreach (self::bound_report_ids($queryid) as $rid) {
+            $cfgname = 'queryid_for_report_' . $rid;
             try {
                 $report = report_model::get_record(['id' => $rid]);
                 if ($report) {
                     reporthelper::delete_report($rid);
                 }
-                unset_config($cfg->name, 'local_reportsources');
+                unset_config($cfgname, 'local_reportsources');
             } catch (\dml_exception | \moodle_exception $e) {
                 debugging('local_reportsources: failed to delete report ' . $rid . ': ' . $e->getMessage());
             }
@@ -957,6 +955,30 @@ class query {
                 debugging('local_reportsources: failed to drop view: ' . $e->getMessage());
             }
         }
+    }
+
+    /**
+     * Ids of every Report Builder report bound to a query.
+     *
+     * A query owns one report per {@see query::create_additional_report()} call; each binding lives
+     * only in {config_plugins} as queryid_for_report_<rid>, so this lookup — not the query record's
+     * single reportid field — is the authoritative list of bound reports.
+     *
+     * @param int $queryid
+     * @return int[] Report ids.
+     */
+    private static function bound_report_ids(int $queryid): array {
+        global $DB;
+
+        $rows = $DB->get_records_sql(
+            "SELECT name FROM {config_plugins} WHERE plugin = ? AND " . $DB->sql_like('name', '?') . " AND value = ?",
+            ['local_reportsources', 'queryid\_for\_report\_%', (string) $queryid]
+        );
+        $ids = [];
+        foreach ($rows as $row) {
+            $ids[] = (int) str_replace('queryid_for_report_', '', $row->name);
+        }
+        return $ids;
     }
 
     /**

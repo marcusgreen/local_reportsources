@@ -69,8 +69,24 @@ if (optional_param('confirm', 0, PARAM_INT)) {
             \core\output\notification::NOTIFY_ERROR
         );
     }
+    // Tear-down can emit debugging() (e.g. a stale report/view that no longer deletes cleanly).
+    // If that raw output reached the stream before redirect(), redirect() would close the
+    // session and then render a full navigation page, mutating session caches after close
+    // ("mutated the session after it was closed"). Buffer the loop so the output never trips
+    // redirect into render mode, then fold any captured notice into the redirect message.
+    ob_start();
     foreach ($ids as $id) {
         query::get($id)->delete();
+    }
+    $noise = trim(ob_get_clean());
+
+    if ($noise !== '') {
+        redirect(
+            $returnurl,
+            get_string('deleted') . ' ' . html_to_text($noise),
+            null,
+            \core\output\notification::NOTIFY_WARNING
+        );
     }
     redirect(
         $returnurl,
