@@ -715,6 +715,60 @@ class query {
     }
 
     /**
+     * Detach every query scoped to a course that has just been deleted.
+     *
+     * Called from the {@see \core\event\course_deleted} observer. When a course is deleted its
+     * context row goes with it, leaving any report we placed in that course context with a dangling
+     * contextid that fatals {@see report_model::get_context()} (and, before that, our course-scoped
+     * audiences calling context_course::instance()). For each affected query this:
+     *
+     * - degrades the query to site-wide scope (courseid = 0) so the plugin UI is consistent;
+     * - re-points its published report to the system context, curing the dangling contextid;
+     * - clears the report's plugin audiences. The course-scoped audience can never match again, and
+     *   silently re-deriving a site-wide audience would *widen* who can open the report (a privilege
+     *   escalation), so we degrade to owner + reportbuilder:viewall only and force the picker to NONE.
+     *
+     * @param int $courseid Id of the deleted course.
+     */
+    public static function on_course_deleted(int $courseid): void {
+        global $DB;
+
+        if ($courseid <= 0) {
+            return;
+        }
+
+        $records = $DB->get_records(self::TABLE, ['courseid' => $courseid]);
+        if (!$records) {
+            return;
+        }
+
+        $syscontext = \context_system::instance();
+        foreach ($records as $rec) {
+            $DB->update_record(self::TABLE, (object) [
+                'id'           => $rec->id,
+                'courseid'     => 0,
+                'audiencemeta' => json_encode(['type' => self::AUDIENCE_NONE]),
+                'timemodified' => time(),
+            ]);
+
+            if ($rec->status !== self::STATUS_PUBLISHED || empty($rec->reportid)) {
+                continue;
+            }
+            $report = report_model::get_record(['id' => (int) $rec->reportid]);
+            if (!$report) {
+                continue;
+            }
+            if ((int) $report->get('contextid') !== (int) $syscontext->id) {
+                $report->set('contextid', $syscontext->id);
+                $report->save();
+            }
+            foreach (audience_model::get_records(['reportid' => (int) $rec->reportid]) as $audience) {
+                $audience->delete();
+            }
+        }
+    }
+
+    /**
      * Role ids considered "course staff" — those with a teaching or management archetype.
      *
      * Used for the automatic course-scoped audience so students are excluded by default.

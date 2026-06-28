@@ -158,4 +158,39 @@ final class audience_test extends \advanced_testcase {
         $this->assertSame('', $join);
         $this->assertSame('1 = 0', $where);
     }
+
+    public function test_course_deleted_detaches_published_query(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $course = $this->getDataGenerator()->create_course();
+        $id = query::save($this->formdata([
+            'courseid'     => $course->id,
+            'audiencetype' => 'courserole',
+            'audienceroles' => ['3'],
+        ]));
+        query::get($id)->publish();
+
+        $reportid = (int) $DB->get_field(query::TABLE, 'reportid', ['id' => $id]);
+        $this->assertNotEmpty($reportid);
+        // The report started life in the course context.
+        $coursecontext = \context_course::instance($course->id);
+        $report = \core_reportbuilder\local\models\report::get_record(['id' => $reportid]);
+        $this->assertSame((int) $coursecontext->id, (int) $report->get('contextid'));
+
+        delete_course($course, false);
+
+        // Query degraded to site-wide, picker forced to none.
+        $rec = $DB->get_record(query::TABLE, ['id' => $id]);
+        $this->assertSame(0, (int) $rec->courseid);
+        $this->assertSame('none', json_decode($rec->audiencemeta, true)['type']);
+
+        // Report re-pointed to system context (no dangling contextid) and audiences cleared.
+        $report = \core_reportbuilder\local\models\report::get_record(['id' => $reportid]);
+        $this->assertSame((int) \context_system::instance()->id, (int) $report->get('contextid'));
+        $this->assertSame(0, \core_reportbuilder\local\models\audience::count_records(['reportid' => $reportid]));
+        // get_context() must no longer throw.
+        $this->assertInstanceOf(\core\context\system::class, $report->get_context());
+    }
 }

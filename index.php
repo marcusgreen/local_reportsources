@@ -225,9 +225,13 @@ foreach ($queries as $rec) {
         $reportmodel = \core_reportbuilder\local\models\report::get_record(['id' => $rec->reportid]);
         if ($reportmodel) {
             // Mirror core_reportbuilder\permission::can_view_report() but reuse the pre-fetched
-            // audience list instead of re-querying it for every row.
-            $reportcontext = $reportmodel->get_context();
-            $canviewreport = \core_reportbuilder\permission::can_view_reports_list(null, $reportcontext)
+            // audience list instead of re-querying it for every row. The report's context may be a
+            // course context that was deleted with its course, leaving a dangling contextid; resolve
+            // it with IGNORE_MISSING so a stale report cannot crash the whole list (get_context()
+            // would throw). A report with no resolvable context simply offers no view link.
+            $reportcontext = \core\context::instance_by_id((int) $reportmodel->get('contextid'), IGNORE_MISSING);
+            $canviewreport = $reportcontext
+                && \core_reportbuilder\permission::can_view_reports_list(null, $reportcontext)
                 && (has_capability('moodle/reportbuilder:viewall', $reportcontext)
                     || \core_reportbuilder\permission::can_edit_report($reportmodel)
                     || in_array((int) $reportmodel->get('id'), $allowedreports, true));

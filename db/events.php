@@ -15,18 +15,18 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Ad-hoc SQL reports backed by the Reportbuilder API.
+ * Event observer registration for local_reportsources.
  *
- * @package     local_reportsources
- * @copyright   2026 Marcus Green
- * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package   local_reportsources
+ * @copyright 2026 Marcus Green
+ * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->component = 'local_reportsources';
-$plugin->release   = '0.1.4';
-$plugin->version   = 2026062800;
-$plugin->requires  = 2024100100; // Moodle 4.5+ for stable Reportbuilder API.
-$plugin->maturity  = MATURITY_ALPHA;
-$plugin->supported = [405, 502];
+$observers = [
+    [
+        'eventname' => '\core\event\course_deleted',
+        'callback'  => '\local_reportsources\observer::course_deleted',
+    ],
+];
