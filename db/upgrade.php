@@ -96,5 +96,26 @@ function xmldb_local_reportsources_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026062601, 'local', 'reportsources');
     }
 
+    if ($oldversion < 2026070100) {
+        // Add the groupmeta field: JSON control-break grouping config (breakcol, headercols,
+        // detailcols, rowlimit) rendered by grouped.php.
+        $table = new xmldb_table('local_reportsources_query');
+        $field = new xmldb_field(
+            'groupmeta',
+            XMLDB_TYPE_TEXT,
+            null,
+            null,
+            null,
+            null,
+            null,
+            'chartmeta'
+        );
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_plugin_savepoint(true, 2026070100, 'local', 'reportsources');
+    }
+
     return true;
 }

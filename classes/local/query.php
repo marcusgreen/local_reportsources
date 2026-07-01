@@ -309,7 +309,7 @@ class query {
      * @param int $pagecourseid Course id of the page hosting the block; 0 disables the page-course filter.
      * @return array<int, array<string, mixed>> Result rows as associative arrays.
      */
-    public function fetch_rows_for_viewer(int $rowlimit = 0, int $pagecourseid = 0): array {
+    public function fetch_rows_for_viewer(int $rowlimit = 0, int $pagecourseid = 0, string $sort = ''): array {
         global $DB, $USER;
 
         $rec = $this->record();
@@ -320,6 +320,49 @@ class query {
         if (!$meta) {
             return [];
         }
+
+        [$wheres, $params] = $this->viewer_scope($meta, $pagecourseid);
+
+        $select = $wheres ? implode(' AND ', $wheres) : '';
+        $fields = implode(', ', array_keys($meta));
+        $limit  = $rowlimit > 0 ? min(5000, $rowlimit) : 0;
+
+        // Sort only by a real output column (validated against the full column set, so a hidden
+        // per-user column may still order the rows). Anything else is ignored, never interpolated.
+        $order = '';
+        if ($sort !== '' && array_key_exists($sort, $this->columns_meta())) {
+            $order = $sort . ' ASC';
+        }
+
+        $rows = [];
+        try {
+            $rs = $DB->get_recordset_select($rec->viewname, $select, $params, $order, $fields, 0, $limit);
+            foreach ($rs as $row) {
+                $rows[] = (array) $row;
+            }
+            $rs->close();
+        } catch (\dml_exception $e) {
+            // Never surface raw DB errors to ordinary viewers (they can leak SQL/table names).
+            debugging($e->getMessage(), DEBUG_DEVELOPER);
+            throw new \moodle_exception('errchartdata', 'local_reportsources');
+        }
+        return $rows;
+    }
+
+    /**
+     * Build the WHERE clause fragments and params that scope the view to the current viewer:
+     * the per-user filter, the teacher-course filter, and (in a block) the page-course filter.
+     * Shared by the flat fetch and the grouped/paged fetch so both apply identical row scoping.
+     *
+     * The per-user filter column is removed from $meta (its value always equals the viewer's id,
+     * so it is never shown); the other columns stay visible.
+     *
+     * @param array $meta Column metadata, mutated to drop the hidden per-user column.
+     * @param int $pagecourseid Host page's course id (block only); 0 disables the page-course filter.
+     * @return array{0: string[], 1: array<string, mixed>} [$wheres, $params]
+     */
+    private function viewer_scope(array &$meta, int $pagecourseid = 0): array {
+        global $DB, $USER;
 
         $wheres = [];
         $params = [];
@@ -367,13 +410,76 @@ class query {
             // The course column stays visible: the same block may move between course pages.
         }
 
-        $select = $wheres ? implode(' AND ', $wheres) : '';
-        $fields = implode(', ', array_keys($meta));
-        $limit  = $rowlimit > 0 ? min(5000, $rowlimit) : 0;
+        return [$wheres, $params];
+    }
 
-        $rows = [];
+    /**
+     * Fetch one page of a control-break report, paginated by group (break value) so a group's
+     * detail rows are never split across a page boundary. Two scoped queries: the total group
+     * count for the pager, and the detail rows for just this page's break values.
+     *
+     * @param string $breakcol Output column whose value changes start a new group.
+     * @param int $page Zero-based page number.
+     * @param int $perpage Groups per page.
+     * @return array{rows: array<int, array<string, mixed>>, totalgroups: int}
+     */
+    public function fetch_grouped_page(string $breakcol, int $page, int $perpage): array {
+        global $DB;
+
+        $empty = ['rows' => [], 'totalgroups' => 0];
+        $rec = $this->record();
+        if ($rec->status !== self::STATUS_PUBLISHED || empty($rec->viewname)) {
+            return $empty;
+        }
+        // The break column must be a real output column: it is interpolated into SQL below, so it
+        // is only ever one of the introspected, validated column names — never user free-text.
+        $meta = $this->columns_meta();
+        if (!$meta || !array_key_exists($breakcol, $meta)) {
+            return $empty;
+        }
+
+        [$wheres, $params] = $this->viewer_scope($meta, 0);
+        $where  = $wheres ? 'WHERE ' . implode(' AND ', $wheres) : '';
+        $fields = implode(', ', array_keys($meta));
+        $perpage = max(1, $perpage);
+        $page = max(0, $page);
+
         try {
-            $rs = $DB->get_recordset_select($rec->viewname, $select, $params, '', $fields, 0, $limit);
+            // Total number of groups (distinct break values) under the viewer scope, for the pager.
+            $totalgroups = (int) $DB->count_records_sql(
+                "SELECT COUNT(*) FROM (SELECT {$breakcol} FROM {{$rec->viewname}} {$where} "
+                    . "GROUP BY {$breakcol}) rs_groups",
+                $params
+            );
+            if ($totalgroups === 0) {
+                return $empty;
+            }
+
+            // This page's break values, in the same order the rows will be grouped.
+            $keyrecs = $DB->get_records_sql(
+                "SELECT {$breakcol} AS rs_key FROM {{$rec->viewname}} {$where} "
+                    . "GROUP BY {$breakcol} ORDER BY {$breakcol} ASC",
+                $params,
+                $page * $perpage,
+                $perpage
+            );
+            $keys = array_map(static fn($r) => $r->rs_key, $keyrecs);
+            if (!$keys) {
+                return ['rows' => [], 'totalgroups' => $totalgroups];
+            }
+
+            // Detail rows for exactly this page's groups, ordered by the break column.
+            [$insql, $inparams] = $DB->get_in_or_equal($keys, SQL_PARAMS_NAMED, 'rs_pk');
+            $rowwheres = $wheres;
+            $rowwheres[] = "{$breakcol} {$insql}";
+            $rows = [];
+            $rs = $DB->get_recordset_select(
+                $rec->viewname,
+                implode(' AND ', $rowwheres),
+                $params + $inparams,
+                "{$breakcol} ASC",
+                $fields
+            );
             foreach ($rs as $row) {
                 $rows[] = (array) $row;
             }
@@ -383,7 +489,8 @@ class query {
             debugging($e->getMessage(), DEBUG_DEVELOPER);
             throw new \moodle_exception('errchartdata', 'local_reportsources');
         }
-        return $rows;
+
+        return ['rows' => $rows, 'totalgroups' => $totalgroups];
     }
 
     /**
@@ -395,6 +502,42 @@ class query {
         $raw = $this->record->columnsmeta ?: '[]';
         $decoded = json_decode($raw, true);
         return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * Decoded control-break grouping config (breakcol, headercols, detailcols, rowlimit).
+     * Grouping is "on" only when a non-empty breakcol is present.
+     *
+     * @return array{breakcol?:string,headercols?:string[],detailcols?:string[],rowlimit?:int}
+     */
+    public function group_meta(): array {
+        $raw = $this->record->groupmeta ?: '[]';
+        $decoded = json_decode($raw, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * Format one cell value for display in the grouped view, matching how the Report Builder
+     * entity renders it: timestamp columns become dates via userdate(), everything else is a
+     * plain string. Uses the per-column dateformat cached in columnsmeta at publish time.
+     *
+     * @param string $col Output column name.
+     * @param mixed $value Raw cell value from the view.
+     * @return string Display string.
+     */
+    public function format_cell(string $col, $value): string {
+        $meta = $this->columns_meta();
+        $type = $meta[$col]['type'] ?? 'text';
+        if ($type === 'timestamp') {
+            if (empty($value)) {
+                return '';
+            }
+            $fmt = \local_reportsources\reportbuilder\local\entities\adhoc_view::strftime_format(
+                (string) ($meta[$col]['dateformat'] ?? '')
+            );
+            return userdate((int) $value, $fmt);
+        }
+        return (string) $value;
     }
 
     /**
@@ -474,6 +617,24 @@ class query {
                 'xcol'     => clean_param((string) ($data->chart_xcol ?? ''), PARAM_ALPHANUMEXT),
                 'ycol'     => clean_param((string) ($data->chart_ycol ?? ''), PARAM_ALPHANUMEXT),
                 'rowlimit' => max(1, min(5000, (int) ($data->chart_rowlimit ?? 200))),
+            ]);
+        }
+
+        // Control-break grouping config. The grouping section is only rendered for published
+        // queries (its column pickers come from the live view), so group_breakcol is present only
+        // then. An empty breakcol turns grouping off.
+        if (isset($data->group_breakcol)) {
+            $cleancols = static function ($cols): array {
+                $cols = is_array($cols) ? $cols : [];
+                $cols = array_map(static fn($c) => clean_param((string) $c, PARAM_ALPHANUMEXT), $cols);
+                return array_values(array_filter($cols, static fn($c) => $c !== ''));
+            };
+            $record->groupmeta = json_encode([
+                'breakcol'   => clean_param((string) $data->group_breakcol, PARAM_ALPHANUMEXT),
+                'headercols' => $cleancols($data->group_headercols ?? []),
+                'detailcols' => $cleancols($data->group_detailcols ?? []),
+                'rowlimit'   => max(1, min(5000, (int) ($data->group_rowlimit ?? 1000))),
+                'perpage'    => max(1, min(200, (int) ($data->group_perpage ?? 25))),
             ]);
         }
 

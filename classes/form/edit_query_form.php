@@ -297,6 +297,42 @@ class edit_query_form extends moodleform {
         $mform->setType('chart_rowlimit', PARAM_INT);
         $mform->setDefault('chart_rowlimit', (int) ($chartmeta['rowlimit'] ?? 200));
         $mform->addHelpButton('chart_rowlimit', 'chartrowlimit', 'local_reportsources');
+
+        // Control-break grouping: pick a break column, the columns shown once per group on the
+        // header line, and the columns repeated on each detail line beneath. Rendered by grouped.php.
+        $groupmeta = $record->groupmeta ? json_decode($record->groupmeta, true) : [];
+        if (!is_array($groupmeta)) {
+            $groupmeta = [];
+        }
+
+        $mform->addElement('header', 'groupheader', get_string('groupsettings', 'local_reportsources'));
+
+        $mform->addElement('select', 'group_breakcol', get_string('groupbreakcol', 'local_reportsources'), $xopts);
+        $mform->setType('group_breakcol', PARAM_ALPHANUMEXT);
+        $mform->setDefault('group_breakcol', (string) ($groupmeta['breakcol'] ?? ''));
+        $mform->addHelpButton('group_breakcol', 'groupbreakcol', 'local_reportsources');
+
+        $multi = ['multiple' => 'multiple', 'size' => min(10, max(3, count($colopts)))];
+
+        $mform->addElement('select', 'group_headercols', get_string('groupheadercols', 'local_reportsources'), $colopts, $multi);
+        $mform->setType('group_headercols', PARAM_ALPHANUMEXT);
+        $mform->setDefault('group_headercols', $groupmeta['headercols'] ?? []);
+        $mform->addHelpButton('group_headercols', 'groupheadercols', 'local_reportsources');
+
+        $mform->addElement('select', 'group_detailcols', get_string('groupdetailcols', 'local_reportsources'), $colopts, $multi);
+        $mform->setType('group_detailcols', PARAM_ALPHANUMEXT);
+        $mform->setDefault('group_detailcols', $groupmeta['detailcols'] ?? []);
+        $mform->addHelpButton('group_detailcols', 'groupdetailcols', 'local_reportsources');
+
+        $mform->addElement('text', 'group_rowlimit', get_string('grouprowlimit', 'local_reportsources'), ['size' => 6]);
+        $mform->setType('group_rowlimit', PARAM_INT);
+        $mform->setDefault('group_rowlimit', (int) ($groupmeta['rowlimit'] ?? 1000));
+        $mform->addHelpButton('group_rowlimit', 'grouprowlimit', 'local_reportsources');
+
+        $mform->addElement('text', 'group_perpage', get_string('groupperpage', 'local_reportsources'), ['size' => 6]);
+        $mform->setType('group_perpage', PARAM_INT);
+        $mform->setDefault('group_perpage', (int) ($groupmeta['perpage'] ?? 25));
+        $mform->addHelpButton('group_perpage', 'groupperpage', 'local_reportsources');
     }
 
     /**

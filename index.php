@@ -331,12 +331,21 @@ foreach ($queries as $rec) {
     // reader no way to tell the menus apart.
     $menu->set_kebab_trigger(get_string('actionsfor', 'local_reportsources', $reportname));
 
+    $groupmeta = $rec->groupmeta ? json_decode($rec->groupmeta, true) : [];
+    $hasgroup  = !empty($groupmeta['breakcol']);
     if ($canviewreport) {
         if ($haschart) {
             $menu->add(new action_menu_link_secondary(
                 new moodle_url('/local/reportsources/chart.php', ['id' => $rec->id] + $urlcourse),
                 new pix_icon('i/chartbar', ''),
                 get_string('viewchart', 'local_reportsources')
+            ));
+        }
+        if ($hasgroup) {
+            $menu->add(new action_menu_link_secondary(
+                new moodle_url('/local/reportsources/grouped.php', ['id' => $rec->id] + $urlcourse),
+                new pix_icon('i/report', ''),
+                get_string('groupedview', 'local_reportsources')
             ));
         }
         if (has_any_capability(['moodle/reportbuilder:edit', 'moodle/reportbuilder:editall'], $syscontext)) {

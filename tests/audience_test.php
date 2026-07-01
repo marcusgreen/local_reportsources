@@ -44,6 +44,25 @@ final class audience_test extends \advanced_testcase {
         ], $extra);
     }
 
+    /**
+     * Drop any VIEWs left behind by publish() before the framework reset runs. Moodle's PHPUnit
+     * reset enumerates tables and issues DROP TABLE, which errors on a VIEW — so a test that leaves
+     * a query published would otherwise fail in teardown rather than in the test body.
+     */
+    protected function tearDown(): void {
+        global $DB;
+        $prefix = $DB->get_prefix() . 'local_reportsources_v_';
+        $views = $DB->get_records_sql(
+            "SELECT table_name FROM information_schema.views WHERE table_schema = DATABASE() AND table_name LIKE ?",
+            [$prefix . '%']
+        );
+        foreach ($views as $view) {
+            $name = $view->table_name ?? reset($view);
+            $DB->execute('DROP VIEW IF EXISTS ' . $name);
+        }
+        parent::tearDown();
+    }
+
     public function test_default_audience_persists_as_null(): void {
         global $DB;
         $this->resetAfterTest();
@@ -127,7 +146,7 @@ final class audience_test extends \advanced_testcase {
         $this->resetAfterTest();
 
         $course = $this->getDataGenerator()->create_course();
-        [$join, $where, $params] = $this->courserole_instance($course->id, [3])->get_sql('u');
+        [$join, $where, $params] = $this->courserole_instance((int) $course->id, [3])->get_sql('u');
 
         $this->assertNotEmpty($join);
         $this->assertStringContainsString('role_assignments', $join);
