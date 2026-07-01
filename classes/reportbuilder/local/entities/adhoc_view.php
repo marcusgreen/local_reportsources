@@ -143,7 +143,7 @@ class adhoc_view extends base {
      * @param string $neutral Neutral format from the %%TIMESTAMP(expr, format)%% token.
      * @return string strftime format.
      */
-    private static function strftime_format(string $neutral): string {
+    public static function strftime_format(string $neutral): string {
         $neutral = trim($neutral);
         if ($neutral === '') {
             return self::DEFAULT_DATE_FORMAT;

@@ -80,6 +80,7 @@ class transfer {
             'courseid'    => (int) ($rec->courseid ?? 0),
             'visible'     => (int) ($rec->visible ?? 1),
             'chartmeta'   => $rec->chartmeta ? json_decode($rec->chartmeta, true) : null,
+            'groupmeta'   => $rec->groupmeta ? json_decode($rec->groupmeta, true) : null,
         ];
     }
 
@@ -115,6 +116,8 @@ class transfer {
                 'visible'     => (int) ($raw['visible'] ?? 1),
                 'chartmeta'   => isset($raw['chartmeta']) && is_array($raw['chartmeta'])
                     ? $raw['chartmeta'] : null,
+                'groupmeta'   => isset($raw['groupmeta']) && is_array($raw['groupmeta'])
+                    ? $raw['groupmeta'] : null,
             ];
         }
         return $sources;
@@ -175,6 +178,7 @@ class transfer {
                 'courseid'     => $courseid,
                 'visible'      => (int) ($source['visible'] ?? 1),
                 'chartmeta'    => !empty($source['chartmeta']) ? json_encode($source['chartmeta']) : null,
+                'groupmeta'    => !empty($source['groupmeta']) ? json_encode($source['groupmeta']) : null,
                 'ownerid'      => (int) $USER->id,
                 'status'       => query::STATUS_DRAFT,
                 'viewname'     => null,
