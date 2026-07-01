@@ -112,6 +112,17 @@ The plugin ships sample report views in `samples/reportsources.json`, loadable t
 
 The shipped samples are cross-DB: date handling uses the `%%TIMESTAMP()%%` / `%%NOW%%` tokens rather than dialect-specific functions, so all of them import and publish on both MySQL/MariaDB and PostgreSQL.
 
+### Legacy-report importers (Configurable Reports & Ad-hoc DB Queries)
+
+Two admin pages migrate SQL reports from older plugins into RS drafts. Both share `classes/local/import_helper.php` (a **trait**) for the deterministic, AI-free SQL translation: double-quote → single-quote, MySQL date functions (`FROM_UNIXTIME`/`DATE_FORMAT`/`UNIX_TIMESTAMP`) → portable `%%TIMESTAMP%%`/`%%EPOCH%%`/`%%NOW%%` tokens, literal `?` in a string → `chr(63)`, plus `validator::validate()` and a live `dry_run()` (single-row fetch + CREATE/DROP VIEW). The only per-source step is `rewrite_tokens()`, which each importer defines and the trait's `convert()` calls via **late static binding** (`static::rewrite_tokens()`). Both feed accepted reports to `transfer::import()`, so they land as fresh drafts owned by the importer.
+
+`rewrite_date_functions()` is **DB-family aware**: after rewriting what it can to portable tokens, any leftover MySQL-only date function (`DATEDIFF`, `DATE_ADD/SUB`, `STR_TO_DATE`, un-mappable `FROM_UNIXTIME` formats, …) is **kept** with a note on a MySQL/MariaDB install (`$DB->get_dbfamily() === 'mysql'`) — it runs natively and the live `dry_run()` is the real gate — but is a **fatal reject** on PostgreSQL etc. where there is no equivalent. So a `DATEDIFF` report imports on MySQL and is rejected on Postgres.
+
+- **Configurable Reports** (`cr_import` → `import_cr.php`, table `block_configurable_reports`): decodes the serialised `components` blob; maps `%%STARTTIME/ENDTIME%%`→`0`/far-future, `%%DEBUG%%`→stripped; rejects `%%USERID%%`, `%%FILTER_*%%`, unknown tokens. Carries CR `courseid`/`visible`.
+- **Ad-hoc DB Queries** (`customsql_import` → `import_customsql.php`, table `report_customsql_queries`): reads the plain `querysql` column (no blob); maps the customsql escape tokens `%%Q%%`/`%%C%%`/`%%S%%`→`?`/`:`/`;`; **rejects** interactive named `:param` placeholders (detected on `mask_strings()` output so colons in literals don't false-positive) and `%%USERID%%`. customsql has no course scope, so every draft lands site-wide (`courseid 0`, `visible 1`).
+
+Both link from the settings page (`admin_setting_description` + a hidden `admin_externalpage`, inside `$hassiteconfig`) and reuse the shared `crimport:*` lang strings for conversion notes/reasons; page-level strings are `customsqlimport:*`.
+
 ### DB schema
 
 One table:

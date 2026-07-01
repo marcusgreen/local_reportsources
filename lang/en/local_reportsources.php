@@ -129,6 +129,7 @@ $string['crimport:noneimportable'] = 'No Configurable Reports SQL reports could 
 $string['crimport:noneselected'] = 'No reports were selected.';
 $string['crimport:noteclean'] = 'No changes needed';
 $string['crimport:notedatefn'] = 'Rewrote MySQL date function(s) to portable %%TIMESTAMP%% / %%EPOCH%% / %%NOW%% tokens';
+$string['crimport:notenativedate'] = 'Kept native MySQL date function(s) {$a} — they run on this MySQL/MariaDB database, but the imported report will not be portable to PostgreSQL';
 $string['crimport:noteqmark'] = 'Rewrote literal ? in a string to chr(63)';
 $string['crimport:notequotes'] = 'Converted "double-quoted" string literals to \'single-quoted\'';
 $string['crimport:notetoken'] = 'Substituted Configurable Reports token {$a}';
@@ -146,6 +147,18 @@ Each report is decoded and run through a fixed translation: MySQL date functions
 
 Imported reports land as drafts owned by you and must be published before they go live. No AI is used — every conversion is a fixed rule.';
 $string['crimport:unavailable'] = 'The Configurable Reports block (block_configurable_reports) is not installed, so there is nothing to import.';
+$string['customsqlimport:intro'] = 'These are the queries found in the Ad-hoc Database Queries report (report_customsql). Importable queries translate cleanly and will be created as drafts owned by you, ready to publish. Rejected queries use features that cannot be converted automatically — port those by hand.';
+$string['customsqlimport:linklabel'] = 'Import from Ad-hoc Database Queries';
+$string['customsqlimport:noneimportable'] = 'No Ad-hoc Database Queries could be translated automatically. See the rejected list below for why.';
+$string['customsqlimport:noteescape'] = 'Substituted customsql escape token(s) (%%Q%% / %%C%% / %%S%%) with their literal characters';
+$string['customsqlimport:reasonparam'] = 'Uses the interactive named parameter {$a}; rebuild this as a Report Builder filter after importing';
+$string['customsqlimport:title'] = 'Import from Ad-hoc Database Queries';
+$string['customsqlimport:title_help'] = 'Imports the queries stored in the Ad-hoc Database Queries report (report_customsql) as draft report sources.
+
+Each query is run through a fixed translation: MySQL date functions become portable %%TIMESTAMP%% / %%EPOCH%% / %%NOW%% tokens, double-quoted strings become single-quoted, customsql escape tokens (%%Q%% / %%C%% / %%S%%) become their literal characters, and a literal ? in a string is rebuilt with chr(63). Queries using features that cannot be converted (such as %%USERID%% or interactive :named parameters) are listed as rejected with a reason.
+
+Imported queries land as drafts owned by you and must be published before they go live. customsql has no per-course scope, so every draft starts site-wide. No AI is used — every conversion is a fixed rule.';
+$string['customsqlimport:unavailable'] = 'The Ad-hoc Database Queries report (report_customsql) is not installed, so there is nothing to import.';
 $string['delete'] = 'Delete';
 $string['deleteselected'] = 'Delete selected';
 $string['deleteselecthelp'] = 'Tick the report sources to delete. Deleting drops each backing database view and report and cannot be undone.';

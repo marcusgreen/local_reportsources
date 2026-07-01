@@ -130,19 +130,32 @@ final class cr_import_test extends \advanced_testcase {
     }
 
     /**
-     * MySQL-only date functions with no clean mapping are rejected.
+     * MySQL-only date functions with no clean mapping are rejected on non-MySQL databases, but kept
+     * (they run natively, validated by the live dry-run) on MySQL/MariaDB.
      */
-    public function test_convert_rejects_unmappable_date_fn(): void {
+    public function test_convert_unmappable_date_fn_depends_on_dbfamily(): void {
+        global $DB;
         $r = cr_import::convert('SELECT DATEDIFF(NOW(), created) FROM t');
-        $this->assertNotNull($r['fatal']);
+        if ($DB->get_dbfamily() === 'mysql') {
+            $this->assertNull($r['fatal']);
+            $this->assertStringContainsString('DATEDIFF', $r['sql']);
+        } else {
+            $this->assertNotNull($r['fatal']);
+        }
     }
 
     /**
-     * A format with an unsupported specifier is rejected rather than rendered wrong.
+     * A FROM_UNIXTIME format with an unsupported specifier cannot be mapped to a portable token. On
+     * MySQL the native call is kept; elsewhere it is rejected rather than rendered wrong.
      */
-    public function test_convert_rejects_unknown_format_specifier(): void {
+    public function test_convert_unknown_format_specifier_depends_on_dbfamily(): void {
+        global $DB;
         $r = cr_import::convert("SELECT FROM_UNIXTIME(t, '%W') FROM x");
-        $this->assertNotNull($r['fatal']);
+        if ($DB->get_dbfamily() === 'mysql') {
+            $this->assertNull($r['fatal']);
+        } else {
+            $this->assertNotNull($r['fatal']);
+        }
     }
 
     /**
