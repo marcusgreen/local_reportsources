@@ -159,6 +159,20 @@ JOIN forum_posts fp ON fp.userid = u.id
 
 Every `JOIN` also needs an `ON` (or `USING`) condition — a join with no condition is rejected.
 
+### Alias every calculated column
+
+A column that is not a plain `table.column` — an aggregate (`COUNT(*)`, `SUM(...)`, `AVG(...)`), a `CONCAT`, or arithmetic — has no name of its own, so the view has no valid name to give it. Add an `AS` alias to every such column:
+
+```sql
+-- WRONG: the count has no column name — publish fails
+SELECT count(*) FROM course
+
+-- CORRECT
+SELECT count(*) AS total FROM course
+```
+
+Without the alias, publishing fails with *"The column … is an expression with no name…"*. The live check flags it before you save when the SQL editor is on.
+
 ### Example: students enrolled on a course
 
 ```sql
@@ -589,6 +603,7 @@ Common messages:
 | *Multiple statements are not allowed.* | One statement only; remove extra `;`. |
 | *Disallowed table / column / keyword.* | Touches a denylisted table, column, or keyword. |
 | *Joined tables share duplicate column names…* | Replace `SELECT *` with explicit aliased columns. |
+| *The column "…" is an expression with no name…* | Add an `AS` alias to every aggregate/expression column (`count(*) AS total`). |
 | *A JOIN is missing its ON (or USING) condition.* | Add a join condition. |
 | *SQL contains a `?` character…* | Use `CHAR(63)` for a literal `?` inside a string. |
 | *The SQL contains an unfilled placeholder…* | Replace `##`-style placeholders with real values. |
@@ -629,6 +644,7 @@ Replace `moodle`, `mdluser`, and `localhost` with your schema name, DB user, and
 |---|---|---|
 | Publish fails with a DDL error | DB user lacks `CREATE VIEW` / `DROP` | Grant privileges (see above) and re-run the privilege test |
 | "Duplicate column name" on publish | `SELECT *` across joined tables sharing a column | Use explicit column aliases |
+| Publish fails: "expression with no name" (older builds: "Complex columns must have an alias") | An aggregate or expression column (`count(*)`, `CONCAT(...)`) has no name | Add `AS name` to that column |
 | Report shows no columns in Report Builder | Report opened outside the publish flow | Publish first, then use **Edit in Report Builder** |
 | Columns not updating after a SQL edit | Editing a published view reverts it to draft | Re-publish after editing |
 | Report Builder audience reverted | Re-publishing resets audience to the form's choice | Re-apply manual audience changes, or set them on the form |

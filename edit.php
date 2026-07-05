@@ -189,6 +189,16 @@ echo $OUTPUT->heading($existing
     ? get_string('edit', 'local_reportsources') . ': ' . format_string($existing->name)
     : get_string('addnew', 'local_reportsources'));
 
+// Link to the bundled user documentation so authors can reach it from the editor.
+echo html_writer::div(
+    html_writer::link(
+        new moodle_url('/local/reportsources/docs.php'),
+        get_string('userdocs', 'local_reportsources'),
+        ['target' => '_blank', 'rel' => 'noopener']
+    ),
+    'mb-3'
+);
+
 if ($aisqlchatavailable) {
     echo html_writer::start_div('card mb-3');
     echo html_writer::start_div('card-body');
