@@ -166,6 +166,7 @@ $string['errdeniedcolumn'] = 'Disallowed column: {$a}';
 $string['errdeniedkeyword'] = 'Disallowed keyword: {$a}';
 $string['errdeniedtable'] = 'Disallowed table: {$a}';
 $string['errdropview'] = 'Could not drop database view: {$a}';
+$string['errcolumnnoalias'] = 'The column "{$a}" is an expression with no name. Give every calculated or aggregate column an alias, e.g. SELECT count(*) AS total FROM course.';
 $string['errduplicatecolumn'] = 'Joined tables share duplicate column names (e.g. both have "id"). Replace SELECT * with explicit column aliases: SELECT u.id AS userid, fp.id AS postid, ...';
 $string['errimportempty'] = 'The export file contains no report sources.';
 $string['errimportformat'] = 'This file is not a valid Report sources export.';

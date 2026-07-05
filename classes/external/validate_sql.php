@@ -91,9 +91,17 @@ class validate_sql extends external_api {
         // change_database_structure() throws ddl_change_structure_exception (a moodle_exception
         // subclass, not a dml_exception), so we catch the broader moodle_exception here.
         $testview = $CFG->prefix . \local_reportsources\local\sql\privilege_check::PROBE_NAME . '_col';
+        $probeview = \local_reportsources\local\sql\privilege_check::PROBE_NAME . '_col';
         try {
             $DB->change_database_structure("CREATE OR REPLACE VIEW {$testview} AS {$resolved}");
+            // An unaliased expression (e.g. count(*)) becomes a VIEW column Report Builder can't
+            // reference; catch it now rather than letting publish fail with a coding_exception.
+            $badcol = view::first_unaliased_column(view::columns($probeview));
             $DB->change_database_structure("DROP VIEW IF EXISTS {$testview}");
+            if ($badcol !== null) {
+                return ['ok' => false, 'error' =>
+                    get_string('errcolumnnoalias', 'local_reportsources', $badcol)];
+            }
         } catch (\moodle_exception $e) {
             $detail = $e->debuginfo ?: $e->getMessage();
             if (stripos($detail, 'Duplicate column name') !== false) {

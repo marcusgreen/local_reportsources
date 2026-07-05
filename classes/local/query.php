@@ -549,6 +549,12 @@ class query {
         $viewname = view::create_or_replace($this->id(), $this->sql(), $this->courseid());
         $columns  = view::columns($viewname);
 
+        // An unaliased expression (e.g. `SELECT count(*) ...`) yields a VIEW column named `count(*)`,
+        // which Report Builder cannot build a column for. Fail early with a clear message.
+        if (($badcol = view::first_unaliased_column($columns)) !== null) {
+            throw new \moodle_exception('errcolumnnoalias', 'local_reportsources', '', $badcol);
+        }
+
         // Timestamp columns (%%TIMESTAMP()%%) resolve to a bare epoch integer in the view, so introspection alone
         // would type them as int. Recover the intended timestamp type — and any requested display
         // format — from the saved SQL tokens, keyed by output column name.

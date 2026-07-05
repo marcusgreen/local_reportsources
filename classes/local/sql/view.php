@@ -316,6 +316,26 @@ class view {
     }
 
     /**
+     * Return the first view column name that is not a plain SQL identifier, or null if all are valid.
+     *
+     * An unaliased expression such as `SELECT count(*) ...` becomes a VIEW column named `count(*)`,
+     * which Report Builder cannot reference (it derives its select alias from the column name and
+     * rejects anything that isn't `\w+` with "Complex columns must have an alias"). Detecting it here
+     * lets callers surface a clear "add an AS alias" message instead of a raw coding_exception.
+     *
+     * @param array<string, object> $columns Column map as returned by {@see self::columns()}.
+     * @return string|null Offending column name, or null when every name is a valid identifier.
+     */
+    public static function first_unaliased_column(array $columns): ?string {
+        foreach (array_keys($columns) as $name) {
+            if (!preg_match('/^\w+$/', (string) $name)) {
+                return (string) $name;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Introspect a VIEW's columns on Postgres via information_schema.
      *
      * @param string $viewname View name without the Moodle prefix.
