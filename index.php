@@ -288,10 +288,14 @@ foreach ($queries as $rec) {
         );
     }
 
+    // Admin-created queries are locked to site admins: hide edit/publish/delete links for non-admins.
+    // (Server-side guards in edit.php/delete.php/run.php/query.php enforce this regardless.)
+    $canmodifyrow = !is_siteadmin($rec->ownerid) || is_siteadmin($USER);
+
     // Editing the query is the most common action after opening, so it sits inline as a button
     // next to Open report rather than in the kebab menu.
     $editbtn = '';
-    if (has_capability('local/reportsources:author', $syscontext)) {
+    if ($canmodifyrow && has_capability('local/reportsources:author', $syscontext)) {
         $editbtn = html_writer::link(
             new moodle_url('/local/reportsources/edit.php', ['id' => $rec->id] + $urlcourse),
             get_string('edit', 'local_reportsources'),
@@ -314,7 +318,7 @@ foreach ($queries as $rec) {
 
     // Unpublish sits inline as a button, but only for rows that are actually published.
     $unpublishbtn = '';
-    if ($rec->status === query::STATUS_PUBLISHED && has_capability('local/reportsources:approve', $syscontext)) {
+    if ($canmodifyrow && $rec->status === query::STATUS_PUBLISHED && has_capability('local/reportsources:approve', $syscontext)) {
         $unpublishbtn = html_writer::link(
             new moodle_url(
                 '/local/reportsources/run.php',
@@ -350,14 +354,14 @@ foreach ($queries as $rec) {
             ));
         }
     }
-    if ($rec->status === query::STATUS_PUBLISHED && has_capability('local/reportsources:approve', $syscontext)) {
+    if ($canmodifyrow && $rec->status === query::STATUS_PUBLISHED && has_capability('local/reportsources:approve', $syscontext)) {
         $menu->add(new action_menu_link_secondary(
             new moodle_url('/local/reportsources/run.php', ['id' => $rec->id, 'action' => 'newreport', 'sesskey' => sesskey()]),
             new pix_icon('t/add', ''),
             get_string('newreport', 'local_reportsources')
         ));
     }
-    if ($rec->status === query::STATUS_DRAFT && has_capability('local/reportsources:approve', $syscontext)) {
+    if ($canmodifyrow && $rec->status === query::STATUS_DRAFT && has_capability('local/reportsources:approve', $syscontext)) {
         $menu->add(new action_menu_link_secondary(
             new moodle_url('/local/reportsources/run.php', ['id' => $rec->id, 'action' => 'publish', 'sesskey' => sesskey()]),
             new pix_icon('t/show', ''),
@@ -372,6 +376,7 @@ foreach ($queries as $rec) {
         ));
     }
     if (
+        $canmodifyrow &&
         has_capability('local/reportsources:author', $syscontext) &&
         ($rec->ownerid == $USER->id || has_capability('local/reportsources:viewall', $syscontext))
     ) {

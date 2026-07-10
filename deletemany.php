@@ -46,6 +46,10 @@ $queries = query::visible_to_current_user();
 if (!$viewall) {
     $queries = array_filter($queries, static fn($q): bool => (int) $q->ownerid === (int) $USER->id);
 }
+// Admin-created queries are locked to site admins regardless of capability.
+if (!is_siteadmin($USER)) {
+    $queries = array_filter($queries, static fn($q): bool => !is_siteadmin($q->ownerid));
+}
 $deletable = [];
 foreach ($queries as $rec) {
     $deletable[(int) $rec->id] = $rec;

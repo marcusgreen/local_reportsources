@@ -110,6 +110,32 @@ class query {
     }
 
     /**
+     * Whether the current user is allowed to modify (edit / delete / publish) this query.
+     *
+     * Queries owned by a site administrator are locked to site administrators: no capability
+     * (author / approve / viewall) lets a non-admin change an admin-created query. Queries owned
+     * by non-admins keep the normal owner/viewall rules enforced by the caller.
+     *
+     * @return bool
+     */
+    public function can_modify(): bool {
+        global $USER;
+        return !is_siteadmin($this->record->ownerid) || is_siteadmin($USER);
+    }
+
+    /**
+     * Throw unless the current user may modify this query (see {@see can_modify()}).
+     *
+     * @throws \required_capability_exception
+     */
+    public function require_can_modify(): void {
+        if (!$this->can_modify()) {
+            throw new \required_capability_exception(
+                \context_system::instance(), 'local/reportsources:author', 'nopermissions', '');
+        }
+    }
+
+    /**
      * Get the query name.
      *
      * @return string
@@ -480,6 +506,11 @@ class query {
         if (!empty($data->id)) {
             $record->id = (int) $data->id;
             $existing = $DB->get_record(self::TABLE, ['id' => $record->id], '*', MUST_EXIST);
+            // Admin-created queries are locked to site admins regardless of capability.
+            if (is_siteadmin($existing->ownerid) && !is_siteadmin($USER)) {
+                throw new \required_capability_exception(
+                    \context_system::instance(), 'local/reportsources:author', 'nopermissions', '');
+            }
             // SQL change while published: drop view + report so they get rebuilt on next publish.
             // A transaction here would be illusory — tear_down() issues DROP VIEW via
             // change_database_structure(), and DDL implicitly commits on MySQL. So demote the
@@ -545,6 +576,8 @@ class query {
      */
     public function publish(): void {
         global $DB;
+
+        $this->require_can_modify();
 
         $viewname = view::create_or_replace($this->id(), $this->sql(), $this->courseid());
         $columns  = view::columns($viewname);
@@ -845,6 +878,8 @@ class query {
      */
     public function unpublish(): void {
         global $DB;
+
+        $this->require_can_modify();
         self::tear_down($this->id(), $this->record);
         $DB->update_record(self::TABLE, (object) [
             'id'           => $this->id(),
@@ -869,6 +904,7 @@ class query {
      * @throws \moodle_exception If the query is not published.
      */
     public function create_additional_report(): int {
+        $this->require_can_modify();
         if ($this->status() !== self::STATUS_PUBLISHED || !$this->viewname()) {
             throw new \moodle_exception('invalidoperation', 'local_reportsources');
         }
@@ -891,6 +927,7 @@ class query {
      */
     public function delete(): void {
         global $DB;
+        $this->require_can_modify();
         // Snapshot id/name before the record is gone so the event can still describe it.
         $queryid = $this->id();
         $name = $this->name();

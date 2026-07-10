@@ -369,4 +369,99 @@ final class query_test extends \advanced_testcase {
         $this->assertContains((int) $a->id, $ids);
         $this->assertContains((int) $b->id, $ids);
     }
+
+    /**
+     * Create a non-admin user holding author + approve + viewall at system context, to prove the
+     * admin-owner lockdown overrides capability rather than being just another missing cap.
+     *
+     * @return \stdClass The created user.
+     */
+    private function privileged_nonadmin(): \stdClass {
+        global $DB;
+        $gen  = $this->getDataGenerator();
+        $user = $gen->create_user();
+        $syscontext = \context_system::instance();
+        $roleid = $gen->create_role();
+        foreach (['author', 'approve', 'viewall'] as $cap) {
+            assign_capability('local/reportsources:' . $cap, CAP_ALLOW, $roleid, $syscontext->id, true);
+        }
+        role_assign($roleid, $user->id, $syscontext->id);
+        accesslib_clear_all_caches_for_unit_testing();
+        $this->assertFalse(is_siteadmin($user), 'test user must not be a site admin');
+        return $user;
+    }
+
+    public function test_can_modify_reflects_admin_ownership(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $adminowned = query::save($this->formdata(['name' => 'Admin owned']));
+
+        $user = $this->privileged_nonadmin();
+        $this->setUser($user);
+        $this->assertFalse(query::get($adminowned)->can_modify());
+
+        $userowned = query::save($this->formdata(['name' => 'User owned']));
+        $this->assertTrue(query::get($userowned)->can_modify());
+
+        // A site admin may modify the admin-owned query.
+        $this->setAdminUser();
+        $this->assertTrue(query::get($adminowned)->can_modify());
+        $this->assertTrue(query::get($userowned)->can_modify());
+    }
+
+    public function test_nonadmin_cannot_save_admin_owned_query(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $id = query::save($this->formdata(['name' => 'Admin owned']));
+
+        $this->setUser($this->privileged_nonadmin());
+        $this->expectException(\required_capability_exception::class);
+        query::save($this->formdata(['id' => $id, 'name' => 'Hijacked']));
+    }
+
+    public function test_nonadmin_cannot_delete_admin_owned_query(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $id = query::save($this->formdata(['name' => 'Admin owned']));
+
+        $this->setUser($this->privileged_nonadmin());
+        $this->expectException(\required_capability_exception::class);
+        query::get($id)->delete();
+    }
+
+    public function test_nonadmin_cannot_publish_admin_owned_query(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $id = query::save($this->formdata(['name' => 'Admin owned']));
+
+        $this->setUser($this->privileged_nonadmin());
+        $this->expectException(\required_capability_exception::class);
+        query::get($id)->publish();
+    }
+
+    public function test_nonadmin_cannot_unpublish_admin_owned_query(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $id = query::save($this->formdata(['name' => 'Admin owned']));
+        query::get($id)->publish();
+
+        $this->setUser($this->privileged_nonadmin());
+        $this->expectException(\required_capability_exception::class);
+        query::get($id)->unpublish();
+    }
+
+    public function test_nonadmin_can_modify_own_query(): void {
+        $this->resetAfterTest();
+        $user = $this->privileged_nonadmin();
+        $this->setUser($user);
+
+        // Regression: the lockdown must not block a non-admin editing a non-admin-owned query.
+        $id = query::save($this->formdata(['name' => 'User owned']));
+        $editedid = query::save($this->formdata(['id' => $id, 'name' => 'User edited']));
+        $this->assertSame($id, $editedid);
+        query::get($id)->publish();
+        $this->assertSame(query::STATUS_PUBLISHED, query::get($id)->status());
+        query::get($id)->unpublish();
+        $this->assertSame(query::STATUS_DRAFT, query::get($id)->status());
+    }
 }

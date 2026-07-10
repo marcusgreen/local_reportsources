@@ -57,6 +57,10 @@ if ($id) {
     ) {
         throw new required_capability_exception($context, 'local/reportsources:viewall', 'nopermissions', '');
     }
+    // Admin-created queries are locked to site admins regardless of capability.
+    if (is_siteadmin($existing->ownerid) && !is_siteadmin($USER)) {
+        throw new required_capability_exception($context, 'local/reportsources:author', 'nopermissions', '');
+    }
 }
 
 // The audience picker offers course-scoped options only when the query is bound to a course.

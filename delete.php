@@ -41,6 +41,10 @@ if (
 ) {
     throw new required_capability_exception($context, 'local/reportsources:viewall', 'nopermissions', '');
 }
+// Admin-created queries are locked to site admins regardless of capability.
+if (is_siteadmin($rec->ownerid) && !is_siteadmin($USER)) {
+    throw new required_capability_exception($context, 'local/reportsources:author', 'nopermissions', '');
+}
 
 $confirm = optional_param('confirm', 0, PARAM_INT);
 
