@@ -620,6 +620,24 @@ Common messages:
 | SQL syntax highlight and autocomplete | On | CodeMirror 6 editor with keyword/table/column autocomplete from the live database |
 | AI SQL generation | Off | Show the AI question box on the edit form. Requires **local_sqlchat** installed and configured |
 
+### Locking a setting so no admin can change it
+
+Any of these settings can be **forced** from Moodle's `config.php`, using core's `$CFG->forced_plugin_settings`. A forced setting appears greyed-out on the settings page — noted as *defined in config.php* — and **not even a full site administrator can change it through the UI**. This is useful for hardening: lock the sensitive-column denylist so it can never be weakened by whoever holds `moodle/site:config`.
+
+```php
+// In config.php, before require_once(__DIR__ . '/lib/setup.php');
+$CFG->forced_plugin_settings = [
+  'local_reportsources' => [
+    // Lock the denylist so no admin can remove a protected column.
+    'denycolumns' => 'password,passwordhash,password_hash,secret,client_secret,sesskey,sid,apikey,api_key,token,accesstoken,refreshtoken,sharekey,salt,hash,signature,privatekey,private_key,clientid,client_id',
+    // You can lock the checkboxes too (1 = on, 0 = off):
+    // 'aigenerate' => 0,
+  ],
+];
+```
+
+The setting key is the part after `local_reportsources/` in the settings page. The forced value is what `get_config('local_reportsources', 'denycolumns')` returns everywhere in the plugin. To change or unlock it later, edit `config.php` — removing the entry returns control to the UI.
+
 ---
 
 ## Database privilege check
@@ -686,6 +704,12 @@ Two long-standing plugins build reports from SQL: **Ad-hoc database queries** (`
 - `block_configurable_reports` bundles authoring *and* display in one block; Report Sources splits these into `local_reportsources` (author) + `block_reportsources` (display).
 
 > Report Sources does not import reports from either plugin. The SQL itself is usually portable — paste it into a new report view (bare table names are auto-braced) and re-validate.
+
+---
+
+## Acknowledgements
+
+With thanks to **Gemma Lesterhuis — CEO, LTNC BV** for suggestions and feedback with this plugin.
 
 ---
 
