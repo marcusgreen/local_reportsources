@@ -57,7 +57,7 @@
         },
         {
             "name": "Enrolled users who have never accessed a given course ",
-            "description": "Users enrolled in a course who have no last-access record for it — i.e. never opened the course. The course is hard-coded as en.courseid = 2; edit that id for your course.",
+            "description": "Users enrolled in a course who have no last-access record for it \u2014 i.e. never opened the course. The course is hard-coded as en.courseid = 2; edit that id for your course.",
             "querysql": "SELECT username, firstname, lastname, idnumber\r\nFROM {user_enrolments} ue\r\nJOIN {enrol}           en ON ue.enrolid = en.id\r\nJOIN {user}            uu ON uu.id      = ue.userid\r\nWHERE en.courseid = 2\r\nAND NOT EXISTS (\r\n    SELECT * FROM {user_lastaccess} la\r\n    WHERE la.userid = ue.userid\r\n    AND la.courseid = en.courseid\r\n)",
             "courseid": 15,
             "visible": 1,
@@ -295,6 +295,33 @@
                 "xcol": "",
                 "ycol": "",
                 "rowlimit": 200
+            }
+        },
+        {
+            "name": "Enrolments grouped by user: demonstrates the control-break grouped view",
+            "description": "One band per user (name), then a detail row per course they are enrolled on with the enrolment date. Set the grouped view's break column to userid to see the master-detail layout on screen and in CSV/Excel exports.",
+            "querysql": "SELECT\r\n    u.id AS userid,\r\n    u.firstname,\r\n    u.lastname,\r\n    c.shortname AS course,\r\n    c.fullname AS coursename,\r\n    %%TIMESTAMP(ue.timecreated)%% AS enrolled\r\nFROM {user_enrolments} ue\r\nJOIN {enrol} e ON ue.enrolid = e.id\r\nJOIN {course} c ON e.courseid = c.id\r\nJOIN {user} u ON u.id = ue.userid\r\nWHERE u.deleted = 0 AND c.id > 1\r\nLIMIT 500",
+            "courseid": 0,
+            "visible": 1,
+            "chartmeta": {
+                "type": "none",
+                "xcol": "",
+                "ycol": "",
+                "rowlimit": 200
+            },
+            "groupmeta": {
+                "breakcol": "userid",
+                "headercols": [
+                    "firstname",
+                    "lastname"
+                ],
+                "detailcols": [
+                    "course",
+                    "coursename",
+                    "enrolled"
+                ],
+                "rowlimit": 1000,
+                "perpage": 25
             }
         }
     ]

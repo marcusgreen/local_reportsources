@@ -1,0 +1,11 @@
+.rs-grouped .rs-group-header {
+    font-weight: bold;
+    background-color: #f2f2f2;
+    border-top: 2px solid #ccc;
+}
+
+/* Break/header columns live only in the group band, so hide their redundant table column. */
+.rs-grouped th.rs-group-hide,
+.rs-grouped td.rs-group-hide {
+    display: none;
+}

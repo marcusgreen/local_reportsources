@@ -15,8 +15,12 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Render a control-break (grouped) view of a published ad-hoc query: one header line per group
- * (e.g. a user's name), then a detail line per row beneath it (e.g. each course they take).
+ * Render a control-break (grouped) view of a published ad-hoc query: a full-width band per group
+ * (e.g. a user's name), then a detail row per record beneath it (e.g. each course they take).
+ *
+ * The on-screen view is the query's Report Builder report rendered through
+ * {@see \local_reportsources\table\grouped_report_table} — real RB columns, filters and formatting,
+ * paginated by group with a band row on each break. CSV / Excel exports keep the same banded layout.
  *
  * @package   local_reportsources
  * @copyright 2026 Marcus Green
@@ -25,7 +29,10 @@
 
 require(__DIR__ . '/../../config.php');
 
+use core_reportbuilder\table\custom_report_table_view_filterset;
+use core_table\local\filter\integer_filter;
 use local_reportsources\local\query;
+use local_reportsources\table\grouped_report_table;
 
 $id       = required_param('id', PARAM_INT);
 $courseid = optional_param('courseid', 0, PARAM_INT);
@@ -51,7 +58,7 @@ if ($rec->status !== query::STATUS_PUBLISHED) {
 
 // Same single authoritative gate as chart.php / the RB viewer: managers always, everyone else only
 // if core RB's context + audience admit them. Rows are still scoped by the per-user / teacher-course
-// filters inside fetch_rows_for_viewer().
+// filters applied by the report itself.
 if (!$q->current_user_can_view_report()) {
     throw new moodle_exception(
         'nopermissions',
@@ -73,62 +80,56 @@ $isexport = ($format === 'csv' || $format === 'excel');
 $perpage  = max(1, min(200, (int) ($groupmeta['perpage'] ?? 25))); // Groups (not rows) per page.
 
 if ($isexport) {
-    // Exports contain every group up to the row limit, not just the current page.
+    // Exports contain every group up to the row limit, banded the same way as the screen view.
     $rows = $q->fetch_rows_for_viewer($rowlimit, 0, $breakcol);
-    $totalgroups = null;
-} else {
-    // The on-screen view is paged by group, so a group's detail rows never split across pages.
-    $paged = $q->fetch_grouped_page($breakcol, $page, $perpage);
-    $rows = $paged['rows'];
-    $totalgroups = $paged['totalgroups'];
-}
 
-// The columns actually present in the fetched rows (the per-user filter column is stripped out).
-$available = $rows ? array_keys($rows[0]) : array_keys($meta);
-$keep = static fn(array $cols): array => array_values(array_intersect($cols, $available));
+    // The columns actually present in the fetched rows (the per-user filter column is stripped out).
+    $available = $rows ? array_keys($rows[0]) : array_keys($meta);
+    $keep = static fn(array $cols): array => array_values(array_intersect($cols, $available));
 
-$headercols = $keep($groupmeta['headercols'] ?? []);
-if (!$headercols) {
-    // Fall back to the break column itself on the header line.
-    $headercols = $keep([$breakcol]);
-}
-$detailcols = $keep($groupmeta['detailcols'] ?? []);
-if (!$detailcols) {
-    // Default detail columns: everything not already on the header line and not the break key.
-    $detailcols = $keep(array_diff($available, $headercols, [$breakcol]));
-}
-if (!$detailcols) {
-    // Degenerate config (e.g. every column is a header column): show the break column as detail.
-    $detailcols = $keep([$breakcol]);
-}
+    $headercols = $keep($groupmeta['headercols'] ?? []);
+    if (!$headercols) {
+        // Fall back to the break column itself on the header line.
+        $headercols = $keep([$breakcol]);
+    }
+    $detailcols = $keep($groupmeta['detailcols'] ?? []);
+    if (!$detailcols) {
+        // Default detail columns: everything not already on the header line and not the break key.
+        $detailcols = $keep(array_diff($available, $headercols, [$breakcol]));
+    }
+    if (!$detailcols) {
+        // Degenerate config (e.g. every column is a header column): show the break column as detail.
+        $detailcols = $keep([$breakcol]);
+    }
 
-$label = static function (string $col) use ($meta): string {
-    return (string) ($meta[$col]['label'] ?? $col);
-};
+    $label = static function (string $col) use ($meta): string {
+        return (string) ($meta[$col]['label'] ?? $col);
+    };
 
-// Build the ordered groups: [headerstring => [detailrow, ...]] preserving first-seen order.
-$groups     = [];
-$prevkey    = null;
-$curheader  = '';
-foreach ($rows as $row) {
-    $key = (string) ($row[$breakcol] ?? '');
-    if ($key !== $prevkey) {
-        $parts = [];
-        foreach ($headercols as $col) {
-            $val = $q->format_cell($col, $row[$col] ?? '');
-            if ($val !== '') {
-                $parts[] = $val;
+    // Build the ordered groups: [headerstring => [detailrow, ...]] preserving first-seen order.
+    $groups    = [];
+    $prevkey   = null;
+    $curheader = '';
+    foreach ($rows as $row) {
+        $key = (string) ($row[$breakcol] ?? '');
+        if ($key !== $prevkey) {
+            $parts = [];
+            foreach ($headercols as $col) {
+                $val = $q->format_cell($col, $row[$col] ?? '');
+                if ($val !== '') {
+                    $parts[] = $val;
+                }
             }
+            $curheader = implode(' ', $parts);
+            $groups[$curheader] = [];
+            $prevkey = $key;
         }
-        $curheader = implode(' ', $parts);
-        $groups[$curheader] = [];
-        $prevkey = $key;
+        $detail = [];
+        foreach ($detailcols as $col) {
+            $detail[$col] = $q->format_cell($col, $row[$col] ?? '');
+        }
+        $groups[$curheader][] = $detail;
     }
-    $detail = [];
-    foreach ($detailcols as $col) {
-        $detail[$col] = $q->format_cell($col, $row[$col] ?? '');
-    }
-    $groups[$curheader][] = $detail;
 }
 
 // CSV export — stream and exit before any HTML output. Header groups are written as their own row
@@ -182,6 +183,19 @@ if ($format === 'excel') {
     exit;
 }
 
+// On-screen view: the RB report rendered as master-detail groups.
+$headercols = (array) ($groupmeta['headercols'] ?? []);
+$table = grouped_report_table::create_grouped((int) $rec->reportid, $breakcol, $headercols);
+
+if (!$table->break_resolved()) {
+    // The break column is no longer an active column of the RB report (e.g. removed in the editor).
+    throw new moodle_exception('errgroupnotactivecol', 'local_reportsources', '', s($breakcol));
+}
+if ($table->report_has_aggregation()) {
+    // A GROUP BY report already collapses rows; control-break banding on top makes no sense.
+    throw new moodle_exception('errgroupaggregation', 'local_reportsources');
+}
+
 $PAGE->set_url(new moodle_url(
     '/local/reportsources/grouped.php',
     ['id' => $id] + ($courseid ? ['courseid' => $courseid] : [])
@@ -193,32 +207,15 @@ $PAGE->set_heading($rec->name);
 echo $OUTPUT->header();
 echo $OUTPUT->heading(format_string($rec->name));
 
-if (!$groups) {
-    echo $OUTPUT->notification(get_string('groupnorows', 'local_reportsources'), 'info');
-} else {
-    // Page by group: the pager's item count is the total number of groups, not rows.
-    $pagingbar = new paging_bar($totalgroups, $page, $perpage, $PAGE->url);
-    echo $OUTPUT->render($pagingbar);
+// Carry the page size through the view filterset, the way core RB's own viewer does.
+$filterset = new custom_report_table_view_filterset();
+$filterset->add_filter(new integer_filter('pagesize', null, [$perpage]));
+$table->set_filterset($filterset);
+$table->define_baseurl($PAGE->url);
 
-    // One table for the whole report: each group name is a full-width header row above its detail
-    // rows. No column-label header — the group name carries the context. A single table keeps the
-    // detail columns aligned down the page.
-    $table = new html_table();
-    $table->attributes['class'] = 'table generaltable rs-grouped';
-    foreach ($groups as $header => $details) {
-        $headercell = new html_table_cell(s($header));
-        $headercell->colspan = count($detailcols);
-        $headercell->header = true;
-        $headercell->attributes['class'] = 'rs-group-header';
-        $table->data[] = new html_table_row([$headercell]);
-        foreach ($details as $detail) {
-            $table->data[] = array_map('s', array_values($detail));
-        }
-    }
-    echo html_writer::table($table);
-
-    echo $OUTPUT->render($pagingbar);
-}
+echo html_writer::start_div('rs-grouped');
+$table->out($perpage, false);
+echo html_writer::end_div();
 
 $indexurl = new moodle_url('/local/reportsources/index.php', $courseid ? ['courseid' => $courseid] : []);
 $csvurl   = new moodle_url(
