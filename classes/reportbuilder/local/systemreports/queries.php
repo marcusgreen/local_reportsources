@@ -63,8 +63,8 @@ class queries extends system_report {
             "{$entityname}:timemodified",
         ]);
 
-        // The most-used actions (Open report / Edit query / Edit in Report Builder) render as inline
-        // buttons in their own column; the rest stay in the row's kebab menu (see add_report_actions()).
+        // The most-used actions (Open report / Edit query / Edit in Report Builder / Unpublish) render as
+        // inline buttons in their own column; the rest stay in the row's kebab menu (see add_report_actions()).
         $this->add_buttons_column($entityname, $alias);
 
         // Course filter is redundant when the listing is already scoped to a course via the
@@ -191,22 +191,22 @@ class queries extends system_report {
                 global $USER;
                 $buttons = '';
 
-                // Open the published report.
-                if ($row->status === query::STATUS_PUBLISHED && !empty($row->reportid)) {
-                    $buttons .= html_writer::link(
-                        new moodle_url('/reportbuilder/view.php', ['id' => $row->reportid]),
-                        get_string('runreport', 'local_reportsources'),
-                        ['class' => 'btn btn-sm btn-primary me-1']
-                    );
-                }
-
                 // Edit the query. Admin-owned queries are locked to site admins.
                 $canmodify = !is_siteadmin($row->ownerid) || is_siteadmin($USER);
                 if ($canmodify && has_capability('local/reportsources:author', \context_system::instance())) {
                     $buttons .= html_writer::link(
                         new moodle_url('/local/reportsources/edit.php', ['id' => $row->id] + $urlcourse),
                         get_string('edit'),
-                        ['class' => 'btn btn-sm btn-secondary me-1']
+                        ['class' => 'btn btn-sm btn-secondary me-2']
+                    );
+                }
+
+                // Open the published report.
+                if ($row->status === query::STATUS_PUBLISHED && !empty($row->reportid)) {
+                    $buttons .= html_writer::link(
+                        new moodle_url('/reportbuilder/view.php', ['id' => $row->reportid]),
+                        get_string('runreport', 'local_reportsources'),
+                        ['class' => 'btn btn-sm btn-primary me-2']
                     );
                 }
 
@@ -221,11 +221,28 @@ class queries extends system_report {
                     $buttons .= html_writer::link(
                         new moodle_url('/reportbuilder/edit.php', ['id' => $row->reportid]),
                         get_string('editreport', 'local_reportsources'),
-                        ['class' => 'btn btn-sm btn-secondary']
+                        ['class' => 'btn btn-sm btn-secondary me-2']
                     );
                 }
 
-                return $buttons;
+                // Unpublish a published query (approve capability; admin-owned queries locked to admins).
+                if (
+                    $row->status === query::STATUS_PUBLISHED
+                    && (!is_siteadmin($row->ownerid) || is_siteadmin($USER))
+                    && has_capability('local/reportsources:approve', \context_system::instance())
+                ) {
+                    $buttons .= html_writer::link(
+                        new moodle_url(
+                            '/local/reportsources/run.php',
+                            ['id' => $row->id, 'action' => 'unpublish', 'sesskey' => sesskey()]
+                        ),
+                        get_string('unpublish', 'local_reportsources'),
+                        ['class' => 'btn btn-sm btn-warning']
+                    );
+                }
+
+                // Keep the action buttons on a single line instead of wrapping in the narrow cell.
+                return $buttons === '' ? '' : html_writer::div($buttons, 'text-nowrap');
             });
 
         $this->add_column($column);
@@ -234,10 +251,10 @@ class queries extends system_report {
     /**
      * Add the per-row kebab action links, mirroring the plugin's own listing page.
      *
-     * Open report, Edit query and Edit in Report Builder render as inline buttons (see
-     * add_buttons_column()); this covers the remainder: Unpublish, View chart, Schedule emails,
-     * New report, Publish, Duplicate and Delete. Each is gated by the same capability / status /
-     * owner-lock rules the hand-rolled index.php table used.
+     * Open report, Edit query, Edit in Report Builder and Unpublish render as inline buttons (see
+     * add_buttons_column()); this covers the remainder: View chart, Schedule emails, New report,
+     * Publish, Duplicate and Delete. Each is gated by the same capability / status / owner-lock rules
+     * the hand-rolled index.php table used.
      *
      * @return void
      */
@@ -251,21 +268,6 @@ class queries extends system_report {
             global $USER;
             return !is_siteadmin($row->ownerid) || is_siteadmin($USER);
         };
-
-        // Unpublish a published query.
-        $this->add_action((new action(
-            new moodle_url(
-                '/local/reportsources/run.php',
-                ['id' => ':id', 'action' => 'unpublish', 'sesskey' => sesskey()]
-            ),
-            new pix_icon('t/hide', ''),
-            [],
-            false,
-            new lang_string('unpublish', 'local_reportsources')
-        ))->add_callback(static function (\stdClass $row) use ($canmodifyrow): bool {
-            return $canmodifyrow($row) && $row->status === query::STATUS_PUBLISHED
-                && has_capability('local/reportsources:approve', \context_system::instance());
-        }));
 
         // View the configured chart (only when the query has one).
         $this->add_action((new action(

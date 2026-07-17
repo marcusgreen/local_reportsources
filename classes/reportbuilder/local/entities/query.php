@@ -121,9 +121,12 @@ class query extends base {
                 }
                 $name = format_string($value);
 
+                // Cap the column width (main used a 33% html_table size); long names wrap within it.
+                $wrap = static fn(string $html): string => \html_writer::span($html, 'rs-query-name');
+
                 $chartmeta = !empty($row->chartmeta) ? json_decode($row->chartmeta, true) : [];
                 if (empty($chartmeta['type']) || $chartmeta['type'] === 'none') {
-                    return $name;
+                    return $wrap($name);
                 }
 
                 // Glyph + Bootstrap text-colour class per type (theme-aware, dark-mode safe).
@@ -139,7 +142,7 @@ class query extends base {
                     'title'       => get_string('viewchart', 'local_reportsources'),
                     'aria-hidden' => 'true',
                 ]);
-                return $icon . $name;
+                return $wrap($icon . $name);
             });
 
         // Status (draft|published|disabled) rendered via lang string.
@@ -168,7 +171,9 @@ class query extends base {
             ->set_type(column::TYPE_TEXT)
             ->add_field($DB->sql_fullname("{$u}.firstname", "{$u}.lastname"), 'fullname')
             ->set_is_sortable(true)
-            ->add_callback(static fn($value): string => $value ?? '-');
+            // Keep the full name on one line so the column claims the room it needs (main used a 17% width).
+            ->add_callback(static fn($value): string =>
+                \html_writer::span(s($value !== null && $value !== '' ? $value : '-'), 'text-nowrap'));
 
         // Bound course full name ('-' when site-wide).
         $columns[] = (new column('course', new lang_string('course'), $this->get_entity_name()))
@@ -177,7 +182,10 @@ class query extends base {
             ->set_type(column::TYPE_TEXT)
             ->add_field("{$c}.fullname")
             ->set_is_sortable(true)
-            ->add_callback(static fn($value): string => $value ? format_string($value) : '-');
+            // Keep the course name on one line (freed space from the narrowed Name column), so it is
+            // less likely to wrap — the same treatment as the Owner column.
+            ->add_callback(static fn($value): string =>
+                \html_writer::span($value ? format_string($value) : '-', 'text-nowrap'));
 
         // Visible flag.
         $columns[] = (new column('visible', new lang_string('visible', 'local_reportsources'), $this->get_entity_name()))
