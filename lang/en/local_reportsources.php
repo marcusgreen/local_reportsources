@@ -200,6 +200,7 @@ $string['importselecthelp'] = 'Tick the report sources to import. Each is create
 $string['importskipped'] = 'Skipped (failed SQL validation): {$a}.';
 $string['importupload'] = 'Upload and choose';
 $string['importuploadhelp'] = 'Upload a JSON file previously produced by the Export action. You will then choose which report sources to import.';
+$string['entityquery'] = 'Report source';
 $string['install:createrole'] = 'Optionally create a "Report author" role so non-administrators can author reports. Review the security implications first: {$a}';
 $string['install:loadsamples'] = 'Report sources ships sample report sources you can load to get started: {$a}';
 $string['install:privilegefail'] = 'Report sources installed, but the database user cannot create or drop views. Publishing queries will fail until the grants are fixed. Error: {$a}';
@@ -268,6 +269,7 @@ $string['status_disabled'] = 'Disabled';
 $string['status_draft'] = 'Draft';
 $string['status_published'] = 'Published';
 
+$string['timecreated'] = 'Time created';
 $string['testview:fail'] = 'The database user cannot create or drop views. Error: {$a}';
 $string['testview:grantshint'] = 'Grant the Moodle database user CREATE VIEW and DROP privileges on the schema (e.g. on MySQL/MariaDB: GRANT CREATE VIEW, DROP ON moodle.* TO \'mdluser\'@\'host\';).';
 $string['testview:linklabel'] = 'Run database view privilege test';
