@@ -99,8 +99,9 @@ class validate_sql extends external_api {
             $badcol = view::first_unaliased_column(view::columns($probeview));
             $DB->change_database_structure("DROP VIEW IF EXISTS {$testview}");
             if ($badcol !== null) {
+                $errkey = preg_match('/\s/', $badcol) ? 'erraliasspaces' : 'errcolumnnoalias';
                 return ['ok' => false, 'error' =>
-                    get_string('errcolumnnoalias', 'local_reportsources', $badcol)];
+                    get_string($errkey, 'local_reportsources', $badcol)];
             }
         } catch (\moodle_exception $e) {
             $detail = $e->debuginfo ?: $e->getMessage();

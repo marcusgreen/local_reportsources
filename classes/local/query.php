@@ -585,7 +585,8 @@ class query {
         // An unaliased expression (e.g. `SELECT count(*) ...`) yields a VIEW column named `count(*)`,
         // which Report Builder cannot build a column for. Fail early with a clear message.
         if (($badcol = view::first_unaliased_column($columns)) !== null) {
-            throw new \moodle_exception('errcolumnnoalias', 'local_reportsources', '', $badcol);
+            $errkey = preg_match('/\s/', $badcol) ? 'erraliasspaces' : 'errcolumnnoalias';
+            throw new \moodle_exception($errkey, 'local_reportsources', '', $badcol);
         }
 
         // Timestamp columns (%%TIMESTAMP()%%) resolve to a bare epoch integer in the view, so introspection alone
