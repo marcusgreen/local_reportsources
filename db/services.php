@@ -43,4 +43,13 @@ $functions = [
         'capabilities' => 'local/reportsources:author',
         'loginrequired' => true,
     ],
+    'local_reportsources_check_query' => [
+        'classname'   => 'local_reportsources\external\check_query',
+        'methodname'  => 'execute',
+        'description' => 'Analyse an ad-hoc SQL query: date columns, row count, index/full-scan feedback',
+        'type'        => 'read',
+        'ajax'        => true,
+        'capabilities' => 'local/reportsources:author',
+        'loginrequired' => true,
+    ],
 ];
