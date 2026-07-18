@@ -167,6 +167,7 @@ $string['errdeniedkeyword'] = 'Disallowed keyword: {$a}';
 $string['errdeniedtable'] = 'Disallowed table: {$a}';
 $string['errdropview'] = 'Could not drop database view: {$a}';
 $string['errcolumnnoalias'] = 'The column "{$a}" is an expression with no name. Give every calculated or aggregate column an alias, e.g. SELECT count(*) AS total FROM course.';
+$string['erraliasspaces'] = 'The column alias "{$a}" contains spaces. Column aliases in Report sources cannot have spaces — use an underscore or camel case instead, e.g. SELECT firstname AS first_name FROM user. You can rename the column with a space after publishing, using Report Builder.';
 $string['errduplicatecolumn'] = 'Joined tables share duplicate column names (e.g. both have "id"). Replace SELECT * with explicit column aliases: SELECT u.id AS userid, fp.id AS postid, ...';
 $string['errimportempty'] = 'The export file contains no report sources.';
 $string['errimportformat'] = 'This file is not a valid Report sources export.';
