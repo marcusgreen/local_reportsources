@@ -23,7 +23,7 @@ The [full user documentation](docs/userdocs.md) covers the edit form, writing SQ
 
 ## Requirements
 
-- Moodle 4.5 – 5.0
+- Moodle 4.5 – 5.2
 - A database account with permission to create and drop database views.
 
 Check the privilege from **Site admin → Local plugins → Report sources → Run database view privilege test**.
