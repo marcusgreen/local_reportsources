@@ -26,8 +26,8 @@ Two pieces of persistent state:
 
 | Store | Holds |
 |---|---|
-| `local_reportsources_query` table | The query record: `sql`, `status` (`draft\|published\|disabled`), `viewname`, `reportid`, `columnsmeta` (JSON), `courseid` (0 = site-wide), `visible`, `audiencemeta` (JSON), per-user / per-course filter column choices |
-| `config_plugins` rows | `queryid_for_report_<reportid> = <queryid>` — the binding between an RB report and the query that backs it |
+| `local_reportsources_query` table | The query record: `name`, `description`, `querysql`, `ownerid`, `status` (`draft\|published\|disabled`), `viewname`, `reportid`, `columnsmeta` (JSON), `chartmeta` (JSON), `audiencemeta` (JSON), `courseid` (0 = site-wide), `visible`, `useridcolumn` / `coursecolumn` / `pagecoursecolumn` (per-user / per-course filter columns), `timecreated`, `timemodified` |
+| `config_plugins` rows | `queryid_for_report_<reportid> = <queryid>` — the binding between an RB report and the query that backs it. One-to-many: a query can own several reports (see `create_additional_report()` / `bound_report_ids()`), each with its own row |
 
 There is **no** separate audit table. Lifecycle auditing is done through Moodle's standard event
 log (`logstore_standard_log`) — see §8.
@@ -208,7 +208,10 @@ both generated **programmatically only** (never offered in the RB audience UI):
 
 - `classes/reportbuilder/audience/courseparticipant.php` — active enrolments in a course; carries
   `configdata = ['courseid' => int]`.
-- `classes/reportbuilder/audience/courserole.php` — users holding given roles in a course.
+- `classes/reportbuilder/audience/courserole.php` — users holding given roles in a course; carries
+  `configdata = ['courseid' => int, 'roles' => int[]]`.
+
+The `cohort` picker choice uses **core's** `cohortmember` audience (`configdata = ['cohorts' => int[]]`), not a custom class.
 
 > **Critical invariant:** a query hidden at the plugin level but published with a wide audience is
 > still reachable through `/reportbuilder/view.php`. Always change visibility through
@@ -298,6 +301,18 @@ The plugin's own `local/sqlchat:use` capability is granted to the report-author 
 - Triggered from `classes/local/query.php` (save / publish / unpublish / delete / duplicate).
 - Viewable at **Site admin → Reports → Logs**.
 
+### Course-deletion observer
+
+Separately from the lifecycle events, `db/events.php` subscribes `\core\event\course_deleted`
+→ `classes/observer.php::course_deleted` → `query::on_course_deleted()`. When a course is deleted
+its context row goes with it, leaving any report placed in that course context with a dangling
+`contextid`. For every query scoped to that course this:
+
+- degrades the query to site-wide (`courseid = 0`) and forces `audiencemeta.type = none` — silently
+  re-deriving a site-wide audience would **widen** who can open the report (privilege escalation);
+- re-points each of its published reports (all of them — see `bound_report_ids()`) to the system
+  context, curing the dangling `contextid`.
+
 ---
 
 ## 9. Admin tree & capabilities
@@ -370,13 +385,17 @@ classes/local/sql/privilege_check.php            CREATE VIEW / DROP probe
 classes/local/transfer.php                       Import/export, bundled samples
 classes/local/query_naming.php                   Derive name/description from question or SQL
 classes/local/roles.php                          Report-author role creation
-classes/reportbuilder/source/adhoc_query.php     RB datasource (hidden from source picker)
+classes/reportbuilder/source/adhoc_query.php     RB datasource for per-query data reports (hidden from source picker)
 classes/reportbuilder/local/entities/adhoc_view.php  Dynamic columns/filters from columnsmeta
+classes/reportbuilder/local/systemreports/queries.php  RB system report backing the index.php query listing
+classes/reportbuilder/local/entities/query.php   Entity for the query-listing system report
 classes/reportbuilder/audience/courseparticipant.php Custom "enrolled in course" audience
 classes/reportbuilder/audience/courserole.php    Custom "role in course" audience
 classes/external/validate_sql.php                Live AJAX SQL validation
 classes/external/get_schema.php                  Schema lookup for the editor
+classes/observer.php                             course_deleted → query::on_course_deleted (see db/events.php)
 classes/event/*                                  Standard lifecycle events
+index.php                                         Query listing (system_report) + publish/unpublish actions
 edit.php                                          Edit form + AI generation entry point
 settings.php                                      Admin tree registration + settings
 db/access.php                                     Capabilities

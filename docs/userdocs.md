@@ -100,7 +100,7 @@ Holders can then create report views **anywhere** (authoring is system-wide; the
 
 | Field | What it does |
 |---|---|
-| **Course scope** | The course this report belongs to. Leave empty for a **site-wide** report. The course sets (a) the context where the report's "view report" permission is checked, and (b) the default audience. Re-scope an existing draft here — e.g. an imported draft that landed site-wide because its original course did not exist on this site. Course-specific audience options refresh after you save and reopen the form. |
+| **Course scope** | The course this report belongs to. Leave empty for a **site-wide** report. The course sets (a) the context where the report's "view report" permission is checked, and (b) the default audience. Re-scope an existing draft here — e.g. an imported draft that landed site-wide because its original course did not exist on this site. The course-specific audience options are always listed, so you no longer need to save and reopen the form to reveal them; they just require a course scope to be chosen when you save. |
 | **Visible** | When ticked, the published report appears in the listing for anyone with the `view` capability. Unticking hides it from the list (useful while refining) without deleting the underlying view or report. Authors with `viewall` and managers always see hidden views. |
 | **Name** | The title shown on the finished Report Builder report. Required. |
 | **Description** | Optional notes for yourself or other authors. |
@@ -476,9 +476,9 @@ The **Audience** field on the edit form sets this for you:
 
 | Audience option | Who can open the report | Available when |
 |---|---|---|
-| **Automatic** (default) | Derived from scope + visibility: a course-scoped report → that course's participants; a site-wide visible report → all users; a hidden report → only you and site managers | Always |
-| **Course participants** | Users with an active enrolment in the report's course | Course-scoped only |
-| **Users with a role in the course** | Users holding one of the chosen roles in the course (or an ancestor context) | Course-scoped only |
+| **Automatic** (default) | Derived from scope + visibility: a course-scoped report → that course's **staff** (teachers, non-editing teachers, managers — not students); a site-wide visible report → all users; a hidden report → only you and site managers. (If the site defines no staff roles, a course-scoped report falls back to all course participants.) | Always |
+| **Course participants** | Users with an active enrolment in the report's course | Always listed; needs a course scope (else a validation error on save) |
+| **Users with a role in the course** | Users holding one of the chosen roles in the course (or an ancestor context) | Always listed; needs a course scope (else a validation error on save) |
 | **All site users** | Everyone on the site | Always |
 | **Members of cohorts** | Members of the chosen cohort(s) | Always |
 | **Nobody** | Only you and site managers (`reportbuilder:viewall`) | Always |

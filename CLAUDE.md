@@ -52,7 +52,11 @@ Unpublish / SQL edit reverses steps 2-6 via `query::tear_down()` (which deletes 
 
 ### Report Builder binding
 
-The datasource class `classes/reportbuilder/source/adhoc_query.php` is placed **outside** the `reportbuilder\datasource` namespace on purpose — Moodle's auto-discovery would otherwise surface it in the "new report" UI. Reports are created exclusively by `query::publish()`.
+The datasource class `classes/reportbuilder/source/adhoc_query.php` is placed **outside** the `reportbuilder\datasource` namespace on purpose — Moodle's auto-discovery would otherwise surface it in the "new report" UI. Data reports on this datasource are created exclusively by `query::publish()` (and `query::create_additional_report()`), never through the RB "new report" UI.
+
+A single query can own **several** RB reports: `publish()` creates the primary one, and `create_additional_report()` creates extras. Each gets its own `queryid_for_report_<rid>` config binding, so the query→reports mapping is one-to-many. `query::bound_report_ids($queryid)` recovers every report id for a query by scanning those config keys (they are the source of truth, not a column on the query record). `tear_down()` and `on_course_deleted()` both iterate `bound_report_ids()` so no report is orphaned.
+
+Separately, the plugin's own **query listing** page (`index.php`) is itself an RB system report — `classes/reportbuilder/local/systemreports/queries.php` with entity `classes/reportbuilder/local/entities/query.php`. That is a `system_report` (built via `system_report_factory::create`), distinct from the per-query *data* reports above.
 
 The datasource resolves its VIEW at runtime via:
 ```php
@@ -76,11 +80,19 @@ moodle/reportbuilder:view at report context  AND  (viewall  OR  can_edit  OR  us
 `apply_report_visibility()` (called from `publish()` and `create_additional_report()`) drives the two core levers from existing query fields — no extra config:
 
 - **Context** — `courseid > 0` places the report in that course context (so `reportbuilder:view` is evaluated there); site-wide queries stay at system context.
-- **Audience** — `visible = 0` → none (owner + `reportbuilder:viewall` only); `courseid > 0` → a `courseparticipant` audience (active enrolments in that course); visible site-wide → `allusers`.
+- **Audience** — driven by the `audiencemeta` JSON field on the query record (set from the edit form's Audience picker). `audiencemeta.type` is one of:
+  - `auto` (the default) — derive from scope + visibility: `visible = 0` → **no audience** (owner + `reportbuilder:viewall` only); `courseid > 0` + visible → **course staff** (`courserole` for the teacher / non-editing teacher / manager archetypes, via `staff_role_ids()`), falling back to `courseparticipant` only if the site defines no staff roles; visible site-wide → `allusers`.
+  - explicit picker choices: `allusers`, `courseparticipant`, `courserole` (`roles` from `audiencemeta`), `cohort` (`cohortmember`, `cohorts` from `audiencemeta`), or `none`.
+
+  The `AUDIENCE_*` constants live on `query`; `apply_report_visibility()` reads `audiencemeta` and switches on `type`.
 
 The method is **idempotent**: it deletes existing audiences for the report before re-adding, so re-publishing or toggling visibility never accumulates duplicates. These reports are created solely by this plugin, so wiping their audiences is safe.
 
-`courseparticipant` (`classes/reportbuilder/audience/courseparticipant.php`) is a custom RB audience — core ships no "enrolled in course X" audience. It carries the bound course id in `configdata` (`['courseid' => int]`) and is generated programmatically only, never offered in the RB audience UI.
+Two of the audience classes are **custom** — core ships no "enrolled in / has a role in course X" audience — and both are generated programmatically only, never offered in the RB audience UI:
+- `courseparticipant` (`classes/reportbuilder/audience/courseparticipant.php`) — active enrolments in a course; `configdata` = `['courseid' => int]`.
+- `courserole` (`classes/reportbuilder/audience/courserole.php`) — users holding given roles in a course; `configdata` = `['courseid' => int, 'roles' => int[]]`.
+
+  (`cohortmember` for the `cohort` choice is core's own audience, not custom.)
 
 The edit form's **Audience** picker (`edit_query_form::add_audience_elements()`) always lists every audience type, including the course-scoped ones (Course participants / Users with a role in the course), and always builds the role picker — using the bound course context for role display names when a course is set, otherwise system context. The course-scoped options are no longer conditionally rendered on `courseid`, so changing the course scope no longer requires saving and reopening the form to reveal them. Choosing a course-scoped audience without a course is caught in `validation()` (`erraudiencecourse`) rather than hidden, since the selected course is only known at submit time.
 
@@ -114,10 +126,18 @@ The shipped samples are cross-DB: date handling uses the `%%TIMESTAMP()%%` / `%%
 
 ### DB schema
 
-One table:
-- `local_reportsources_query` — stores SQL, status (`draft|published|disabled`), `viewname`, `reportid`, `columnsmeta` (JSON), `courseid` (0 = site-wide), `visible`
+One table — `local_reportsources_query`. Columns:
+- `name`, `description`, `querysql` — the query and its metadata
+- `ownerid` — author who created the query
+- `status` (`draft|published|disabled`), `viewname`, `reportid` — publish state and RB binding
+- `columnsmeta` (JSON, frozen at publish), `chartmeta` (JSON chart config), `audiencemeta` (JSON audience picker choice — see [Report visibility](#report-visibility-who-can-open-the-report))
+- `courseid` (0 = site-wide), `visible`
+- `useridcolumn`, `coursecolumn`, `pagecoursecolumn` — per-user / per-course filter column choices
+- `timecreated`, `timemodified`
 
 Auditing is done through Moodle's standard event log (`logstore_standard_log`), not a custom table. `classes/event/` defines five query-lifecycle events (`query_created`, `query_updated`, `query_published`, `query_unpublished`, `query_deleted`), all extending `query_event_base` (→ `\core\event\base`). They are raised at `context_system` with `objectid` = query id and the query name in `other['name']` (so delete descriptions still render after the record is gone), and are triggered from `classes/local/query.php`. Viewable at **Site admin → Reports → Logs**.
+
+**Course deletion** is handled out of band: `db/events.php` subscribes `\core\event\course_deleted` → `observer::course_deleted` → `query::on_course_deleted()`, which degrades every query scoped to the deleted course back to site-wide (`courseid = 0`), forces its audience to `none` (re-widening to a site-wide audience would be a privilege escalation), and re-points any published reports to the system context — curing the otherwise-dangling `contextid`.
 
 The `queryid_for_report_<id>` config entries in `config_plugins` are the foreign-key glue between RB reports and query records. They are cleaned up in `tear_down()`.
 
