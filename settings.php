@@ -64,6 +64,24 @@ if ($hassiteconfig) {
         1
     ));
 
+    // Bundled PHP-authored Report Builder datasources. Each toggle drives the matching
+    // datasource's is_available(), which controls whether it appears in the RB "New
+    // report" source picker. Existing reports built on a source are unaffected by the
+    // toggle (they load from their stored definition), so switching one off only hides
+    // it from new report creation.
+    $settings->add(new admin_setting_heading(
+        'local_reportsources/datasourcesheading',
+        get_string('settings:datasources', 'local_reportsources'),
+        get_string('settings:datasources_desc', 'local_reportsources')
+    ));
+
+    $settings->add(new admin_setting_configcheckbox(
+        'local_reportsources/enablegradessource',
+        get_string('settings:enablegradessource', 'local_reportsources'),
+        get_string('settings:enablegradessource_desc', 'local_reportsources'),
+        0
+    ));
+
     $settings->add(new admin_setting_configcheckbox(
         'local_reportsources/aigenerate',
         get_string('settings:aigenerate', 'local_reportsources'),

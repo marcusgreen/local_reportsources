@@ -26,7 +26,7 @@ defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_reportsources';
 $plugin->release   = '0.1.5';
-$plugin->version   = 2026071700;
+$plugin->version   = 2026071800;
 $plugin->requires  = 2024100100; // Moodle 4.5+ for stable Reportbuilder API.
 $plugin->maturity  = MATURITY_ALPHA;
 $plugin->supported = [405, 502];
