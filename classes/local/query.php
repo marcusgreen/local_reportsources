@@ -483,11 +483,19 @@ class query {
         $sql = validator::validate((string) $data->querysql);
         $now = time();
 
+        // Scope is one of site / category / course; the three are mutually exclusive. Normalise from
+        // scopetype so the unused id is forced to 0 even if a (hidden) picker carried a stale value.
+        // Falls back to legacy courseid-only data (no scopetype) as course/site scope.
+        $scopetype = (string) ($data->scopetype ?? ((int) ($data->courseid ?? 0) > 0 ? 'course' : 'site'));
+        $courseid   = $scopetype === 'course' ? (int) ($data->courseid ?? 0) : 0;
+        $categoryid = $scopetype === 'category' ? (int) ($data->categoryid ?? 0) : 0;
+
         $record = (object) [
             'name'         => (string) $data->name,
             'description'  => (string) ($data->description ?? ''),
             'querysql'     => $sql,
-            'courseid'     => (int) ($data->courseid ?? 0),
+            'courseid'     => $courseid,
+            'categoryid'   => $categoryid,
             'visible'      => isset($data->visible) ? (int) (bool) $data->visible : 1,
             'audiencemeta' => self::build_audiencemeta($data),
             'timemodified' => $now,
@@ -674,12 +682,13 @@ class query {
      * @param int $reportid
      */
     public function apply_report_visibility(int $reportid): void {
-        $courseid = (int) ($this->record->courseid ?? 0);
-        $visible  = (int) ($this->record->visible ?? 1);
+        $courseid   = (int) ($this->record->courseid ?? 0);
+        $categoryid = (int) ($this->record->categoryid ?? 0);
+        $visible    = (int) ($this->record->visible ?? 1);
 
-        // Context follows course scope. A courseid pointing at a course that no longer exists (e.g.
-        // course deleted after scoping, or a stale id carried in from an older import) degrades to
-        // site-wide rather than fatalling on context_course::instance().
+        // Context follows scope. A course/category id pointing at something that no longer exists
+        // (deleted after scoping, or a stale id carried in from an older import) degrades to
+        // site-wide rather than fatalling on context_*::instance(). Scopes are mutually exclusive.
         $context = \context_system::instance();
         if ($courseid > 0) {
             $coursecontext = \context_course::instance($courseid, IGNORE_MISSING);
@@ -687,6 +696,13 @@ class query {
                 $context = $coursecontext;
             } else {
                 $courseid = 0;
+            }
+        } else if ($categoryid > 0) {
+            $catcontext = \context_coursecat::instance($categoryid, IGNORE_MISSING);
+            if ($catcontext) {
+                $context = $catcontext;
+            } else {
+                $categoryid = 0;
             }
         }
         $reportpersistent = report_model::get_record(['id' => $reportid], MUST_EXIST);
@@ -719,6 +735,12 @@ class query {
                 } else {
                     courseparticipant::create($reportid, ['courseid' => $courseid]);
                 }
+            } else if ($categoryid > 0) {
+                // Category-scoped default: no explicit audience. The report sits in the category
+                // context, so anyone with moodle/reportbuilder:view there (category managers/staff)
+                // can open it, and that permission cascades to the category's courses. Adding an
+                // allusers audience would widen it site-wide, so leave the audience empty.
+                return;
             } else {
                 allusers::create($reportid, []);
             }

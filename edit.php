@@ -73,13 +73,17 @@ $formdefaults = null;
 if ($existing) {
     // Display SQL without {} table braces; auto_brace() re-adds them on save.
     $existing->querysql = validator::strip_braces((string) $existing->querysql);
+    // Derive the scope selector from the stored ids (category takes precedence, then course).
+    $existing->scopetype = ((int) $existing->categoryid > 0)
+        ? 'category'
+        : (((int) $existing->courseid > 0) ? 'course' : 'site');
     // Expand the stored audience choice into the flat form fields.
     foreach (query::explode_audiencemeta($existing->audiencemeta ?? null) as $key => $value) {
         $existing->$key = $value;
     }
     $formdefaults = $existing;
 } else if ($courseid) {
-    $formdefaults = (object) ['courseid' => $courseid];
+    $formdefaults = (object) ['courseid' => $courseid, 'scopetype' => 'course'];
 }
 
 $airesult = null;
@@ -141,6 +145,16 @@ $returnurl = new moodle_url(
 if ($mform->is_cancelled()) {
     redirect($returnurl);
 } else if ($data = $mform->get_data()) {
+    // Scope is one of site / category / course; zero the ids the chosen scope does not use so the
+    // access checks below and query::save() see mutually-exclusive values.
+    $scopetype = (string) ($data->scopetype ?? 'site');
+    if ($scopetype !== 'course') {
+        $data->courseid = 0;
+    }
+    if ($scopetype !== 'category') {
+        $data->categoryid = 0;
+    }
+
     // Prevent an author from scoping a query to a course they have no access to. A courseid that
     // resolves to no course (e.g. stale id from an import) is demoted to site-wide rather than
     // fatalling on context_course::instance().
@@ -154,6 +168,20 @@ if ($mform->is_cancelled()) {
             !has_capability('local/reportsources:viewown', $coursecontext)
         ) {
             throw new required_capability_exception($coursecontext, 'local/reportsources:view', 'nopermissions', '');
+        }
+    }
+
+    // Same guard for category scope: the author must be allowed to view reports in the category
+    // context. A categoryid that resolves to no category is demoted to site-wide.
+    if (!empty($data->categoryid)) {
+        $catcontext = context_coursecat::instance((int) $data->categoryid, IGNORE_MISSING);
+        if (!$catcontext) {
+            $data->categoryid = 0;
+        } else if (
+            !has_capability('local/reportsources:viewall', $context) &&
+            !has_capability('local/reportsources:view', $catcontext)
+        ) {
+            throw new required_capability_exception($catcontext, 'local/reportsources:view', 'nopermissions', '');
         }
     }
     $newid = query::save($data);

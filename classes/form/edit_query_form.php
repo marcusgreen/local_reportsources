@@ -44,10 +44,28 @@ class edit_query_form extends moodleform {
         $mform->addElement('hidden', 'id');
         $mform->setType('id', PARAM_INT);
 
-        // Course scope: which course this report is bound to. Leaving it empty means site-wide
-        // (courseid 0). Authors can re-scope an existing query here — e.g. an imported draft that
-        // landed site-wide because its original course id does not exist on this site. The chosen
-        // course is access-checked on save (see edit.php), so listing all courses here is safe.
+        // Scope: exactly one of site-wide / a course category / a single course. The selector gates
+        // the course and category pickers below via hideIf so only the relevant one shows, and the
+        // three states are mutually exclusive (enforced in edit.php + query::save). Site-wide is an
+        // explicit choice here rather than "leave the course blank".
+        $mform->addElement(
+            'select',
+            'scopetype',
+            get_string('scopetype', 'local_reportsources'),
+            [
+                'site'     => get_string('scopesite', 'local_reportsources'),
+                'category' => get_string('scopecategory', 'local_reportsources'),
+                'course'   => get_string('scopecourse', 'local_reportsources'),
+            ]
+        );
+        $mform->setType('scopetype', PARAM_ALPHA);
+        $mform->setDefault('scopetype', 'site');
+        $mform->addHelpButton('scopetype', 'scopetype', 'local_reportsources');
+
+        // Course scope: which course this report is bound to. Authors can re-scope an existing query
+        // here — e.g. an imported draft that landed site-wide because its original course id does not
+        // exist on this site. The chosen course is access-checked on save (see edit.php), so listing
+        // all courses here is safe.
         $mform->addElement(
             'course',
             'courseid',
@@ -57,6 +75,23 @@ class edit_query_form extends moodleform {
         $mform->setType('courseid', PARAM_INT);
         $mform->setDefault('courseid', 0);
         $mform->addHelpButton('courseid', 'coursescope', 'local_reportsources');
+        $mform->hideIf('courseid', 'scopetype', 'neq', 'course');
+
+        // Category scope: bind the report to a course category. Placed in that category's context at
+        // publish, so category managers/staff can open it. The chosen category is access-checked on
+        // save (see edit.php). Every category is listed so a query can be re-scoped freely.
+        $catopts = ['0' => get_string('choosedots')] +
+            \core_course_category::make_categories_list();
+        $mform->addElement(
+            'autocomplete',
+            'categoryid',
+            get_string('categoryscope', 'local_reportsources'),
+            $catopts
+        );
+        $mform->setType('categoryid', PARAM_INT);
+        $mform->setDefault('categoryid', 0);
+        $mform->addHelpButton('categoryid', 'categoryscope', 'local_reportsources');
+        $mform->hideIf('categoryid', 'scopetype', 'neq', 'category');
 
         $mform->addElement(
             'advcheckbox',
@@ -315,11 +350,23 @@ class edit_query_form extends moodleform {
             $errors['querysql'] = $e->getMessage();
         }
 
+        // Scope is one of site / category / course; the chosen picker must carry a value. The other
+        // picker's value is ignored (and zeroed on save), so validate against the selected scope only.
+        $scopetype = (string) ($data['scopetype'] ?? 'site');
+        $courseid  = $scopetype === 'course' ? (int) ($data['courseid'] ?? 0) : 0;
+        $categoryid = $scopetype === 'category' ? (int) ($data['categoryid'] ?? 0) : 0;
+        if ($scopetype === 'course' && $courseid <= 0) {
+            $errors['courseid'] = get_string('errscopecourse', 'local_reportsources');
+        }
+        if ($scopetype === 'category' && $categoryid <= 0) {
+            $errors['categoryid'] = get_string('errscopecategory', 'local_reportsources');
+        }
+
         // The %%COURSEID%% token is baked into the static VIEW at publish, so the query must carry a
-        // course scope to substitute. Reject it site-wide rather than silently bake in courseid 0.
+        // course scope to substitute. Reject it otherwise rather than silently bake in courseid 0.
         // The same applies to %%COURSECONTEXT%% (resolves to the course's mdl_context.id).
         $needscourse = stripos($sql, '%%COURSEID%%') !== false || stripos($sql, '%%COURSECONTEXT%%') !== false;
-        if ($needscourse && (int) ($data['courseid'] ?? 0) <= 0) {
+        if ($needscourse && $courseid <= 0) {
             $errors['courseid'] = get_string('errcourseidplaceholder', 'local_reportsources');
         }
 
@@ -328,7 +375,7 @@ class edit_query_form extends moodleform {
         // reject the combination here rather than hiding them based on the (submit-time) course value.
         if (
             in_array($audiencetype, ['courseparticipant', 'courserole'], true) &&
-            (int) ($data['courseid'] ?? 0) <= 0
+            $courseid <= 0
         ) {
             $errors['audiencetype'] = get_string('erraudiencecourse', 'local_reportsources');
         }

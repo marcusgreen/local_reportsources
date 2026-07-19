@@ -96,5 +96,26 @@ function xmldb_local_reportsources_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026062601, 'local', 'reportsources');
     }
 
+    if ($oldversion < 2026071901) {
+        // Add the categoryid field: binds a query to a course category (0 = not category-scoped).
+        // Mutually exclusive with courseid — enforced in the edit form and query::save().
+        $table = new xmldb_table('local_reportsources_query');
+        $field = new xmldb_field(
+            'categoryid',
+            XMLDB_TYPE_INTEGER,
+            '10',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '0',
+            'courseid'
+        );
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_plugin_savepoint(true, 2026071901, 'local', 'reportsources');
+    }
+
     return true;
 }

@@ -101,6 +101,12 @@ $string['coursescope_help'] = 'The course this report belongs to. Leave empty fo
 The course determines two things when the report is published: the context its "View report" permission is checked in, and its default audience (course participants for a course-scoped report, all users for a site-wide one).
 
 Change this to re-scope a query — for example an imported draft that was set site-wide because its original course did not exist on this site. You can only choose courses you are allowed to view reports in.';
+$string['categoryscope'] = 'Category';
+$string['categoryscope_help'] = 'The course category this report belongs to.
+
+When published the report is placed in the category context: its "View report" permission is checked there, so category managers and staff can open it, and that permission cascades to the courses in the category. No site-wide audience is added, so it is not shown to everyone.
+
+You can only choose categories you are allowed to view reports in.';
 $string['createrole:approve'] = 'Include "Approve and publish"';
 $string['createrole:approve_desc'] = 'Also grant local/reportsources:approve, so holders can publish and unpublish report sources themselves. Leave unticked if a separate approver should publish their drafts.';
 $string['createrole:aigenerate'] = 'Include "AI SQL generation"';
@@ -162,6 +168,8 @@ $string['errchartnotconfigured'] = 'No chart is configured for this query. Edit 
 $string['errchartnotpublished'] = 'This query is not published. Publish it first before viewing the chart.';
 $string['errcourseidplaceholder'] = 'The SQL uses %%COURSEID%%, so this report needs a fixed course scope. Choose a course above before saving — or, to show each course its own data in a block, remove the %%COURSEID%% filter from the SQL, output the course id column, and set "Restrict to the course the block is on" instead.';
 $string['errcreateview'] = 'Could not create database view: {$a}';
+$string['errscopecategory'] = 'Choose a category, or change the scope to Site-wide.';
+$string['errscopecourse'] = 'Choose a course, or change the scope to Site-wide.';
 $string['errdeniedcolumn'] = 'Disallowed column: {$a}';
 $string['errdeniedkeyword'] = 'Disallowed keyword: {$a}';
 $string['errdeniedtable'] = 'Disallowed table: {$a}';
@@ -256,6 +264,17 @@ $string['savedandpublished'] = 'Changes saved and report published';
 $string['savedpublishfailed'] = 'Changes saved, but publishing failed: {$a}';
 
 $string['schedule'] = 'Schedule emails';
+$string['scopecategory'] = 'A course category';
+$string['scopecourse'] = 'A single course';
+$string['scopesite'] = 'Site-wide';
+$string['scopetype'] = 'Scope';
+$string['scopetype_help'] = 'Who the report is for and where its "View report" permission is checked:
+
+* **Site-wide** — checked at system level; the default audience is all users.
+* **A course category** — placed in that category\'s context, so category managers and staff can open it (cascading to the category\'s courses). No site-wide audience is added.
+* **A single course** — placed in that course\'s context; the default audience is the course staff.
+
+The three are mutually exclusive.';
 $string['selectcolumn'] = '(select column)';
 $string['settings:aigenerate'] = 'AI SQL generation';
 $string['settings:aigenerate_desc'] = 'Show an AI question box on the query edit form. Requires the local_sqlchat plugin to be installed and configured.';

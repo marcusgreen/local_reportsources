@@ -79,7 +79,7 @@ moodle/reportbuilder:view at report context  AND  (viewall  OR  can_edit  OR  us
 
 `apply_report_visibility()` (called from `publish()` and `create_additional_report()`) drives the two core levers from existing query fields — no extra config:
 
-- **Context** — `courseid > 0` places the report in that course context (so `reportbuilder:view` is evaluated there); site-wide queries stay at system context.
+- **Context** — `courseid > 0` places the report in that course context (so `reportbuilder:view` is evaluated there); `categoryid > 0` places it in that course-category context (permission cascades to the category's courses); site-wide queries (both 0) stay at system context. `courseid` and `categoryid` are mutually exclusive — the edit form's Scope selector picks exactly one of site / category / course, and `query::save()` zeroes the unused id. Category scope's `auto` audience adds **no** audience (relies on the category-context permission cascade; adding `allusers` would widen it site-wide).
 - **Audience** — driven by the `audiencemeta` JSON field on the query record (set from the edit form's Audience picker). `audiencemeta.type` is one of:
   - `auto` (the default) — derive from scope + visibility: `visible = 0` → **no audience** (owner + `reportbuilder:viewall` only); `courseid > 0` + visible → **course staff** (`courserole` for the teacher / non-editing teacher / manager archetypes, via `staff_role_ids()`), falling back to `courseparticipant` only if the site defines no staff roles; visible site-wide → `allusers`.
   - explicit picker choices: `allusers`, `courseparticipant`, `courserole` (`roles` from `audiencemeta`), `cohort` (`cohortmember`, `cohorts` from `audiencemeta`), or `none`.
@@ -131,7 +131,7 @@ One table — `local_reportsources_query`. Columns:
 - `ownerid` — author who created the query
 - `status` (`draft|published|disabled`), `viewname`, `reportid` — publish state and RB binding
 - `columnsmeta` (JSON, frozen at publish), `chartmeta` (JSON chart config), `audiencemeta` (JSON audience picker choice — see [Report visibility](#report-visibility-who-can-open-the-report))
-- `courseid` (0 = site-wide), `visible`
+- `courseid` (0 = site-wide), `categoryid` (0 = not category-scoped; mutually exclusive with `courseid`), `visible`
 - `useridcolumn`, `coursecolumn`, `pagecoursecolumn` — per-user / per-course filter column choices
 - `timecreated`, `timemodified`
 
