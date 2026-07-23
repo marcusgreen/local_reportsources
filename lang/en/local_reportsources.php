@@ -85,17 +85,20 @@ $string['chartxcol_help'] = 'Column whose values label each bar, point, or pie s
 $string['chartycol'] = 'Value column (Y axis)';
 $string['chartycol_help'] = 'Column whose values are plotted. Must contain numeric data.';
 $string['checkallgood'] = 'No issues found. The query looks good.';
-$string['checkdatecolumn'] = 'Column "{$a}" looks like a date. Wrap its expression in %%TIMESTAMP(expr)%% so it displays as a formatted, sortable date.';
+$string['checkdatecolumns'] = 'The following columns look like dates: {$a}. Wrap each column\'s expression in %%TIMESTAMP(expr)%% so it displays as a formatted, sortable date.';
 $string['checkdistinctlarge'] = 'SELECT DISTINCT over {$a} rows must sort and de-duplicate the whole result, which is slow at this size. Consider GROUP BY on indexed columns, or drop DISTINCT if the joins already yield unique rows.';
-$string['checkfullscan'] = 'Full table scan on "{$a->table}" (~{$a->rows} rows), no index used. This report may be slow — add a WHERE filter on an indexed column.';
+$string['checkfullscan'] = 'Full table scan on "{$a->table}" (~{$a->rows} rows), no index used. This report may be slow — add a WHERE filter on an indexed column. Indexed columns: {$a->indexed}.';
 $string['checkleadingwildcard'] = 'A LIKE pattern starts with a wildcard ("%…" or "_…"). A leading wildcard stops the database using an index on that column, forcing a full scan. Anchor the pattern ("abc%") where you can.';
 $string['checklargeresult'] = 'This query returns {$a} rows. Large results render slowly — add a filter or a LIMIT.';
 $string['checknonsargable'] = 'A function wraps a column in the WHERE clause (e.g. DATE(col) or LOWER(col)). This is non-sargable — the database cannot use an index on that column. Filter the bare column instead (e.g. a range comparison, or compare a stored epoch).';
-$string['checkquery'] = 'Check';
+$string['checkquery'] = 'Test query';
+$string['checkquery_help'] = 'Runs your SQL against the database without saving or publishing, then reports back. It checks that the query is valid and executes, counts the rows it returns, and flags likely performance issues — full table scans, missing indexes, non-sargable filters, large or DISTINCT result sets — plus date columns you may want to wrap in %%TIMESTAMP()%%.
+
+This is advisory only: it never changes your data and is not required before you save or publish.';
 $string['checkrowcount'] = 'Rows returned: {$a}.';
 $string['checkrunning'] = 'Checking…';
 $string['checkselectsubquery'] = 'A subquery in the SELECT list is evaluated once per returned row, multiplying work on a large result. A JOIN or a WITH (CTE) is usually faster.';
-$string['checktableindexes'] = 'Table "{$a->table}" — {$a->rows} rows. Indexes: {$a->indexes}.';
+$string['checksortindex'] = 'The report sorts by {$a->sortcol}, which is not indexed, so the database orders the whole result. Sorting by an indexed column is faster — indexed columns available: {$a->indexed}.';
 $string['confirmdeletemany'] = 'Are you sure you want to delete these {$a} report source(s)? This drops each backing view and report and cannot be undone.';
 $string['copyof'] = 'Copy of {$a}';
 $string['copysuccess'] = 'Report source copied. You are now editing the copy.';

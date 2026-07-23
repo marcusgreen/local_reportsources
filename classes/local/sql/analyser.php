@@ -49,6 +49,9 @@ class analyser {
     /** @var int Earliest epoch a sampled integer must reach to look like a real date (2000-01-01). */
     private const EPOCH_FLOOR = 946684800;
 
+    /** @var int Per-session statement timeout (ms) applied around the advisory DB probes. */
+    private const PROBE_TIMEOUT_MS = 5000;
+
     /**
      * Analyse a report source and return structured feedback.
      *
@@ -77,12 +80,70 @@ class analyser {
 
         $resolved = view::resolve_placeholders($validated, $courseid);
 
-        $result['rowcount'] = self::row_count($resolved, $result['warnings']);
-        $result['suggestions'] = self::date_suggestions($validated, $resolved);
-        $result['indexinfo'] = self::index_report($validated, $resolved, $result['warnings']);
+        // Cap the (potentially expensive) probe queries with a per-session statement timeout so a
+        // pathological report cannot stall a database connection. Each probe already treats a DB
+        // error as "skip", so a fired timeout degrades to advisory-not-available, never a hang.
+        self::set_statement_timeout(self::PROBE_TIMEOUT_MS);
+        try {
+            $result['rowcount'] = self::row_count($resolved, $result['warnings']);
+            $result['suggestions'] = self::date_suggestions($validated, $resolved);
+            $result['indexinfo'] = self::index_report($validated, $resolved, $result['warnings']);
+        } finally {
+            // The DB connection may be reused (or persistent) for the rest of the request, so always
+            // restore the server default — never leak the cap onto later, unrelated queries.
+            self::set_statement_timeout(0);
+        }
         self::performance_hints($validated, $result['rowcount'], $result['warnings']);
 
         return $result;
+    }
+
+    /**
+     * Apply (or, with $ms = 0, clear) a per-session SQL statement timeout. Best-effort and
+     * dialect-branched: MySQL caps SELECTs via max_execution_time (ms); MariaDB via
+     * max_statement_time (seconds); Postgres via statement_timeout (ms, all statements). Other
+     * families have no portable knob and run uncapped. A SET the server rejects is swallowed.
+     *
+     * @param int $ms Timeout in milliseconds; 0 restores the server default.
+     */
+    private static function set_statement_timeout(int $ms): void {
+        global $DB;
+
+        $family = $DB->get_dbfamily();
+        try {
+            if ($family === 'postgres') {
+                $DB->execute($ms > 0 ? 'SET statement_timeout = ' . (int) $ms : 'RESET statement_timeout');
+            } else if ($family === 'mysql') {
+                if (self::is_mariadb()) {
+                    // MariaDB: seconds (fractional allowed), SELECT statements only.
+                    $DB->execute($ms > 0
+                        ? 'SET SESSION max_statement_time = ' . sprintf('%.3F', max(0.001, $ms / 1000))
+                        : 'SET SESSION max_statement_time = DEFAULT');
+                } else {
+                    // MySQL 5.7+: milliseconds, SELECT statements only.
+                    $DB->execute($ms > 0
+                        ? 'SET SESSION max_execution_time = ' . (int) $ms
+                        : 'SET SESSION max_execution_time = DEFAULT');
+                }
+            }
+            // Other families (mssql, oracle, sqlite): no portable per-session timeout — skip.
+        } catch (\dml_exception $e) {
+            // Setting the cap is advisory; if the server rejects it, the probes just run uncapped.
+            return;
+        }
+    }
+
+    /**
+     * Whether the connected MySQL-family server is MariaDB (its statement-timeout knob and units
+     * differ from Oracle MySQL's).
+     *
+     * @return bool
+     */
+    private static function is_mariadb(): bool {
+        global $DB;
+        $info = $DB->get_server_info();
+        $desc = strtolower(($info['description'] ?? '') . ' ' . ($info['version'] ?? ''));
+        return strpos($desc, 'maria') !== false;
     }
 
     /**
@@ -118,6 +179,7 @@ class analyser {
         global $DB, $CFG;
 
         $suggestions = [];
+        $datecols = []; // Column names that look like stored dates — collated into one suggestion.
         $already = view::timestamp_columns($validated); // Keyed by lowercased column name.
 
         $probe = privilege_check::PROBE_NAME . '_chk';
@@ -166,45 +228,117 @@ class analyser {
                 }
             }
             if ($plausible) {
-                $suggestions[] = get_string('checkdatecolumn', 'local_reportsources', $name);
+                $datecols[] = (string) $name;
             }
+        }
+        if ($datecols) {
+            // One suggestion listing every date-like column, rather than repeating the full
+            // sentence per column.
+            $quoted = array_map(static fn(string $c): string => '"' . $c . '"', $datecols);
+            $suggestions[] = get_string('checkdatecolumns', 'local_reportsources', implode(', ', $quoted));
         }
         return $suggestions;
     }
 
     /**
-     * Report indexes and row counts for each referenced base table, and flag full
-     * table scans via EXPLAIN (dialect-branched).
+     * Surface index information only where it is actionable, and flag full table scans via EXPLAIN
+     * (dialect-branched). The blanket per-table index dump is deliberately gone — the only index
+     * line produced is a suggestion to sort by an indexed column when the query's ORDER BY targets
+     * an unindexed one (an unindexed sort makes the database order the whole result).
      *
      * @param string $validated Auto-braced validated SQL (table names are {braced}).
      * @param string $resolved Placeholder-resolved SQL.
      * @param string[] $warnings Collected warnings (appended in place).
-     * @return string[] Per-table index / scan lines.
+     * @return string[] Actionable index lines (empty unless the sort hint applies).
      */
     private static function index_report(string $validated, string $resolved, array &$warnings): array {
-        global $DB;
-
         $lines = [];
+
         // {tablename} placeholders survive validation, so referenced tables are easy to recover.
         preg_match_all('/\{(\w+)\}/', $validated, $m);
         $tables = array_unique($m[1]);
 
-        foreach ($tables as $table) {
-            try {
-                $indexes = $DB->get_indexes($table);
-                $rows = $DB->count_records($table);
-            } catch (\dml_exception $e) {
-                continue; // Not a real table (e.g. a CTE name caught by the regex) — skip.
+        $ordercols = self::order_by_columns($validated);
+        if ($ordercols) {
+            $indexed = self::indexed_leading_columns($tables);
+            // Only advise when the sort is on something we know is unindexed *and* there is an
+            // indexed column to point at — otherwise there is no useful index to show.
+            if ($indexed && !array_intersect($ordercols, $indexed)) {
+                $lines[] = get_string('checksortindex', 'local_reportsources', (object) [
+                    'sortcol' => implode(', ', $ordercols),
+                    'indexed' => implode(', ', $indexed),
+                ]);
             }
-            $names = $indexes
-                ? implode(', ', array_map([self::class, 'unprefix'], array_keys($indexes)))
-                : '-';
-            $lines[] = get_string('checktableindexes', 'local_reportsources',
-                (object) ['table' => $table, 'rows' => $rows, 'indexes' => $names]);
         }
 
         self::explain_scans($resolved, $warnings);
         return $lines;
+    }
+
+    /**
+     * Lowercased column identifiers in the top-level ORDER BY, alias prefixes and sort direction
+     * stripped. Ordinal positions (ORDER BY 1) and expression terms (containing parens) are ignored
+     * — only bare column references can be matched against an index.
+     *
+     * @param string $validated Auto-braced validated SQL.
+     * @return string[] Distinct ordered column names, lowercased (empty when there is no ORDER BY).
+     */
+    private static function order_by_columns(string $validated): array {
+        if (!preg_match('/\bORDER\s+BY\b(.*)$/is', $validated, $m)) {
+            return [];
+        }
+        // Trim anything after the ORDER BY list (LIMIT/OFFSET); ORDER BY is the last clause otherwise.
+        $tail = preg_split('/\b(?:LIMIT|OFFSET|FETCH)\b/i', $m[1])[0];
+        $cols = [];
+        foreach (explode(',', $tail) as $term) {
+            $term = trim($term);
+            if ($term === '' || strpos($term, '(') !== false) {
+                continue; // Skip expressions — an index cannot be matched to them here.
+            }
+            // Take the identifier, drop a trailing ASC/DESC and any NULLS FIRST/LAST.
+            $token = preg_split('/\s+/', $term)[0];
+            $token = preg_replace('/^\{?\w+\}?\./', '', $token); // Strip {table}. or alias. prefix.
+            $token = strtolower(trim($token, '`"[]{}'));
+            if ($token !== '' && !ctype_digit($token)) {
+                $cols[$token] = true;
+            }
+        }
+        return array_keys($cols);
+    }
+
+    /**
+     * Distinct lowercased *leading* columns of every index on the referenced base tables, including
+     * the primary key (which get_indexes() omits). Only the leading column of an index can satisfy
+     * an ORDER BY / anchor a lookup, so that is what is offered as the indexed alternative.
+     *
+     * @param string[] $tables Base table names (unbraced).
+     * @return string[] Lowercased indexable column names.
+     */
+    private static function indexed_leading_columns(array $tables): array {
+        global $DB;
+
+        $cols = [];
+        foreach ($tables as $table) {
+            try {
+                $indexes = $DB->get_indexes($table);
+                $columns = $DB->get_columns($table);
+            } catch (\dml_exception $e) {
+                continue; // Not a real table (e.g. a CTE name caught by the regex) — skip.
+            }
+            foreach ($indexes as $index) {
+                $lead = $index['columns'][0] ?? null;
+                if ($lead !== null) {
+                    $cols[strtolower((string) $lead)] = true;
+                }
+            }
+            // get_indexes() excludes the primary key, but the PK is indexed too (e.g. "id").
+            foreach ($columns as $col) {
+                if (!empty($col->primary_key)) {
+                    $cols[strtolower((string) $col->name)] = true;
+                }
+            }
+        }
+        return array_keys($cols);
     }
 
     /**
@@ -218,6 +352,7 @@ class analyser {
         global $DB;
 
         $family = $DB->get_dbfamily();
+        $scans = []; // Moodle table name => estimated scanned rows, deduped.
         try {
             if ($family === 'mysql') {
                 $plan = $DB->get_records_sql("EXPLAIN {$resolved}", []);
@@ -227,24 +362,37 @@ class analyser {
                     $key = $row['key'] ?? null;
                     $estrows = (int) ($row['rows'] ?? 0);
                     if ($type === 'ALL' && ($key === null || $key === '') && $estrows >= self::SCAN_ROWS) {
-                        $warnings[] = get_string('checkfullscan', 'local_reportsources',
-                            (object) ['table' => self::unprefix((string) ($row['table'] ?? '?')), 'rows' => $estrows]);
+                        $scans[self::unprefix((string) ($row['table'] ?? '?'))] = $estrows;
                     }
                 }
             } else if ($family === 'postgres') {
                 $plan = $DB->get_records_sql("EXPLAIN {$resolved}", []);
                 foreach ($plan as $row) {
+                    $row = (array) $row;
                     $line = (string) reset($row);
+                    // Only warn on a large seq scan — small tables always seq-scan, and an index
+                    // would not help. The rows= estimate on the plan node gives the scale.
                     if (preg_match('/Seq Scan on (\w+)/i', $line, $sm)) {
-                        $warnings[] = get_string('checkfullscan', 'local_reportsources',
-                            (object) ['table' => self::unprefix($sm[1]), 'rows' => 0]);
+                        $estrows = preg_match('/\brows=(\d+)/', $line, $rm) ? (int) $rm[1] : 0;
+                        if ($estrows >= self::SCAN_ROWS) {
+                            $scans[self::unprefix($sm[1])] = $estrows;
+                        }
                     }
                 }
             }
-            // Other families: no portable EXPLAIN, index listing already stands.
+            // Other families: no portable EXPLAIN — the sort hint (if any) still stands.
         } catch (\dml_exception $e) {
             // EXPLAIN is best-effort; a failure here does not invalidate the rest of the report.
             return;
+        }
+
+        foreach ($scans as $table => $estrows) {
+            $indexed = self::indexed_leading_columns([$table]);
+            $warnings[] = get_string('checkfullscan', 'local_reportsources', (object) [
+                'table'   => $table,
+                'rows'    => $estrows,
+                'indexed' => $indexed ? implode(', ', $indexed) : '-',
+            ]);
         }
     }
 
