@@ -66,6 +66,22 @@ final class analyser_test extends \advanced_testcase {
     }
 
     /**
+     * Several date-like columns collapse into a single suggestion listing them all, rather than
+     * one repeated sentence per column.
+     */
+    public function test_multiple_date_columns_single_suggestion(): void {
+        $this->resetAfterTest();
+        $user = $this->getDataGenerator()->create_user(['timecreated' => time(), 'timemodified' => time()]);
+
+        $result = analyser::analyse(
+            'SELECT id, timecreated, timemodified FROM {user} WHERE id = ' . (int) $user->id);
+        $this->assertTrue($result['ok']);
+        $this->assertCount(1, $result['suggestions']);
+        $this->assertStringContainsStringIgnoringCase('timecreated', $result['suggestions'][0]);
+        $this->assertStringContainsStringIgnoringCase('timemodified', $result['suggestions'][0]);
+    }
+
+    /**
      * lastlogin is recognised as a date column (name-implied), even sampled as 0 ("never").
      */
     public function test_lastlogin_suggested(): void {
@@ -102,13 +118,49 @@ final class analyser_test extends \advanced_testcase {
     }
 
     /**
-     * Referenced base tables appear in the index report with a row count.
+     * Sorting by an unindexed column, when the table has indexed columns, produces an index
+     * suggestion naming the sorted column and the indexed alternatives.
      */
-    public function test_index_report_lists_tables(): void {
+    public function test_sort_unindexed_column_suggests_index(): void {
+        $this->resetAfterTest();
+        // {user}.description is a text column with no index; {user} has indexed columns (e.g. email).
+        $result = analyser::analyse('SELECT id, description FROM {user} ORDER BY description');
+        $this->assertTrue($result['ok']);
+        $joined = implode("\n", $result['indexinfo']);
+        $this->assertStringContainsStringIgnoringCase('description', $joined);
+        $this->assertStringContainsStringIgnoringCase('indexed columns available', $joined);
+    }
+
+    /**
+     * Sorting by an indexed column produces no index suggestion.
+     */
+    public function test_sort_indexed_column_no_suggestion(): void {
+        $this->resetAfterTest();
+        // {user}.email is indexed, so sorting by it needs no advice.
+        $result = analyser::analyse('SELECT id, email FROM {user} ORDER BY email');
+        $this->assertTrue($result['ok']);
+        $this->assertSame([], $result['indexinfo']);
+    }
+
+    /**
+     * A query with no ORDER BY produces no index suggestion (the blanket index dump is gone).
+     */
+    public function test_no_order_by_no_index_output(): void {
         $this->resetAfterTest();
         $result = analyser::analyse('SELECT id FROM {user}');
-        $joined = implode("\n", $result['indexinfo']);
-        $this->assertStringContainsStringIgnoringCase('user', $joined);
+        $this->assertTrue($result['ok']);
+        $this->assertSame([], $result['indexinfo']);
+    }
+
+    /**
+     * The primary key counts as indexed: sorting by "id" gives no suggestion even though
+     * get_indexes() omits the primary key.
+     */
+    public function test_sort_by_primary_key_no_suggestion(): void {
+        $this->resetAfterTest();
+        $result = analyser::analyse('SELECT id, firstname FROM {user} ORDER BY id');
+        $this->assertTrue($result['ok']);
+        $this->assertSame([], $result['indexinfo']);
     }
 
     /**

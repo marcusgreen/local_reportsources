@@ -14,10 +14,10 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * "Check" button — asks the check_query external for advisory feedback on the
+ * "Test" button — asks the test_query external for advisory feedback on the
  * current SQL (date columns, row count, indexes / full scans) and renders it.
  *
- * @module     local_reportsources/check
+ * @module     local_reportsources/test
  * @copyright  2026 Marcus Green
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -26,9 +26,9 @@ import Ajax from 'core/ajax';
 import {exception as displayException} from 'core/notification';
 
 /**
- * Wire the Check button to the analyser endpoint.
+ * Wire the Test button to the analyser endpoint.
  *
- * @param {string} btnid - Check button element id.
+ * @param {string} btnid - Test button element id.
  * @param {string} sqlid - SQL textarea element id.
  * @param {string} courseid - Course select element id (may be absent).
  * @param {string} resultid - Results container element id.
@@ -50,10 +50,10 @@ export const init = (btnid, sqlid, courseid, resultid) => {
         const course = courseField ? parseInt(courseField.value, 10) || 0 : 0;
 
         btn.disabled = true;
-        results.textContent = await getString('checkrunning', 'local_reportsources');
+        results.textContent = await getString('testquery', 'local_reportsources');
         try {
             const data = await Ajax.call([{
-                methodname: 'local_reportsources_check_query',
+                methodname: 'local_reportsources_test_query',
                 args: {sql: sql, courseid: course},
             }])[0];
             await render(results, data);
@@ -69,7 +69,7 @@ export const init = (btnid, sqlid, courseid, resultid) => {
  * Render the feedback into the results container.
  *
  * @param {HTMLElement} container - Results element.
- * @param {object} data - Response from check_query.
+ * @param {object} data - Response from test_query.
  */
 const render = async(container, data) => {
     container.innerHTML = '';

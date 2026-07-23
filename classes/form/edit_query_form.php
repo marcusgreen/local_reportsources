@@ -97,15 +97,16 @@ class edit_query_form extends moodleform {
         $mform->addRule('querysql', null, 'required', null, 'client');
         $mform->addHelpButton('querysql', 'querysql', 'local_reportsources');
 
-        // Advisory "Check" button — analyses date columns, row count and indexes over AJAX
-        // (see local_reportsources\external\check_query). Convenience only, never a publish gate.
-        $mform->addElement('static', 'checkbtn', '', \html_writer::tag(
+        // Advisory "Test query" button — analyses date columns, row count and indexes over AJAX
+        // (see local_reportsources\external\test_query). Convenience only, never a publish gate.
+        $mform->addElement('static', 'testbtn', '', \html_writer::tag(
             'button',
             get_string('checkquery', 'local_reportsources'),
-            ['type' => 'button', 'id' => 'rs-check-btn', 'class' => 'btn btn-secondary']
-        ) . \html_writer::div('', '', ['id' => 'rs-check-results', 'class' => 'mt-2']));
-        $PAGE->requires->js_call_amd('local_reportsources/check', 'init',
-            ['rs-check-btn', 'id_querysql', 'id_courseid', 'rs-check-results']);
+            ['type' => 'button', 'id' => 'rs-test-btn', 'class' => 'btn btn-secondary']
+        ) . \html_writer::div('', '', ['id' => 'rs-test-results', 'class' => 'mt-2']));
+        $mform->addHelpButton('testbtn', 'checkquery', 'local_reportsources');
+        $PAGE->requires->js_call_amd('local_reportsources/test', 'init',
+            ['rs-test-btn', 'id_querysql', 'id_courseid', 'rs-test-results']);
 
         $this->add_audience_elements($mform);
 

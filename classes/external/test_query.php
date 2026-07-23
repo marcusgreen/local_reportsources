@@ -32,7 +32,7 @@ use local_reportsources\local\sql\analyser;
  * @copyright 2026 Marcus Green
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class check_query extends external_api {
+class test_query extends external_api {
     /**
      * Describe the parameters accepted by execute().
      *
