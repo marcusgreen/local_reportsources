@@ -219,6 +219,16 @@ JOIN course c           ON c.id = e.courseid
 
 Full Moodle ER diagram: [examulator.com/er](https://www.examulator.com/er). For inspiration, see the [Moodle ad-hoc contributed reports](https://docs.moodle.org/502/en/ad-hoc_contributed_reports).
 
+### The **Test query** button
+
+Below the SQL box is a **Test query** button. It runs your SQL against the database **without saving or publishing** and reports back:
+
+- whether the query is valid and executes, and how many **rows** it returns;
+- likely **performance issues** — full table scans, missing indexes, non-sargable filters, large or `DISTINCT` result sets;
+- **date columns** — integer columns that look like stored timestamps. Each is listed as a clickable name; **click one to wrap its select-list expression in [`%%TIMESTAMP()%%`](#timestampexpr--epoch-to-date)** in place, so it displays as a formatted, sortable date. (A `SELECT DISTINCT` is preserved — the token wraps only the column, not the `DISTINCT` keyword.) If the column's expression can't be located automatically (e.g. `SELECT *`), you're told to wrap it by hand.
+
+The button is **advisory only** — it never blocks saving or publishing.
+
 ---
 
 ## Placeholders
@@ -345,6 +355,8 @@ Notes:
 ### `%%TIMESTAMP(expr)%%` — epoch to date
 
 Marks a stored Unix-epoch value (`expr`) as a **date** column. Report Builder then renders it as a date, with date filtering, and — because the underlying value stays the raw epoch — it **sorts chronologically** (not as text). A plain epoch column without the token shows as a meaningless integer instead.
+
+> **Tip:** you don't have to type this token by hand. The [**Test query**](#the-test-query-button) button lists date-like columns and lets you click one to wrap it for you.
 
 ```sql
 SELECT u.id,

@@ -363,8 +363,11 @@ const wrapTimestamp = (sql, col) => {
 
         const lead = expr.match(/^\s*/)[0];
         const trail = orig.match(/\s*$/)[0];
-        const core = expr.trim();
-        const wrapped = lead + '%%TIMESTAMP(' + core + ')%%' + (alias ? ' AS ' + alias : '') + trail;
+        // A leading DISTINCT is a statement-level modifier on the first select-list item, not
+        // part of the column expression — keep it outside the token so it stays valid SQL.
+        const distinct = /^\s*DISTINCT\b/i.test(expr) ? 'DISTINCT ' : '';
+        const core = expr.replace(/^\s*DISTINCT\b\s*/i, '').trim();
+        const wrapped = lead + distinct + '%%TIMESTAMP(' + core + ')%%' + (alias ? ' AS ' + alias : '') + trail;
         return sql.slice(0, item.from) + wrapped + sql.slice(item.to);
     }
     return null;
