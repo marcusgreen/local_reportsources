@@ -185,6 +185,16 @@ const buildEditor = (textarea, schema, fkMap) => {
 
     const view = new EditorView({state, parent: container});
 
+    // Let other modules (e.g. the Test-query "click-to-wrap" date buttons) replace the whole editor
+    // contents. Setting textarea.value alone would not reach CodeMirror, so we dispatch a real doc
+    // change and let the updateListener mirror it back to the hidden textarea.
+    textarea.rsReplaceContent = (newSql) => {
+        view.dispatch({changes: {from: 0, to: view.state.doc.length, insert: newSql}});
+        serverValidated = false;
+        errorBanner.style.display = 'none';
+        warningBanner.style.display = 'none';
+    };
+
     const errorBanner = document.createElement('div');
     errorBanner.className = 'alert alert-danger mt-1';
     errorBanner.style.display = 'none';

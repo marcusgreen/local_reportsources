@@ -57,13 +57,14 @@ class analyser {
      *
      * @param string $sql Raw author SQL.
      * @param int $courseid Bound course id (0 = site-wide) for placeholder resolution.
-     * @return array{ok: bool, error: string, rowcount: int, suggestions: string[], warnings: string[], indexinfo: string[]}
+     * @return array{ok: bool, error: string, rowcount: int, datecolumns: string[], suggestions: string[], warnings: string[], indexinfo: string[]}
      */
     public static function analyse(string $sql, int $courseid = 0): array {
         $result = [
             'ok'          => true,
             'error'       => '',
             'rowcount'    => 0,
+            'datecolumns' => [],
             'suggestions' => [],
             'warnings'    => [],
             'indexinfo'   => [],
@@ -86,7 +87,7 @@ class analyser {
         self::set_statement_timeout(self::PROBE_TIMEOUT_MS);
         try {
             $result['rowcount'] = self::row_count($resolved, $result['warnings']);
-            $result['suggestions'] = self::date_suggestions($validated, $resolved);
+            $result['datecolumns'] = self::date_columns($validated, $resolved);
             $result['indexinfo'] = self::index_report($validated, $resolved, $result['warnings']);
         } finally {
             // The DB connection may be reused (or persistent) for the rest of the request, so always
@@ -168,18 +169,18 @@ class analyser {
     }
 
     /**
-     * Find integer columns that look like stored Unix timestamps and suggest wrapping
-     * their source expression in %%TIMESTAMP()%% (which types + formats + keeps them sortable).
+     * Find integer output columns that look like stored Unix timestamps. Their source
+     * expression should be wrapped in %%TIMESTAMP()%% (which types + formats + keeps them
+     * sortable); the Test-query UI turns each name into a click-to-wrap control.
      *
      * @param string $validated Auto-braced validated SQL.
      * @param string $resolved Placeholder-resolved SQL.
-     * @return string[] Human-readable suggestions.
+     * @return string[] Date-like output column names (empty when none).
      */
-    private static function date_suggestions(string $validated, string $resolved): array {
+    private static function date_columns(string $validated, string $resolved): array {
         global $DB, $CFG;
 
-        $suggestions = [];
-        $datecols = []; // Column names that look like stored dates — collated into one suggestion.
+        $datecols = []; // Output column names that look like stored dates.
         $already = view::timestamp_columns($validated); // Keyed by lowercased column name.
 
         $probe = privilege_check::PROBE_NAME . '_chk';
@@ -193,7 +194,7 @@ class analyser {
             // If the probe view cannot be built, skip date suggestions silently — validate_sql
             // is the endpoint that reports SQL faults; analyse() is advisory only.
             $DB->change_database_structure("DROP VIEW IF EXISTS {$fullprobe}");
-            return $suggestions;
+            return $datecols;
         }
 
         // Sample one row so a name match can be corroborated by a plausible-epoch value.
@@ -231,13 +232,7 @@ class analyser {
                 $datecols[] = (string) $name;
             }
         }
-        if ($datecols) {
-            // One suggestion listing every date-like column, rather than repeating the full
-            // sentence per column.
-            $quoted = array_map(static fn(string $c): string => '"' . $c . '"', $datecols);
-            $suggestions[] = get_string('checkdatecolumns', 'local_reportsources', implode(', ', $quoted));
-        }
-        return $suggestions;
+        return $datecols;
     }
 
     /**

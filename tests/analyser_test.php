@@ -61,24 +61,21 @@ final class analyser_test extends \advanced_testcase {
 
         $result = analyser::analyse('SELECT id, timecreated FROM {user} WHERE id = ' . (int) $user->id);
         $this->assertTrue($result['ok']);
-        $joined = implode("\n", $result['suggestions']);
-        $this->assertStringContainsStringIgnoringCase('timecreated', $joined);
+        $this->assertContainsEquals('timecreated', $result['datecolumns']);
     }
 
     /**
-     * Several date-like columns collapse into a single suggestion listing them all, rather than
-     * one repeated sentence per column.
+     * Several date-like columns are each returned as a distinct clickable column name.
      */
-    public function test_multiple_date_columns_single_suggestion(): void {
+    public function test_multiple_date_columns(): void {
         $this->resetAfterTest();
         $user = $this->getDataGenerator()->create_user(['timecreated' => time(), 'timemodified' => time()]);
 
         $result = analyser::analyse(
             'SELECT id, timecreated, timemodified FROM {user} WHERE id = ' . (int) $user->id);
         $this->assertTrue($result['ok']);
-        $this->assertCount(1, $result['suggestions']);
-        $this->assertStringContainsStringIgnoringCase('timecreated', $result['suggestions'][0]);
-        $this->assertStringContainsStringIgnoringCase('timemodified', $result['suggestions'][0]);
+        $this->assertContainsEquals('timecreated', $result['datecolumns']);
+        $this->assertContainsEquals('timemodified', $result['datecolumns']);
     }
 
     /**
@@ -90,7 +87,7 @@ final class analyser_test extends \advanced_testcase {
 
         $result = analyser::analyse('SELECT id, lastlogin FROM {user} WHERE id = ' . (int) $user->id);
         $this->assertTrue($result['ok']);
-        $this->assertStringContainsStringIgnoringCase('lastlogin', implode("\n", $result['suggestions']));
+        $this->assertContainsEquals('lastlogin', $result['datecolumns']);
     }
 
     /**
@@ -100,11 +97,11 @@ final class analyser_test extends \advanced_testcase {
         $this->resetAfterTest();
         $result = analyser::analyse('SELECT id FROM {user}');
         $this->assertTrue($result['ok']);
-        $this->assertSame([], $result['suggestions']);
+        $this->assertSame([], $result['datecolumns']);
     }
 
     /**
-     * A column already wrapped in %%TIMESTAMP()%% is not re-suggested.
+     * A column already wrapped in %%TIMESTAMP()%% is not re-listed.
      */
     public function test_timestamp_token_not_re_suggested(): void {
         $this->resetAfterTest();
@@ -114,7 +111,7 @@ final class analyser_test extends \advanced_testcase {
             'SELECT id, %%TIMESTAMP(timecreated)%% AS timecreated FROM {user} WHERE id = ' . (int) $user->id
         );
         $this->assertTrue($result['ok']);
-        $this->assertSame([], $result['suggestions']);
+        $this->assertSame([], $result['datecolumns']);
     }
 
     /**

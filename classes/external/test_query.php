@@ -50,7 +50,7 @@ class test_query extends external_api {
      *
      * @param string $sql
      * @param int $courseid
-     * @return array{ok: bool, error: string, rowcount: int, suggestions: string[], warnings: string[], indexinfo: string[]}
+     * @return array{ok: bool, error: string, rowcount: int, datecolumns: string[], suggestions: string[], warnings: string[], indexinfo: string[]}
      */
     public static function execute(string $sql, int $courseid = 0): array {
         ['sql' => $sql, 'courseid' => $courseid] =
@@ -73,6 +73,10 @@ class test_query extends external_api {
             'ok'          => new external_value(PARAM_BOOL, 'True if the SQL analysed cleanly'),
             'error'       => new external_value(PARAM_TEXT, 'Error message, empty on success'),
             'rowcount'    => new external_value(PARAM_INT, 'Rows the report would return, -1 if uncountable'),
+            'datecolumns' => new external_multiple_structure(
+                new external_value(PARAM_TEXT, 'Date-like output column name'),
+                'Integer columns that look like stored timestamps (click-to-wrap in %%TIMESTAMP()%%)',
+                VALUE_DEFAULT, []),
             'suggestions' => new external_multiple_structure(
                 new external_value(PARAM_TEXT, 'Suggestion'), 'Advisory suggestions', VALUE_DEFAULT, []),
             'warnings'    => new external_multiple_structure(
