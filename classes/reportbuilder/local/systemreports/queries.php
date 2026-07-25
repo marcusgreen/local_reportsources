@@ -54,14 +54,20 @@ class queries extends system_report {
         // Base fields consumed by the row action URLs and their per-row visibility callbacks below.
         $this->add_base_fields("{$alias}.id, {$alias}.status, {$alias}.reportid, {$alias}.ownerid, {$alias}.chartmeta");
 
-        $this->add_columns_from_entities([
+        $columns = [
             "{$entityname}:name",
             "{$entityname}:owner",
             "{$entityname}:course",
             "{$entityname}:status",
             "{$entityname}:visible",
             "{$entityname}:timemodified",
-        ]);
+        ];
+        // View history is manager-level data, so the usage columns only show for viewall holders.
+        if (has_capability('local/reportsources:viewall', $this->get_context())) {
+            $columns[] = "{$entityname}:viewcount";
+            $columns[] = "{$entityname}:lastviewed";
+        }
+        $this->add_columns_from_entities($columns);
 
         // The most-used actions (Open report / Edit query / Edit in Report Builder / Unpublish) render as
         // inline buttons in their own column; the rest stay in the row's kebab menu (see add_report_actions()).
@@ -201,30 +207,6 @@ class queries extends system_report {
                     );
                 }
 
-                // Open the published report.
-                if ($row->status === query::STATUS_PUBLISHED && !empty($row->reportid)) {
-                    $buttons .= html_writer::link(
-                        new moodle_url('/reportbuilder/view.php', ['id' => $row->reportid]),
-                        get_string('runreport', 'local_reportsources'),
-                        ['class' => 'btn btn-sm btn-primary me-2']
-                    );
-                }
-
-                // Edit the underlying Report Builder report (RB editors only).
-                if (
-                    $row->status === query::STATUS_PUBLISHED && !empty($row->reportid)
-                    && has_any_capability(
-                        ['moodle/reportbuilder:edit', 'moodle/reportbuilder:editall'],
-                        \context_system::instance()
-                    )
-                ) {
-                    $buttons .= html_writer::link(
-                        new moodle_url('/reportbuilder/edit.php', ['id' => $row->reportid]),
-                        get_string('editreport', 'local_reportsources'),
-                        ['class' => 'btn btn-sm btn-secondary me-2']
-                    );
-                }
-
                 // Unpublish a published query (approve capability; admin-owned queries locked to admins).
                 if (
                     $row->status === query::STATUS_PUBLISHED
@@ -268,6 +250,32 @@ class queries extends system_report {
             global $USER;
             return !is_siteadmin($row->ownerid) || is_siteadmin($USER);
         };
+
+        // Open the published report.
+        $this->add_action((new action(
+            new moodle_url('/reportbuilder/view.php', ['id' => ':reportid']),
+            new pix_icon('i/report', ''),
+            [],
+            false,
+            new lang_string('runreport', 'local_reportsources')
+        ))->add_callback(static function (\stdClass $row): bool {
+            return $row->status === query::STATUS_PUBLISHED && !empty($row->reportid);
+        }));
+
+        // Edit the underlying Report Builder report (RB editors only).
+        $this->add_action((new action(
+            new moodle_url('/reportbuilder/edit.php', ['id' => ':reportid']),
+            new pix_icon('i/edit', ''),
+            [],
+            false,
+            new lang_string('editreport', 'local_reportsources')
+        ))->add_callback(static function (\stdClass $row): bool {
+            return $row->status === query::STATUS_PUBLISHED && !empty($row->reportid)
+                && has_any_capability(
+                    ['moodle/reportbuilder:edit', 'moodle/reportbuilder:editall'],
+                    \context_system::instance()
+                );
+        }));
 
         // View the configured chart (only when the query has one).
         $this->add_action((new action(

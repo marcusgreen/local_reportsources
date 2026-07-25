@@ -35,6 +35,17 @@ $ADMIN->add('reports', new admin_externalpage(
     false
 ));
 
+// Usage overview (read-only, viewall-gated). Registered outside the $hassiteconfig guard for the
+// same reason as the index — its own capability governs visibility. Hidden from the tree; reached
+// via the link on the index page.
+$ADMIN->add('reports', new admin_externalpage(
+    'local_reportsources_usage',
+    get_string('usage:title', 'local_reportsources'),
+    new moodle_url('/local/reportsources/usage.php'),
+    'local/reportsources:viewall',
+    true
+));
+
 if ($hassiteconfig) {
     $settings = new admin_settingpage(
         'local_reportsources',
@@ -69,6 +80,16 @@ if ($hassiteconfig) {
         get_string('settings:aigenerate', 'local_reportsources'),
         get_string('settings:aigenerate_desc', 'local_reportsources'),
         0
+    ));
+
+    // Retention window (days) for the report-view audit rows; 0 keeps them forever. Enforced by the
+    // purge_views scheduled task.
+    $settings->add(new admin_setting_configtext(
+        'local_reportsources/viewretaindays',
+        get_string('settings:viewretaindays', 'local_reportsources'),
+        get_string('settings:viewretaindays_desc', 'local_reportsources'),
+        '365',
+        PARAM_INT
     ));
 
     $settings->add(new admin_setting_description(
