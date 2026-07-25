@@ -116,7 +116,8 @@ const dateColumnsAlert = async(cols, sqlField) => {
     div.className = 'alert alert-warning mb-1 py-1';
     div.setAttribute('role', 'alert');
 
-    const intro = await getString('checkdatecolumnsintro', 'local_reportsources');
+    const introkey = cols.length === 1 ? 'checkdatecolumnsintroone' : 'checkdatecolumnsintro';
+    const intro = await getString(introkey, 'local_reportsources');
     div.appendChild(document.createTextNode(intro + ' '));
 
     cols.forEach((col, i) => {
