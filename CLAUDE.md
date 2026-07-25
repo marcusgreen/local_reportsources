@@ -114,6 +114,8 @@ The edit form's **Audience** picker (`edit_query_form::add_audience_elements()`)
 
 The JS editor (`amd/src/editor.es6.js`) mirrors the static denylist client-side and calls the AJAX endpoint on form submit before allowing the form through.
 
+**Advisory analysis** (`classes/external/test_query.php` → `analyser::analyse()` in `classes/local/sql/analyser.php`): the edit form's **Test query** button (`amd/src/test.js`) runs the SQL without saving and returns `{ok, error, rowcount, datecolumns, suggestions, warnings, indexinfo}` — advisory only, never a publish gate. `test.js` renders each `datecolumns` entry as a **click-to-wrap** control: `maskSql()`/`selectListRegion()`/`splitItems()`/`wrapTimestamp()` rewrite that column's select-list item in place, wrapping its expression in `%%TIMESTAMP(...)%%` (idempotent; returns null for `SELECT *`; a leading `DISTINCT` on the first item is kept outside the token).
+
 ### Import / export & bundled samples
 
 `classes/local/transfer.php` moves queries as portable JSON (`export()`/`parse()`/`import()`). Only portable fields travel (name, description, SQL, course scope, visibility, chart config); derived state is regenerated, so every import lands as a fresh **draft** owned by the importer and must be re-published. `import()` re-validates each SQL and demotes unknown courseids to site-wide.

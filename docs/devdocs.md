@@ -263,6 +263,33 @@ case-folded SQL can reference them).
 The JS editor (`amd/src/editor.es6.js`) mirrors the denylist client-side and calls this endpoint on
 submit before allowing the form through.
 
+### 6.4 Advisory analysis — the **Test query** button
+
+Separate from validation (which gates publish), the edit form's **Test query** button gives the author
+non-blocking feedback. It is wired in `edit_query_form.php` (`js_call_amd('local_reportsources/test',
+…)`) and calls the `local_reportsources_test_query` external
+(`classes/external/test_query.php` → `analyser::analyse()` in `classes/local/sql/analyser.php`,
+capability `local/reportsources:author` at system context). The analyser returns `{ok, error,
+rowcount, datecolumns, suggestions, warnings, indexinfo}` — a row count, per-table index/scan lines,
+performance warnings (full scans, missing indexes, non-sargable filters, large/`DISTINCT` result
+sets), and the integer columns that look like stored timestamps.
+
+`amd/src/test.js` renders each date column as a **click-to-wrap** control: clicking rewrites that
+column's select-list item in place, wrapping its expression in `%%TIMESTAMP(...)%%`. The rewrite is
+purely client-side string surgery on the editor text:
+
+- `maskSql()` blanks comments and string literals length-preservingly so keyword/comma scans map 1:1
+  onto the original SQL.
+- `selectListRegion()` finds the top-level `SELECT … FROM` (paren-depth 0, so CTEs and select-list
+  subqueries are skipped); `splitItems()` breaks it on depth-0 commas.
+- `wrapTimestamp()` matches the target column by trailing identifier or `AS` alias, preserves the
+  alias, is idempotent (already-wrapped returns unchanged), and returns null when the expression
+  can't be located (e.g. `SELECT *`). A leading `DISTINCT` on the first item is kept **outside** the
+  token (`DISTINCT %%TIMESTAMP(col)%%`), since it is a statement-level modifier, not part of the
+  column expression.
+
+The button never blocks save/publish — it is convenience only.
+
 ---
 
 ## 7. AI SQL generation (optional, via `local_sqlchat`)
