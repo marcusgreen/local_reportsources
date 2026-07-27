@@ -86,6 +86,18 @@ class analyser {
         // error as "skip", so a fired timeout degrades to advisory-not-available, never a hang.
         self::set_statement_timeout(self::PROBE_TIMEOUT_MS);
         try {
+            // Syntax / missing table / missing column / row-dependent select-list errors: run the
+            // query for a single row and surface the DB message. Unlike the advisory probes below
+            // (which degrade silently on error), a query that will not execute is a hard failure the
+            // author needs to see, so report it and stop. Mirrors the publish-time live check in
+            // {@see \local_reportsources\external\validate_sql}.
+            $error = self::dry_run($resolved);
+            if ($error !== null) {
+                $result['ok'] = false;
+                $result['error'] = $error;
+                return $result;
+            }
+
             $result['rowcount'] = self::row_count($resolved, $result['warnings']);
             $result['datecolumns'] = self::date_columns($validated, $resolved);
             $result['indexinfo'] = self::index_report($validated, $resolved, $result['warnings']);
@@ -148,12 +160,35 @@ class analyser {
     }
 
     /**
-     * Count the rows the report would return. Wrapping as a subquery keeps a trailing
-     * line comment from swallowing the COUNT (mirrors validate_sql's dry-run guard).
+     * Execute the resolved SQL for a single row so syntax errors, missing tables/columns and
+     * row-dependent select-list errors surface as a cleaned message the author can act on.
      *
      * @param string $resolved Placeholder-resolved SQL.
-     * @param string[] $warnings Collected warnings (appended in place).
-     * @return int Row count, or -1 if the count could not be run.
+     * @return string|null Cleaned DB error, or null when the query runs.
+     */
+    private static function dry_run(string $resolved): ?string {
+        global $DB;
+        // Wrap as a subquery so a trailing line comment in the author SQL cannot swallow the LIMIT
+        // (`... -- note` would otherwise comment out an appended LIMIT and fetch the whole table).
+        // LIMIT 1 (not 0) materialises a row, so select-list expressions are actually evaluated —
+        // catching row-dependent errors like to_char() on a bigint that LIMIT 0 would let through.
+        try {
+            $DB->get_records_sql("SELECT * FROM ({$resolved}) rs_dryrun LIMIT 1", []);
+        } catch (\dml_exception $e) {
+            $detail = $e->error ?: ($e->debuginfo ?: $e->getMessage());
+            return validator::clean_error($detail);
+        }
+        return null;
+    }
+
+    /**
+     * Count the rows the report would return, warning when the result is large. Returns -1 when the
+     * count cannot be taken (the {@see self::dry_run()} probe has already confirmed the SQL runs, so
+     * -1 here means only that COUNT(*) over the wrapped query was itself uncountable).
+     *
+     * @param string $resolved Placeholder-resolved SQL.
+     * @param string[] $warnings Warnings collector (by reference).
+     * @return int
      */
     private static function row_count(string $resolved, array &$warnings): int {
         global $DB;

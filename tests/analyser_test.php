@@ -40,6 +40,37 @@ final class analyser_test extends \advanced_testcase {
     }
 
     /**
+     * SQL that passes static validation but references a non-existent table fails the live
+     * dry-run with ok=false and a message, rather than silently reporting rowcount -1.
+     */
+    public function test_unknown_table_reports_error(): void {
+        $this->resetAfterTest();
+        $result = analyser::analyse('SELECT id FROM {nosuchtable}');
+        $this->assertFalse($result['ok']);
+        $this->assertNotEmpty($result['error']);
+    }
+
+    /**
+     * A non-existent column in an otherwise valid query is caught by the dry-run.
+     */
+    public function test_unknown_column_reports_error(): void {
+        $this->resetAfterTest();
+        $result = analyser::analyse('SELECT nosuchcolumn FROM {user}');
+        $this->assertFalse($result['ok']);
+        $this->assertNotEmpty($result['error']);
+    }
+
+    /**
+     * A valid, runnable query passes the dry-run: ok=true and no error.
+     */
+    public function test_runnable_sql_has_no_error(): void {
+        $this->resetAfterTest();
+        $result = analyser::analyse('SELECT id FROM {user}');
+        $this->assertTrue($result['ok']);
+        $this->assertSame('', $result['error']);
+    }
+
+    /**
      * The row count matches the number of rows the query returns.
      */
     public function test_row_count(): void {
