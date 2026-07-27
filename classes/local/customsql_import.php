@@ -21,43 +21,49 @@ namespace local_reportsources\local;
 use local_reportsources\local\sql\validator;
 
 /**
- * Import SQL reports from the Configurable Reports block (block_configurable_reports).
+ * Import SQL reports from the Ad-hoc Database Queries report (report_customsql).
  *
- * Reads each `type='sql'` Configurable Reports instance, decodes its embedded query, applies the
- * deterministic Configurable-Reports → Report-sources translation shared via {@see import_helper}
- * (token swaps, MySQL date-function rewrites, double-quote and `?` normalisation), then re-validates
- * the result through the same {@see validator} and live dry-run the edit form uses. Reports that
- * translate cleanly are handed to {@see transfer::import()} and land as fresh drafts owned by the
- * importer; everything else is rejected with a printed reason and never written.
+ * Reads each report_customsql_queries row, takes its plain-text `querysql`, applies the same
+ * deterministic translation as {@see cr_import} via the shared {@see import_helper} (double-quote
+ * normalisation, MySQL date-function → portable token mapping, literal-`?` rebuilding) plus the
+ * customsql-specific token rewrites, then re-validates through the same {@see validator} and live
+ * dry-run the edit form uses. Reports that translate cleanly are handed to {@see transfer::import()}
+ * and land as fresh drafts owned by the importer; everything else is rejected with a printed reason
+ * and never written.
+ *
+ * Unlike Configurable Reports, customsql stores SQL as a plain column (no serialised blob) and has no
+ * per-course scope, so every imported draft lands site-wide (courseid 0). customsql's named `:param`
+ * placeholders are interactive run-time inputs with no Report Sources equivalent, so any report using
+ * them is rejected (rebuild as a Report Builder filter after importing).
  *
  * No AI is involved: every transformation here is a fixed rule. Anything the rules cannot map
- * faithfully (e.g. %%USERID%%, %%FILTER_*%%, DATEDIFF) is rejected rather than guessed.
+ * faithfully (e.g. %%USERID%%, :params, DATEDIFF) is rejected rather than guessed.
  *
  * @package   local_reportsources
  * @copyright 2026 Marcus Green
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class cr_import {
+class customsql_import {
     use import_helper;
 
-    /** Configurable Reports DB table. */
-    private const CR_TABLE = 'block_configurable_reports';
+    /** Ad-hoc Database Queries report table. */
+    private const CUSTOMSQL_TABLE = 'report_customsql_queries';
 
     /**
-     * Whether the Configurable Reports block is installed (its report table exists).
+     * Whether the Ad-hoc Database Queries report is installed (its query table exists).
      *
      * @return bool
      */
     public static function available(): bool {
         global $DB;
-        return $DB->get_manager()->table_exists(self::CR_TABLE);
+        return $DB->get_manager()->table_exists(self::CUSTOMSQL_TABLE);
     }
 
     /**
-     * Discover all Configurable Reports instances and classify each for import.
+     * Discover all customsql queries and classify each for import.
      *
      * @return array<int, array{id:int,name:string,type:string,verdict:string,reason:string,
-     *         notes:string[],source:?array<string,mixed>}> Keyed by CR report id.
+     *         notes:string[],source:?array<string,mixed>}> Keyed by customsql query id.
      */
     public static function discover(): array {
         global $DB;
@@ -67,42 +73,37 @@ class cr_import {
         }
 
         $out = [];
-        foreach ($DB->get_records(self::CR_TABLE, null, 'name ASC') as $rec) {
+        foreach ($DB->get_records(self::CUSTOMSQL_TABLE, null, 'displayname ASC') as $rec) {
             $out[(int) $rec->id] = self::classify($rec);
         }
         return $out;
     }
 
     /**
-     * Classify a single Configurable Reports record: importable or rejected, with reason/notes.
+     * Classify a single customsql query: importable or rejected, with reason/notes.
      *
-     * @param \stdClass $rec A block_configurable_reports row.
+     * @param \stdClass $rec A report_customsql_queries row.
      * @return array{id:int,name:string,type:string,verdict:string,reason:string,
      *         notes:string[],source:?array<string,mixed>}
      */
     public static function classify(\stdClass $rec): array {
         $base = [
             'id'      => (int) $rec->id,
-            'name'    => (string) $rec->name,
-            'type'    => (string) ($rec->type ?? ''),
+            'name'    => (string) ($rec->displayname ?? ''),
+            'type'    => 'sql',
             'verdict' => 'reject',
             'reason'  => '',
             'notes'   => [],
             'source'  => null,
         ];
 
-        if (($rec->type ?? '') !== 'sql') {
-            $base['reason'] = get_string('crimport:reasonnotsql', 'local_reportsources', $base['type'] ?: '?');
-            return $base;
-        }
-
-        $sql = self::extract_sql($rec);
+        $sql = trim((string) ($rec->querysql ?? ''));
         if ($sql === '') {
             $base['reason'] = get_string('crimport:reasonnosql', 'local_reportsources');
             return $base;
         }
 
-        // Deterministic CR → RS translation.
+        // Deterministic customsql → RS translation.
         $converted = self::convert($sql);
         if ($converted['fatal'] !== null) {
             $base['reason'] = $converted['fatal'];
@@ -117,36 +118,37 @@ class cr_import {
             return $base;
         }
 
-        // Live dry-run: catches bad/dropped tables (e.g. mdl_log), missing columns, dialect errors
-        // and VIEW duplicate-column problems — exactly the failures static checks cannot see.
+        // Live dry-run: catches bad/dropped tables, missing columns, dialect errors and VIEW
+        // duplicate-column problems — exactly the failures static checks cannot see.
         $dryrunerror = self::dry_run($validated);
         if ($dryrunerror !== null) {
             $base['reason'] = $dryrunerror;
             return $base;
         }
 
-        // Accepted.
+        // Accepted. customsql has no course scope or visibility flag, so land site-wide and visible;
+        // the admin re-applies any access restriction by setting course/visibility before publishing.
         $base['verdict'] = 'import';
         $base['notes'] = array_merge($converted['notes'], validator::get_warnings());
         $base['source'] = [
-            'name'        => (string) $rec->name,
-            'description' => self::clean_summary((string) ($rec->summary ?? '')),
+            'name'        => (string) ($rec->displayname ?? ''),
+            'description' => self::clean_summary((string) ($rec->description ?? '')),
             'querysql'    => $validated,
-            'courseid'    => self::map_courseid((int) ($rec->courseid ?? 0)),
-            'visible'     => (int) ($rec->visible ?? 1) ? 1 : 0,
+            'courseid'    => 0,
+            'visible'     => 1,
             'chartmeta'   => null,
         ];
         return $base;
     }
 
     /**
-     * Import the selected Configurable Reports instances as draft queries.
+     * Import the selected customsql queries as draft queries.
      *
      * Re-discovers and re-classifies (never trusts ids blindly), keeps only those whose verdict is
      * 'import', and feeds them to {@see transfer::import()} so they share the standard re-validation,
      * courseid-demotion and draft-creation path.
      *
-     * @param int[] $ids CR report ids selected by the admin.
+     * @param int[] $ids customsql query ids selected by the admin.
      * @return array{imported:int,skipped:array<string,string>,demoted:array<string,int>,
      *         rejected:array<string,string>} import() result plus names rejected at classify time.
      */
@@ -175,52 +177,48 @@ class cr_import {
     }
 
     /**
-     * Decode the SQL embedded in a Configurable Reports record's serialised `components` blob.
-     *
-     * Mirrors block_configurable_reports' own `cr_unserialize()`: the blob is
-     * serialize(urlencode_recursive(...)), with config objects stored as `O:6:"object"`. We rewrite
-     * that to stdClass before unserialising and urldecode the recovered query.
-     *
-     * @param \stdClass $rec A block_configurable_reports row.
-     * @return string The decoded SQL, or '' if none could be recovered.
-     */
-    private static function extract_sql(\stdClass $rec): string {
-        $blob = (string) ($rec->components ?? '');
-        if ($blob === '') {
-            return '';
-        }
-        $blob = preg_replace('/O:6:"object"/', 'O:8:"stdClass"', $blob);
-        $data = @unserialize($blob, ['allowed_classes' => [\stdClass::class]]);
-        if (!is_array($data) || !isset($data['customsql']['config'])) {
-            return '';
-        }
-        $config = (array) $data['customsql']['config'];
-        if (!isset($config['querysql'])) {
-            return '';
-        }
-        return trim(urldecode((string) $config['querysql']));
-    }
-
-    /**
-     * Rewrite CR placeholder tokens to their RS equivalents, or reject unmappable ones.
+     * Rewrite customsql placeholder tokens to their RS equivalents, or reject unmappable ones.
      *
      * @param string $sql
      * @param string[] $notes Collected human-readable notes (passed by reference).
      * @return array{sql:string,fatal:?string}
      */
     private static function rewrite_tokens(string $sql, array &$notes): array {
-        // Faithful CR substitutions: STARTTIME/ENDTIME are the time-range filter bounds CR fills with
-        // 0 and a far-future epoch when no range is chosen; DEBUG is a flag CR strips from the SQL.
+        // Time-range bounds customsql fills from its report period; with no period chosen it uses 0
+        // and a far-future epoch, the same neutral bounds cr_import applies.
         $direct = [
             '%%STARTTIME%%' => '0',
             '%%ENDTIME%%'   => '2145938400',
-            '%%DEBUG%%'     => '',
         ];
         foreach ($direct as $token => $replacement) {
             if (stripos($sql, $token) !== false) {
                 $sql = str_ireplace($token, $replacement, $sql);
                 $notes[] = get_string('crimport:notetoken', 'local_reportsources', $token);
             }
+        }
+
+        // customsql escape tokens for characters that cannot be typed literally in its editor:
+        // %%Q%% -> ?, %%C%% -> :, %%S%% -> ;. These only appear inside string literals (e.g. URLs),
+        // so substituting the literal character is faithful. The shared convert() pass then rebuilds
+        // any literal ? as chr(63) so RS does not read it as a bound parameter.
+        $escapes = ['%%Q%%' => '?', '%%C%%' => ':', '%%S%%' => ';'];
+        $escaped = false;
+        foreach ($escapes as $token => $replacement) {
+            if (stripos($sql, $token) !== false) {
+                $sql = str_ireplace($token, $replacement, $sql);
+                $escaped = true;
+            }
+        }
+        if ($escaped) {
+            $notes[] = get_string('customsqlimport:noteescape', 'local_reportsources');
+        }
+
+        // Named :param placeholders are interactive run-time inputs with no RS equivalent. Detect them
+        // outside string literals (so embedded colons / Postgres casts do not false-positive) and
+        // reject — they must be rebuilt as Report Builder filters after importing.
+        if (preg_match('/(?<!:):[a-z][a-z0-9_]*/i', self::mask_strings($sql), $pm)) {
+            return ['sql' => $sql, 'fatal' =>
+                get_string('customsqlimport:reasonparam', 'local_reportsources', $pm[0])];
         }
 
         // Scan every remaining token. %%WWWROOT%% and %%COURSEID%% are shared with RS and kept as-is.
@@ -234,10 +232,6 @@ class cr_import {
                 if (preg_match('/^%%\s*USER_?IDS?\s*%%$/i', $token)) {
                     return ['sql' => $sql, 'fatal' =>
                         get_string('crimport:reasonuserid', 'local_reportsources', $token)];
-                }
-                if (stripos($token, '%%FILTER') === 0) {
-                    return ['sql' => $sql, 'fatal' =>
-                        get_string('crimport:reasonfilter', 'local_reportsources', $token)];
                 }
                 return ['sql' => $sql, 'fatal' =>
                     get_string('crimport:reasontoken', 'local_reportsources', $token)];

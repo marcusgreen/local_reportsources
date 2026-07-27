@@ -108,6 +108,16 @@ if ($hassiteconfig) {
         )
     ));
 
+    $settings->add(new admin_setting_description(
+        'local_reportsources/importcustomsqllink',
+        get_string('customsqlimport:title', 'local_reportsources') .
+            $OUTPUT->help_icon('customsqlimport:title', 'local_reportsources'),
+        html_writer::link(
+            new moodle_url('/local/reportsources/import_customsql.php'),
+            get_string('customsqlimport:linklabel', 'local_reportsources')
+        )
+    ));
+
     $ADMIN->add('localplugins', new admin_externalpage(
         'local_reportsources_testview',
         get_string('testview:title', 'local_reportsources'),
@@ -136,6 +146,14 @@ if ($hassiteconfig) {
         'local_reportsources_importcr',
         get_string('crimport:title', 'local_reportsources'),
         new moodle_url('/local/reportsources/import_cr.php'),
+        'moodle/site:config',
+        true
+    ));
+
+    $ADMIN->add('localplugins', new admin_externalpage(
+        'local_reportsources_importcustomsql',
+        get_string('customsqlimport:title', 'local_reportsources'),
+        new moodle_url('/local/reportsources/import_customsql.php'),
         'moodle/site:config',
         true
     ));
