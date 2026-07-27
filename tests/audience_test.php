@@ -127,7 +127,7 @@ final class audience_test extends \advanced_testcase {
         $this->resetAfterTest();
 
         $course = $this->getDataGenerator()->create_course();
-        [$join, $where, $params] = $this->courserole_instance($course->id, [3])->get_sql('u');
+        [$join, $where, $params] = $this->courserole_instance((int) $course->id, [3])->get_sql('u');
 
         $this->assertNotEmpty($join);
         $this->assertStringContainsString('role_assignments', $join);
@@ -192,6 +192,10 @@ final class audience_test extends \advanced_testcase {
         $this->assertSame(0, \core_reportbuilder\local\models\audience::count_records(['reportid' => $reportid]));
         // get_context() must no longer throw.
         $this->assertInstanceOf(\core\context\system::class, $report->get_context());
+
+        // Tear the query down so its backing VIEW is dropped before the DB reset — otherwise the
+        // reset issues DROP TABLE on the surviving view and fails.
+        query::get($id)->delete();
     }
 
     public function test_course_deleted_detaches_additional_reports(): void {
