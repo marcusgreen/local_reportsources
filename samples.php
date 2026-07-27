@@ -110,6 +110,11 @@ if (optional_param('import', 0, PARAM_BOOL) && confirm_sesskey()) {
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string($single ? 'samples:titlesingle' : 'samples:title', 'local_reportsources'));
 
+echo html_writer::div(
+    $OUTPUT->single_button($indexurl, get_string('back'), 'get'),
+    'mb-3'
+);
+
 if (empty($sources)) {
     echo $OUTPUT->notification(
         get_string('samples:none', 'local_reportsources'),
