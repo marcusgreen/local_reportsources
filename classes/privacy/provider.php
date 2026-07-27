@@ -52,6 +52,11 @@ class provider implements
             'timecreated'  => 'privacy:metadata:query:timecreated',
         ], 'privacy:metadata:query');
 
+        $collection->add_database_table('local_reportsources_queryview', [
+            'userid'     => 'privacy:metadata:queryview:userid',
+            'timeviewed' => 'privacy:metadata:queryview:timeviewed',
+        ], 'privacy:metadata:queryview');
+
         return $collection;
     }
 
@@ -82,6 +87,11 @@ class provider implements
             'SELECT DISTINCT ownerid FROM {local_reportsources_query} WHERE ownerid <> 0',
             []
         );
+        $userlist->add_from_sql(
+            'userid',
+            'SELECT DISTINCT userid FROM {local_reportsources_queryview} WHERE userid <> 0',
+            []
+        );
     }
 
     /**
@@ -101,6 +111,12 @@ class provider implements
             writer::with_context(\context_system::instance())
                 ->export_data(['Ad-hoc reports', 'Queries'], (object) $queries);
         }
+
+        $views = $DB->get_records('local_reportsources_queryview', ['userid' => $userid]);
+        if ($views) {
+            writer::with_context(\context_system::instance())
+                ->export_data(['Ad-hoc reports', 'Report views'], (object) $views);
+        }
     }
 
     /**
@@ -109,10 +125,12 @@ class provider implements
      * @param \context $context
      */
     public static function delete_data_for_all_users_in_context(\context $context): void {
+        global $DB;
         if (!$context instanceof \context_system) {
             return;
         }
         self::purge_queries('ownerid <> 0', []);
+        $DB->delete_records('local_reportsources_queryview');
     }
 
     /**
@@ -121,10 +139,13 @@ class provider implements
      * @param approved_contextlist $contextlist
      */
     public static function delete_data_for_user(approved_contextlist $contextlist): void {
+        global $DB;
         if (!in_array(\context_system::instance()->id, $contextlist->get_contextids(), true)) {
             return;
         }
-        self::purge_queries('ownerid = :ownerid', ['ownerid' => $contextlist->get_user()->id]);
+        $userid = $contextlist->get_user()->id;
+        self::purge_queries('ownerid = :ownerid', ['ownerid' => $userid]);
+        $DB->delete_records('local_reportsources_queryview', ['userid' => $userid]);
     }
 
     /**
@@ -143,6 +164,9 @@ class provider implements
         }
         [$insql, $params] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
         self::purge_queries("ownerid {$insql}", $params);
+
+        [$vinsql, $vparams] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
+        $DB->delete_records_select('local_reportsources_queryview', "userid {$vinsql}", $vparams);
     }
 
     /**

@@ -96,5 +96,24 @@ function xmldb_local_reportsources_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026062601, 'local', 'reportsources');
     }
 
+    if ($oldversion < 2026072500) {
+        // Add the queryview table: one row per view of a published report source (usage audit).
+        $table = new xmldb_table('local_reportsources_queryview');
+        if (!$dbman->table_exists($table)) {
+            $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+            $table->add_field('queryid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+            $table->add_field('reportid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+            $table->add_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+            $table->add_field('timeviewed', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+            $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+            $table->add_key('queryid', XMLDB_KEY_FOREIGN, ['queryid'], 'local_reportsources_query', ['id']);
+            $table->add_key('userid', XMLDB_KEY_FOREIGN, ['userid'], 'user', ['id']);
+            $table->add_index('queryid-timeviewed', XMLDB_INDEX_NOTUNIQUE, ['queryid', 'timeviewed']);
+            $dbman->create_table($table);
+        }
+
+        upgrade_plugin_savepoint(true, 2026072500, 'local', 'reportsources');
+    }
+
     return true;
 }

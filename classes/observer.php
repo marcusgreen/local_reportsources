@@ -19,6 +19,7 @@ declare(strict_types=1);
 namespace local_reportsources;
 
 use core\event\course_deleted;
+use core_reportbuilder\event\report_viewed;
 use local_reportsources\local\query;
 
 /**
@@ -39,5 +40,23 @@ class observer {
      */
     public static function course_deleted(course_deleted $event): void {
         query::on_course_deleted((int) $event->objectid);
+    }
+
+    /**
+     * Record a view when one of this plugin's published reports is opened.
+     *
+     * report_viewed fires for every report site-wide, so the common case is a report that is not
+     * ours: the queryid_for_report_<id> config is memory-cached per request, so that miss costs no
+     * DB hit and a row is written only for a bound plugin report.
+     *
+     * @param report_viewed $event
+     */
+    public static function report_viewed(report_viewed $event): void {
+        $reportid = (int) $event->objectid;
+        $queryid = (int) get_config('local_reportsources', 'queryid_for_report_' . $reportid);
+        if ($queryid <= 0) {
+            return; // Not one of our data reports.
+        }
+        query::record_view($queryid, $reportid, (int) $event->userid, (int) $event->timecreated);
     }
 }

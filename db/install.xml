@@ -47,5 +47,25 @@
         <INDEX NAME="courseid" UNIQUE="false" FIELDS="courseid"/>
       </INDEXES>
     </TABLE>
+    <TABLE NAME="local_reportsources_queryview" COMMENT="One row per view of a published report source.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="queryid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"
+               COMMENT="The report-sources query whose report was viewed."/>
+        <FIELD NAME="reportid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"
+               COMMENT="The reportbuilder_report id actually opened (a query may own several)."/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"
+               COMMENT="The user who opened the report."/>
+        <FIELD NAME="timeviewed" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="queryid" TYPE="foreign" FIELDS="queryid" REFTABLE="local_reportsources_query" REFFIELDS="id"/>
+        <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="queryid-timeviewed" UNIQUE="false" FIELDS="queryid, timeviewed"/>
+      </INDEXES>
+    </TABLE>
   </TABLES>
 </XMLDB>

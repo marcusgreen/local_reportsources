@@ -39,6 +39,9 @@ class query {
     /** @var string Database table holding saved queries. */
     public const TABLE = 'local_reportsources_query';
 
+    /** @var string Database table holding one row per report view (usage audit). */
+    public const TABLE_VIEW = 'local_reportsources_queryview';
+
     /** @var string Status: saved but not published. */
     public const STATUS_DRAFT = 'draft';
     /** @var string Status: view + Report Builder report are live. */
@@ -933,6 +936,9 @@ class query {
         $queryid = $this->id();
         $name = $this->name();
         self::tear_down($queryid, $this->record);
+        // The query record is going away, so its view-history rows would be orphaned; drop them.
+        // (Unpublish/republish keep the record and go through tear_down only, so history survives.)
+        $DB->delete_records(self::TABLE_VIEW, ['queryid' => $queryid]);
         $DB->delete_records(self::TABLE, ['id' => $queryid]);
         \local_reportsources\event\query_deleted::create_and_trigger($queryid, $name);
     }
@@ -969,6 +975,28 @@ class query {
         $newid = $DB->insert_record(self::TABLE, $copy);
         \local_reportsources\event\query_created::create_and_trigger($newid, $copy->name);
         return $newid;
+    }
+
+    /**
+     * Record that one of this query's published reports was opened.
+     *
+     * Called from {@see \local_reportsources\observer::report_viewed} on the hot path (every
+     * site-wide report view reaches the observer, but only bound plugin reports reach here), so this
+     * is a single unqualified insert with no extra lookups.
+     *
+     * @param int $queryid    The owning query.
+     * @param int $reportid   The reportbuilder_report actually opened.
+     * @param int $userid     The viewing user.
+     * @param int $timeviewed Event time (epoch seconds).
+     */
+    public static function record_view(int $queryid, int $reportid, int $userid, int $timeviewed): void {
+        global $DB;
+        $DB->insert_record(self::TABLE_VIEW, (object) [
+            'queryid'    => $queryid,
+            'reportid'   => $reportid,
+            'userid'     => $userid,
+            'timeviewed' => $timeviewed,
+        ]);
     }
 
     /**

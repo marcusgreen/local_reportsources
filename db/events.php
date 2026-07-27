@@ -29,4 +29,8 @@ $observers = [
         'eventname' => '\core\event\course_deleted',
         'callback'  => '\local_reportsources\observer::course_deleted',
     ],
+    [
+        'eventname' => '\core_reportbuilder\event\report_viewed',
+        'callback'  => '\local_reportsources\observer::report_viewed',
+    ],
 ];

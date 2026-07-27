@@ -19,7 +19,7 @@ declare(strict_types=1);
 namespace local_reportsources\reportbuilder\local\entities;
 
 use core_reportbuilder\local\entities\base;
-use core_reportbuilder\local\filters\{boolean_select, date, select, text};
+use core_reportbuilder\local\filters\{boolean_select, date, number, select, text};
 use core_reportbuilder\local\report\{column, filter};
 use html_writer;
 use lang_string;
@@ -223,6 +223,40 @@ class query extends base {
             ->set_is_sortable(true)
             ->add_callback([\core_reportbuilder\local\helpers\format::class, 'userdate']);
 
+        // Usage: view count and last-viewed time, from the queryview audit table. Scalar correlated
+        // subqueries keep this out of any base GROUP BY; a query may own several reports, but every
+        // view row carries the owning queryid, so counting on queryid covers them all.
+        $viewcount = "(SELECT COUNT(1) FROM {local_reportsources_queryview} qvc WHERE qvc.queryid = {$q}.id)";
+        $columns[] = (new column('viewcount', new lang_string('usage:views', 'local_reportsources'),
+            $this->get_entity_name()))
+            ->add_joins($this->get_joins())
+            ->set_type(column::TYPE_INTEGER)
+            ->add_field($viewcount, 'viewcount')
+            ->set_is_sortable(true, [$viewcount]);
+
+        $uniqueviewers = "(SELECT COUNT(DISTINCT qvu.userid) FROM {local_reportsources_queryview} qvu"
+            . " WHERE qvu.queryid = {$q}.id)";
+        $columns[] = (new column('uniqueviewers', new lang_string('usage:uniqueviewers', 'local_reportsources'),
+            $this->get_entity_name()))
+            ->add_joins($this->get_joins())
+            ->set_type(column::TYPE_INTEGER)
+            ->add_field($uniqueviewers, 'uniqueviewers')
+            ->set_is_sortable(true, [$uniqueviewers]);
+
+        $lastviewed = "(SELECT MAX(qvm.timeviewed) FROM {local_reportsources_queryview} qvm WHERE qvm.queryid = {$q}.id)";
+        $columns[] = (new column('lastviewed', new lang_string('usage:lastviewed', 'local_reportsources'),
+            $this->get_entity_name()))
+            ->add_joins($this->get_joins())
+            ->set_type(column::TYPE_TIMESTAMP)
+            ->add_field($lastviewed, 'lastviewed')
+            ->set_is_sortable(true, [$lastviewed])
+            // Null (never viewed) renders as '-'; otherwise an abbreviated-weekday date (e.g. "Sat").
+            ->add_callback(static function ($value): string {
+                return $value
+                    ? userdate((int) $value, get_string('strftimeviewdate', 'local_reportsources'))
+                    : '-';
+            });
+
         return $columns;
     }
 
@@ -276,6 +310,25 @@ class query extends base {
             ->add_joins($this->get_joins());
         $filters[] = (new filter(date::class, 'timecreated', new lang_string('timecreated', 'local_reportsources'),
             $this->get_entity_name(), "{$q}.timecreated"))
+            ->add_joins($this->get_joins());
+
+        // Usage filters: view count (number range) and last-viewed (date range), matching the
+        // correlated-subquery columns above.
+        $viewcount = "(SELECT COUNT(1) FROM {local_reportsources_queryview} qvc WHERE qvc.queryid = {$q}.id)";
+        $filters[] = (new filter(number::class, 'viewcount', new lang_string('usage:views', 'local_reportsources'),
+            $this->get_entity_name(), $viewcount))
+            ->add_joins($this->get_joins());
+
+        $uniqueviewers = "(SELECT COUNT(DISTINCT qvu.userid) FROM {local_reportsources_queryview} qvu"
+            . " WHERE qvu.queryid = {$q}.id)";
+        $filters[] = (new filter(number::class, 'uniqueviewers',
+            new lang_string('usage:uniqueviewers', 'local_reportsources'),
+            $this->get_entity_name(), $uniqueviewers))
+            ->add_joins($this->get_joins());
+
+        $lastviewed = "(SELECT MAX(qvm.timeviewed) FROM {local_reportsources_queryview} qvm WHERE qvm.queryid = {$q}.id)";
+        $filters[] = (new filter(date::class, 'lastviewed', new lang_string('usage:lastviewed', 'local_reportsources'),
+            $this->get_entity_name(), $lastviewed))
             ->add_joins($this->get_joins());
 
         return $filters;

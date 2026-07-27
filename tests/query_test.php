@@ -189,10 +189,15 @@ final class query_test extends \advanced_testcase {
         $id = query::save($this->formdata());
         query::get($id)->publish();
         $reportid = (int) query::get($id)->reportid();
+        // Seed a view-history row; delete() must cascade it so nothing is orphaned.
+        query::record_view($id, $reportid, 2, time());
+        $this->assertSame(1, $DB->count_records(query::TABLE_VIEW, ['queryid' => $id]));
+
         query::get($id)->delete();
 
         $this->assertFalse($DB->record_exists(query::TABLE, ['id' => $id]));
         $this->assertFalse(get_config('local_reportsources', 'queryid_for_report_' . $reportid));
+        $this->assertSame(0, $DB->count_records(query::TABLE_VIEW, ['queryid' => $id]));
     }
 
     public function test_visible_to_current_user_admin_sees_all(): void {

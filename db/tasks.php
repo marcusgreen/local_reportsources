@@ -15,18 +15,23 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Ad-hoc SQL reports backed by the Reportbuilder API.
+ * Scheduled task registration for local_reportsources.
  *
- * @package     local_reportsources
- * @copyright   2026 Marcus Green
- * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package   local_reportsources
+ * @copyright 2026 Marcus Green
+ * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->component = 'local_reportsources';
-$plugin->release   = '0.1.7';
-$plugin->version   = 2026072501;
-$plugin->requires  = 2024100100; // Moodle 4.5+ for stable Reportbuilder API.
-$plugin->maturity  = MATURITY_ALPHA;
-$plugin->supported = [405, 502];
+$tasks = [
+    [
+        'classname' => 'local_reportsources\task\purge_views',
+        'blocking'  => 0,
+        'minute'    => 'R',
+        'hour'      => '4',
+        'day'       => '*',
+        'month'     => '*',
+        'dayofweek' => '*',
+    ],
+];

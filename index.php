@@ -67,15 +67,6 @@ echo $OUTPUT->heading(get_string('queries', 'local_reportsources') .
 
 $syscontext = context_system::instance();
 if (has_capability('local/reportsources:author', $syscontext)) {
-    // Authors can read the bundled user documentation in the browser.
-    echo html_writer::div(
-        html_writer::link(
-            new moodle_url('/local/reportsources/docs.php'),
-            get_string('userdocs', 'local_reportsources'),
-            ['class' => 'btn btn-link p-0']
-        ),
-        'mb-2'
-    );
     // Wrapped with a stable id so the user tour can anchor a step to the New report view button.
     $newbutton = html_writer::div(
         $OUTPUT->single_button(
@@ -126,7 +117,18 @@ $rendertransferbuttons = function () use ($OUTPUT, $syscontext) {
         null,
         get_string('delete', 'local_reportsources')
     ));
-    echo html_writer::div($OUTPUT->render($menu), 'd-flex flex-wrap gap-2 mt-4');
+
+    // Managers (viewall) get a Report usage button on the same row as Bulk actions.
+    $usagebutton = '';
+    if (has_capability('local/reportsources:viewall', $syscontext)) {
+        $usagebutton = html_writer::link(
+            new moodle_url('/local/reportsources/usage.php'),
+            get_string('usage:linklabel', 'local_reportsources'),
+            ['class' => 'btn btn-secondary']
+        );
+    }
+
+    echo html_writer::div($OUTPUT->render($menu) . $usagebutton, 'd-flex flex-wrap gap-2 mt-4');
 };
 
 // Render the queries listing as a Report Builder system report: paging, per-column sorting and
@@ -144,4 +146,5 @@ $report = system_report_factory::create(
 echo $report->output();
 
 $rendertransferbuttons();
+
 echo $OUTPUT->footer();
