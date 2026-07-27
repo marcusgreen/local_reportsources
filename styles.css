@@ -1,0 +1,8 @@
+/* Cap the query Name column so long names wrap within a bounded width instead of stretching the
+   column (the RB system report has no fixed column widths; main used a 33% html_table size). */
+.rs-query-name {
+    display: inline-block;
+    max-width: 24rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}

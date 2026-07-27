@@ -81,24 +81,24 @@ final class transfer_test extends \advanced_testcase {
         $this->assertSame((int) $course->id, (int) $rec->courseid);
     }
 
-    public function test_count_bundled_matches_shipped_file(): void {
+    public function test_count_samples_matches_shipped_file(): void {
         $this->resetAfterTest();
 
         // The bundled file ships 23 sample report views.
-        $this->assertSame(23, transfer::count_bundled());
+        $this->assertSame(23, transfer::count_samples());
     }
 
-    public function test_import_bundled_is_idempotent(): void {
+    public function test_import_samples_is_idempotent(): void {
         global $DB, $USER;
         $this->resetAfterTest();
         $this->setAdminUser();
 
-        $count = transfer::count_bundled();
+        $count = transfer::count_samples();
         $this->assertGreaterThan(0, $count);
 
         // Every shipped sample is portable (date handling uses %%TIMESTAMP()%% / %%NOW%% tokens
         // rather than dialect-specific functions), so all of them import cleanly on any database.
-        $first = transfer::import_bundled();
+        $first = transfer::import_samples();
         $imported = $first['imported'];
         $this->assertSame($count, $imported, 'skipped: ' . json_encode($first['skipped']));
         $this->assertSame([], $first['duplicates']);
@@ -111,7 +111,7 @@ final class transfer_test extends \advanced_testcase {
 
         // Second run adds nothing: every already-imported name is reported as a duplicate and the
         // table count is unchanged.
-        $second = transfer::import_bundled();
+        $second = transfer::import_samples();
         $this->assertSame(0, $second['imported']);
         $this->assertCount($imported, $second['duplicates']);
         $this->assertSame($imported, $DB->count_records(query::TABLE));

@@ -77,7 +77,7 @@ if (has_capability('local/reportsources:author', $syscontext)) {
         'mb-2'
     );
     // Wrapped with a stable id so the user tour can anchor a step to the New report view button.
-    echo html_writer::div(
+    $newbutton = html_writer::div(
         $OUTPUT->single_button(
             new moodle_url(
                 '/local/reportsources/edit.php',
@@ -89,6 +89,19 @@ if (has_capability('local/reportsources:author', $syscontext)) {
         '',
         ['id' => 'rs-tour-newbutton']
     );
+
+    // The sample browser lives behind an admin externalpage (site config), so only offer it to
+    // users who can actually open it.
+    $samplesbutton = '';
+    if (has_capability('moodle/site:config', $syscontext)) {
+        $samplesbutton = $OUTPUT->single_button(
+            new moodle_url('/local/reportsources/samples.php', ['single' => 1]),
+            get_string('samples:samplelinklabel', 'local_reportsources'),
+            'get'
+        );
+    }
+
+    echo html_writer::div($newbutton . $samplesbutton, 'd-flex flex-wrap gap-2 align-items-start');
 }
 
 // Render the Bulk actions menu (export / import / delete) shown at the foot of the listing.

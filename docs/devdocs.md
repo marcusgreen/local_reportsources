@@ -376,12 +376,16 @@ derived state (view name, report id, `columnsmeta`) is regenerated, so every imp
 **draft** owned by the importer and must be re-published. `import()` re-validates each SQL and
 demotes unknown course ids to site-wide.
 
-Bundled samples (`samples/reportsources.json`) load two ways, both via `transfer`:
+Bundled samples (`samples/samples.json`) load two ways, both via `transfer`:
 
 - **CLI** — `cli/import.php`.
-- **Post-install** — `db/install.php` raises a notification linking to `samples.php`, which calls
-  `transfer::import_bundled()`; that helper skips any sample whose name already exists, so it is
-  idempotent across reinstalls.
+- **Browse / post-install** — `samples.php` is a browsable picker (linked from `db/install.php`'s
+  notification, the settings page and an index-page button) that renders the file via
+  `templates/samples_list.mustache` (`amd/src/samples.js` drives Select all / none). Checkbox mode
+  bulk-imports the ticked, non-duplicate rows; single mode (`?single=1`) imports one with a
+  `Sample:` name prefix. `transfer::bundled_samples()` is the single read path (annotates each
+  source with an `index` + `duplicate` flag); `import_samples()` bulk-imports the non-duplicates
+  and is idempotent across reinstalls.
 
 The shipped samples are cross-DB: date handling uses `%%TIMESTAMP()%%` / `%%NOW%%` rather than
 dialect-specific functions, so they import and publish on both MySQL/MariaDB and PostgreSQL.

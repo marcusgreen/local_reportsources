@@ -191,7 +191,44 @@ class transfer {
     }
 
     /** Absolute path to the sample report views shipped with the plugin. */
-    public const BUNDLED_SAMPLES = __DIR__ . '/../../samples/reportsources.json';
+    public const BUNDLED_SAMPLES = __DIR__ . '/../../samples/samples.json';
+
+    /**
+     * The bundled sample report views, parsed and annotated for browsing.
+     *
+     * Single read path for the bundled file: returns an empty array if the file is absent (a
+     * stripped deployment) or unparseable, so callers can present the loader without fataling.
+     * Each returned source carries its 0-based `index` (stable position, used as the import
+     * selector) and a `duplicate` flag — true when a query with the same name already exists on
+     * this site, so the browse UI can flag it and the server can refuse to re-import it.
+     *
+     * @return array<int, array<string, mixed>> Parsed sources, each with added `index` and `duplicate`.
+     */
+    public static function bundled_samples(): array {
+        global $DB;
+
+        if (!is_readable(self::BUNDLED_SAMPLES)) {
+            return [];
+        }
+        $json = file_get_contents(self::BUNDLED_SAMPLES);
+        if ($json === false) {
+            return [];
+        }
+        try {
+            $sources = self::parse($json);
+        } catch (\moodle_exception $e) {
+            return [];
+        }
+
+        foreach ($sources as $index => &$source) {
+            $name = (string) ($source['name'] ?? '');
+            $source['index'] = $index;
+            $source['duplicate'] = $name !== '' && $DB->record_exists(query::TABLE, ['name' => $name]);
+        }
+        unset($source);
+
+        return $sources;
+    }
 
     /**
      * Number of sample report views bundled with the plugin.
@@ -201,19 +238,8 @@ class transfer {
      *
      * @return int
      */
-    public static function count_bundled(): int {
-        if (!is_readable(self::BUNDLED_SAMPLES)) {
-            return 0;
-        }
-        $json = file_get_contents(self::BUNDLED_SAMPLES);
-        if ($json === false) {
-            return 0;
-        }
-        try {
-            return count(self::parse($json));
-        } catch (\moodle_exception $e) {
-            return 0;
-        }
+    public static function count_samples(): int {
+        return count(self::bundled_samples());
     }
 
     /**
@@ -227,31 +253,15 @@ class transfer {
      * @return array{imported:int,skipped:array<string,string>,demoted:array<string,int>,duplicates:string[]}
      *         The {@see import()} result with an added list of names skipped as already present.
      */
-    public static function import_bundled(): array {
-        global $DB;
-
-        $empty = ['imported' => 0, 'skipped' => [], 'demoted' => [], 'duplicates' => []];
-
-        if (!is_readable(self::BUNDLED_SAMPLES)) {
-            return $empty;
-        }
-        $json = file_get_contents(self::BUNDLED_SAMPLES);
-        if ($json === false) {
-            return $empty;
-        }
-        try {
-            $sources = self::parse($json);
-        } catch (\moodle_exception $e) {
-            return $empty;
-        }
+    public static function import_samples(): array {
+        $sources = self::bundled_samples();
 
         // Drop sources whose name already exists, so repeat runs never duplicate.
         $duplicates = [];
         $selected = [];
         foreach ($sources as $index => $source) {
-            $name = (string) ($source['name'] ?? '');
-            if ($name !== '' && $DB->record_exists(query::TABLE, ['name' => $name])) {
-                $duplicates[] = $name;
+            if (!empty($source['duplicate'])) {
+                $duplicates[] = (string) ($source['name'] ?? '');
                 continue;
             }
             $selected[] = $index;

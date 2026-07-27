@@ -113,7 +113,7 @@ class query extends base {
         $columns[] = (new column('name', new lang_string('name', 'local_reportsources'), $this->get_entity_name()))
             ->add_joins($this->get_joins())
             ->set_type(column::TYPE_TEXT)
-            ->add_fields("{$q}.name, {$q}.chartmeta")
+            ->add_fields("{$q}.name, {$q}.chartmeta, {$q}.querysql")
             ->set_is_sortable(true, ["{$q}.name"])
             ->add_callback(static function ($value, \stdClass $row): string {
                 if ($value === null) {
@@ -126,6 +126,15 @@ class query extends base {
 
                 $chartmeta = !empty($row->chartmeta) ? json_decode($row->chartmeta, true) : [];
                 if (empty($chartmeta['type']) || $chartmeta['type'] === 'none') {
+                    // No chart: flag aggregate "summary" queries (GROUP BY / aggregate function).
+                    if (preg_match('/\bgroup\s+by\b|\b(?:count|sum|avg|min|max)\s*\(/i', (string) $row->querysql)) {
+                        $summary = html_writer::tag('i', '', [
+                            'class'       => 'fa fa-calculator text-info me-1',
+                            'title'       => get_string('summaryreport', 'local_reportsources'),
+                            'aria-hidden' => 'true',
+                        ]);
+                        return $wrap($summary . $name);
+                    }
                     return $wrap($name);
                 }
 

@@ -120,9 +120,9 @@ The JS editor (`amd/src/editor.es6.js`) mirrors the static denylist client-side 
 
 `classes/local/transfer.php` moves queries as portable JSON (`export()`/`parse()`/`import()`). Only portable fields travel (name, description, SQL, course scope, visibility, chart config); derived state is regenerated, so every import lands as a fresh **draft** owned by the importer and must be re-published. `import()` re-validates each SQL and demotes unknown courseids to site-wide.
 
-The plugin ships sample report views in `samples/reportsources.json`, loadable two ways, both via `transfer`:
+The plugin ships sample report views in `samples/samples.json`, loadable two ways, both via `transfer`:
 - **CLI** — `cli/import.php` (defaults to `reportsources.json` in the CWD).
-- **Post-install** — `db/install.php` raises a notification linking to `samples.php`, a confirm page (also registered as the `local_reportsources_samples` admin external page) that calls `transfer::import_bundled()`. That helper reads `samples/reportsources.json` and skips any sample whose name already exists, so it is idempotent across repeat clicks / reinstalls.
+- **Browse / post-install** — `samples.php` is a browsable picker (registered as the `local_reportsources_samples` admin external page, linked from `db/install.php`'s post-install notification, the settings page, and an index-page button). It renders `samples/samples.json` via `templates/samples_list.mustache` (JS `amd/src/samples.js` drives Select all / Select none). Two modes: **checkbox** (bulk import, disables any sample whose name already exists) and **single** (`?single=1`, radio/one-shot import that prefixes the draft name with `Sample:` so it never collides). `transfer::bundled_samples()` is the single read path — it parses the file and annotates each source with a stable `index` and a `duplicate` flag (name already exists). `count_samples()` counts them; `import_samples()` bulk-imports the non-duplicates and is idempotent across repeat clicks / reinstalls.
 
 The shipped samples are cross-DB: date handling uses the `%%TIMESTAMP()%%` / `%%NOW%%` tokens rather than dialect-specific functions, so all of them import and publish on both MySQL/MariaDB and PostgreSQL.
 

@@ -193,5 +193,5 @@ through the phase-1 accept criteria.
 dominant killers — MySQL date functions, the `?` HTML-link trick, and `mdl_log` schema
 drift — are exactly the non-portable patterns phase 1 refuses by design. The reports
 that do pass closely match the simple ones already hand-ported into
-`samples/reportsources.json`, confirming phase 1 mainly re-derives the easy cases; the
+`samples/samples.json`, confirming phase 1 mainly re-derives the easy cases; the
 long tail needs the phase-2 rewrite / AI layer.
