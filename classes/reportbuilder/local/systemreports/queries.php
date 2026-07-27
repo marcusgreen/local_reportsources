@@ -187,6 +187,9 @@ class queries extends system_report {
             ->set_type(column::TYPE_TEXT)
             ->add_fields("{$alias}.id, {$alias}.status, {$alias}.reportid, {$alias}.ownerid")
             ->set_is_sortable(false)
+            // Shrink the Actions column to its buttons (see .rs-actions-col) so the freed width
+            // goes to the Name column instead of pooling as empty space before the kebab menu.
+            ->add_attributes(['class' => 'rs-actions-col'])
             ->add_callback(static function ($value, \stdClass $row) use ($urlcourse): string {
                 global $USER;
                 $buttons = '';

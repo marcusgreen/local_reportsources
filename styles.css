@@ -2,7 +2,15 @@
    column (the RB system report has no fixed column widths; main used a 33% html_table size). */
 .rs-query-name {
     display: inline-block;
-    max-width: 24rem;
+    max-width: 36rem;
     white-space: normal;
     overflow-wrap: anywhere;
+}
+
+/* Collapse the Actions column to the width of its buttons. In an auto-layout table a cell with a
+   tiny width + nowrap content renders at its min-content size, so the slack the column used to
+   absorb (the empty gap before the kebab menu) is handed back to the wider Name column instead. */
+.reportbuilder-table .rs-actions-col {
+    width: 1px;
+    white-space: nowrap;
 }
