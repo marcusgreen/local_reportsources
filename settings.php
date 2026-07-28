@@ -46,6 +46,17 @@ $ADMIN->add('reports', new admin_externalpage(
     true
 ));
 
+// Sample browser (import bundled sample report views as drafts). Registered outside the
+// $hassiteconfig guard with the author capability so any author — not only site admins — can
+// browse and import samples. Hidden from the tree; reached via the link on the index page.
+$ADMIN->add('reports', new admin_externalpage(
+    'local_reportsources_samples',
+    get_string('samples:title', 'local_reportsources'),
+    new moodle_url('/local/reportsources/samples.php'),
+    'local/reportsources:author',
+    true
+));
+
 if ($hassiteconfig) {
     $settings = new admin_settingpage(
         'local_reportsources',
@@ -143,14 +154,6 @@ if ($hassiteconfig) {
         'local_reportsources_testview',
         get_string('testview:title', 'local_reportsources'),
         new moodle_url('/local/reportsources/testview.php'),
-        'moodle/site:config',
-        true
-    ));
-
-    $ADMIN->add('localplugins', new admin_externalpage(
-        'local_reportsources_samples',
-        get_string('samples:title', 'local_reportsources'),
-        new moodle_url('/local/reportsources/samples.php'),
         'moodle/site:config',
         true
     ));

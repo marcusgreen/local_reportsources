@@ -81,16 +81,13 @@ if (has_capability('local/reportsources:author', $syscontext)) {
         ['id' => 'rs-tour-newbutton']
     );
 
-    // The sample browser lives behind an admin externalpage (site config), so only offer it to
-    // users who can actually open it.
-    $samplesbutton = '';
-    if (has_capability('moodle/site:config', $syscontext)) {
-        $samplesbutton = $OUTPUT->single_button(
-            new moodle_url('/local/reportsources/samples.php', ['single' => 1]),
-            get_string('samples:samplelinklabel', 'local_reportsources'),
-            'get'
-        );
-    }
+    // The sample browser is author-gated (same as this button's outer guard), so any author can
+    // open it.
+    $samplesbutton = $OUTPUT->single_button(
+        new moodle_url('/local/reportsources/samples.php', ['single' => 1]),
+        get_string('samples:samplelinklabel', 'local_reportsources'),
+        'get'
+    );
 
     echo html_writer::div($newbutton . $samplesbutton, 'd-flex flex-wrap gap-2 align-items-start');
 }
