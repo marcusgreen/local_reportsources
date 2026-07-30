@@ -88,6 +88,32 @@ final class transfer_test extends \advanced_testcase {
         $this->assertSame(23, transfer::count_samples());
     }
 
+    public function test_author_without_siteconfig_can_import_sample(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        // A plain user granted only local/reportsources:author at system context — no
+        // moodle/site:config. This mirrors the samples.php gate (an author externalpage), which
+        // is the sole gate on the import: transfer::import() itself performs no capability check.
+        $user = $this->getDataGenerator()->create_user();
+        $syscontext = \context_system::instance();
+        $roleid = $this->getDataGenerator()->create_role();
+        assign_capability('local/reportsources:author', CAP_ALLOW, $roleid, $syscontext->id);
+        role_assign($roleid, $user->id, $syscontext->id);
+        $this->setUser($user);
+
+        $this->assertTrue(has_capability('local/reportsources:author', $syscontext));
+        $this->assertFalse(has_capability('moodle/site:config', $syscontext));
+
+        $result = transfer::import([$this->source(['name' => 'Authored'])], [0]);
+        $this->assertSame(1, $result['imported']);
+
+        // The imported query lands as a draft owned by the author.
+        $rec = $DB->get_record(query::TABLE, ['name' => 'Authored'], '*', MUST_EXIST);
+        $this->assertSame(query::STATUS_DRAFT, $rec->status);
+        $this->assertSame((int) $user->id, (int) $rec->ownerid);
+    }
+
     public function test_import_samples_is_idempotent(): void {
         global $DB, $USER;
         $this->resetAfterTest();
