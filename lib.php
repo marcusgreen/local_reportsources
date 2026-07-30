@@ -136,7 +136,15 @@ function local_reportsources_output_fragment_preview(array $args): string {
     try {
         // Same static denylist as the publish path; errors surface inline instead of crashing.
         $validated = \local_reportsources\local\sql\validator::validate($sql);
+    } catch (\moodle_exception $e) {
+        // Validation failed before any view was created — nothing to clean up.
+        return $OUTPUT->notification($e->getMessage(), 'error');
+    }
 
+    // Preview is first-page-only, so output() renders the rows synchronously and the throwaway view
+    // is not needed once it returns. Drop it in a finally so every exit path — success, inline error
+    // or exception — leaves no residual DB view behind.
+    try {
         $viewname = \local_reportsources\local\sql\view::create_or_replace_preview($USER->id, $validated, $courseid);
         $columns = \local_reportsources\local\sql\view::columns($viewname);
 
@@ -147,22 +155,24 @@ function local_reportsources_output_fragment_preview(array $args): string {
         }
 
         $meta = \local_reportsources\local\query::build_columnsmeta($columns, $validated);
+
+        $report = \core_reportbuilder\system_report_factory::create(
+            \local_reportsources\reportbuilder\local\systemreports\preview::class,
+            $context,
+            '',
+            '',
+            0,
+            [
+                'viewname'    => $viewname,
+                'columnsmeta' => json_encode($meta),
+                'title'       => get_string('preview', 'local_reportsources'),
+            ]
+        );
+
+        return $report->output();
     } catch (\moodle_exception $e) {
         return $OUTPUT->notification($e->getMessage(), 'error');
+    } finally {
+        \local_reportsources\local\sql\view::drop_preview($USER->id);
     }
-
-    $report = \core_reportbuilder\system_report_factory::create(
-        \local_reportsources\reportbuilder\local\systemreports\preview::class,
-        $context,
-        '',
-        '',
-        0,
-        [
-            'viewname'    => $viewname,
-            'columnsmeta' => json_encode($meta),
-            'title'       => get_string('preview', 'local_reportsources'),
-        ]
-    );
-
-    return $report->output();
 }

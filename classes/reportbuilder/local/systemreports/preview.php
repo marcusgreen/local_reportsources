@@ -60,6 +60,11 @@ class preview extends system_report {
         );
         $this->add_columns_from_entities($columns);
 
+        // Preview is non-interactive: strip sorting from every column so no header sort links render.
+        foreach ($this->get_columns() as $column) {
+            $column->set_is_sortable(false);
+        }
+
         // Preview only: first 5 rows, no interactivity, no export.
         $this->set_default_per_page(5);
         $this->set_downloadable(false);
