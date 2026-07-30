@@ -99,14 +99,49 @@ class edit_query_form extends moodleform {
 
         // Advisory "Test query" button — analyses date columns, row count and indexes over AJAX
         // (see local_reportsources\external\test_query). Convenience only, never a publish gate.
-        $mform->addElement('static', 'testbtn', '', \html_writer::tag(
+        // The inline "Preview" button sits to its right — renders the current (unsaved) SQL as a
+        // real Report Builder report via the Fragment API (see
+        // local_reportsources_output_fragment_preview()). Both buttons share one row; their help
+        // icons render inline (via help_icon) rather than in the form's label column so each stays
+        // next to its own button.
+        global $OUTPUT;
+        $testbtn = \html_writer::tag(
             'button',
             get_string('checkquery', 'local_reportsources'),
             ['type' => 'button', 'id' => 'rs-test-btn', 'class' => 'btn btn-secondary']
-        ) . \html_writer::div('', '', ['id' => 'rs-test-results', 'class' => 'mt-2']));
-        $mform->addHelpButton('testbtn', 'checkquery', 'local_reportsources');
+        );
+        $previewbtn = \html_writer::tag(
+            'button',
+            get_string('preview', 'local_reportsources'),
+            [
+                'type'           => 'button',
+                'id'             => 'rs-preview-btn',
+                'class'          => 'btn btn-secondary',
+                'data-contextid' => (string) \context_system::instance()->id,
+            ]
+        );
+        $querybuttons = \html_writer::div(
+            $testbtn . $OUTPUT->help_icon('checkquery', 'local_reportsources')
+                . $previewbtn . $OUTPUT->help_icon('preview', 'local_reportsources'),
+            'd-flex align-items-center gap-2'
+        );
+        $mform->addElement('static', 'querybuttons', '', $querybuttons);
         $PAGE->requires->js_call_amd('local_reportsources/test', 'init',
             ['rs-test-btn', 'id_querysql', 'id_courseid', 'rs-test-results']);
+
+        // Test results and the preview result region are rendered full-width (raw html elements, not
+        // static felements) so the Report Builder table is not squeezed by the form's grid column,
+        // which would clip wide column headers. See styles.css (#rs-preview overflow-x).
+        $mform->addElement('html', \html_writer::div('', 'mt-2', ['id' => 'rs-test-results']));
+        // The preview result lands in a collapsible <details> so it can be tucked away without
+        // reloading. Hidden (d-none) until the first Preview run; preview.js reveals it on click.
+        $previewregion = \html_writer::start_tag('details', ['id' => 'rs-preview-details', 'class' => 'mt-2 d-none'])
+            . \html_writer::tag('summary', get_string('previewheading', 'local_reportsources'), ['class' => 'h6'])
+            . \html_writer::div('', '', ['id' => 'rs-preview', 'class' => 'mt-2'])
+            . \html_writer::end_tag('details');
+        $mform->addElement('html', $previewregion);
+        $PAGE->requires->js_call_amd('local_reportsources/preview', 'init',
+            ['rs-preview-btn', 'id_querysql', 'id_courseid', 'rs-preview', 'rs-preview-details']);
 
         $this->add_audience_elements($mform);
 

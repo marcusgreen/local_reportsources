@@ -96,3 +96,73 @@ function local_reportsources_extend_navigation_course(
         new pix_icon('i/report', '')
     );
 }
+
+/**
+ * Fragment: render the first page of an unsaved query as a Report Builder report, for the inline
+ * Preview button in the edit form.
+ *
+ * Validates the SQL (same static denylist as publish), (re)creates the author's throwaway preview
+ * VIEW, introspects its columns, then renders an ephemeral system report over it. Nothing is
+ * persisted — no reportbuilder_report row, no config binding, no audiences. Returned HTML carries
+ * the report's own queued JS via the Fragment API, so the client can inject it live.
+ *
+ * @param array $args Fragment arguments: 'sql' (string), 'courseid' (int), plus core's 'context'.
+ * @return string Rendered report HTML (or an inline error notification).
+ */
+function local_reportsources_output_fragment_preview(array $args): string {
+    global $USER, $OUTPUT;
+
+    $context = \context_system::instance();
+    require_capability('local/reportsources:author', $context);
+
+    $sql = (string) ($args['sql'] ?? '');
+    $courseid = (int) ($args['courseid'] ?? 0);
+
+    // Mirror edit.php: an author may not preview a query scoped to a course they cannot access. A
+    // courseid that resolves to no course (stale/imported id) is demoted to site-wide.
+    if ($courseid > 0) {
+        $coursecontext = \context_course::instance($courseid, IGNORE_MISSING);
+        if (!$coursecontext) {
+            $courseid = 0;
+        } else if (
+            !has_capability('local/reportsources:viewall', $context) &&
+            !has_capability('local/reportsources:view', $coursecontext) &&
+            !has_capability('local/reportsources:viewown', $coursecontext)
+        ) {
+            throw new required_capability_exception($coursecontext, 'local/reportsources:view', 'nopermissions', '');
+        }
+    }
+
+    try {
+        // Same static denylist as the publish path; errors surface inline instead of crashing.
+        $validated = \local_reportsources\local\sql\validator::validate($sql);
+
+        $viewname = \local_reportsources\local\sql\view::create_or_replace_preview($USER->id, $validated, $courseid);
+        $columns = \local_reportsources\local\sql\view::columns($viewname);
+
+        // An unaliased expression yields a view column RB cannot build — fail with a clear message.
+        if (($badcol = \local_reportsources\local\sql\view::first_unaliased_column($columns)) !== null) {
+            $errkey = preg_match('/\s/', $badcol) ? 'erraliasspaces' : 'errcolumnnoalias';
+            return $OUTPUT->notification(get_string($errkey, 'local_reportsources', $badcol), 'error');
+        }
+
+        $meta = \local_reportsources\local\query::build_columnsmeta($columns, $validated);
+    } catch (\moodle_exception $e) {
+        return $OUTPUT->notification($e->getMessage(), 'error');
+    }
+
+    $report = \core_reportbuilder\system_report_factory::create(
+        \local_reportsources\reportbuilder\local\systemreports\preview::class,
+        $context,
+        '',
+        '',
+        0,
+        [
+            'viewname'    => $viewname,
+            'columnsmeta' => json_encode($meta),
+            'title'       => get_string('preview', 'local_reportsources'),
+        ]
+    );
+
+    return $report->output();
+}

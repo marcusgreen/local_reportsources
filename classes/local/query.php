@@ -592,27 +592,7 @@ class query {
             throw new \moodle_exception($errkey, 'local_reportsources', '', $badcol);
         }
 
-        // Timestamp columns (%%TIMESTAMP()%%) resolve to a bare epoch integer in the view, so introspection alone
-        // would type them as int. Recover the intended timestamp type — and any requested display
-        // format — from the saved SQL tokens, keyed by output column name.
-        $tsformats = view::timestamp_columns($this->sql());
-
-        $meta = [];
-        foreach ($columns as $name => $info) {
-            $key = strtolower($name);
-            if (array_key_exists($key, $tsformats)) {
-                $meta[$name] = [
-                    'type'       => 'timestamp',
-                    'label'      => $name,
-                    'dateformat' => $tsformats[$key],
-                ];
-            } else {
-                $meta[$name] = [
-                    'type'  => self::map_db_type((string) $info->meta_type),
-                    'label' => $name,
-                ];
-            }
-        }
+        $meta = self::build_columnsmeta($columns, $this->sql());
 
         // Register the Reportbuilder report (idempotent). create_report() will set ->type for us.
         // We create with defaults disabled because the datasource cannot resolve its columns until
@@ -1071,6 +1051,41 @@ class query {
             'T'      => 'timestamp',
             default  => 'text',
         };
+    }
+
+    /**
+     * Build the column metadata array (frozen into `columnsmeta` at publish) from an introspected
+     * VIEW's columns plus the saved SQL. Shared by {@see publish()} and the inline preview, so both
+     * type columns identically.
+     *
+     * Timestamp columns (%%TIMESTAMP()%%) resolve to a bare epoch integer in the view, so
+     * introspection alone would type them as int. Recover the intended timestamp type — and any
+     * requested display format — from the saved SQL tokens, keyed by output column name.
+     *
+     * @param array<string, object> $columns Column map from {@see view::columns()} (has `meta_type`).
+     * @param string $sql Raw saved SQL (before placeholder resolution), for timestamp-token recovery.
+     * @return array<string, array{type:string,label:string,dateformat?:string}>
+     */
+    public static function build_columnsmeta(array $columns, string $sql): array {
+        $tsformats = view::timestamp_columns($sql);
+
+        $meta = [];
+        foreach ($columns as $name => $info) {
+            $key = strtolower($name);
+            if (array_key_exists($key, $tsformats)) {
+                $meta[$name] = [
+                    'type'       => 'timestamp',
+                    'label'      => $name,
+                    'dateformat' => $tsformats[$key],
+                ];
+            } else {
+                $meta[$name] = [
+                    'type'  => self::map_db_type((string) $info->meta_type),
+                    'label' => $name,
+                ];
+            }
+        }
+        return $meta;
     }
 
     /**

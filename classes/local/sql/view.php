@@ -31,6 +31,9 @@ class view {
     /** @var string Prefix for generated view names (without Moodle prefix). */
     public const NAME_PREFIX = 'local_reportsources_v_';
 
+    /** @var string Prefix for throwaway inline-preview views (one reusable slot per user). */
+    public const PREVIEW_NAME_PREFIX = 'local_reportsources_v_preview_';
+
     /**
      * Build the view name for a given query id (without Moodle prefix).
      *
@@ -39,6 +42,17 @@ class view {
      */
     public static function name_for(int $queryid): string {
         return self::NAME_PREFIX . $queryid;
+    }
+
+    /**
+     * Build the throwaway preview view name for a user (without Moodle prefix). One reusable slot
+     * per user, CREATE OR REPLACEd on each preview, so previewing never accumulates views.
+     *
+     * @param int $userid
+     * @return string
+     */
+    public static function preview_name_for(int $userid): string {
+        return self::PREVIEW_NAME_PREFIX . $userid;
     }
 
     /**
@@ -54,9 +68,48 @@ class view {
      * @throws \moodle_exception
      */
     public static function create_or_replace(int $queryid, string $validatedsql, int $courseid = 0): string {
+        return self::issue_create_or_replace(self::name_for($queryid), $validatedsql, $courseid);
+    }
+
+    /**
+     * (Re)create the throwaway inline-preview VIEW for a user. Same DDL path as
+     * {@see create_or_replace()}, but targets the per-user reusable preview slot rather than a
+     * query-id view. The provided SQL must already have been validated.
+     *
+     * @param int $userid
+     * @param string $validatedsql
+     * @param int $courseid Course scope to substitute into %%COURSEID%% (0 = site-wide).
+     * @return string The preview view name (without prefix).
+     * @throws \moodle_exception
+     */
+    public static function create_or_replace_preview(int $userid, string $validatedsql, int $courseid = 0): string {
+        return self::issue_create_or_replace(self::preview_name_for($userid), $validatedsql, $courseid);
+    }
+
+    /**
+     * Drop a user's throwaway preview VIEW, if it exists.
+     *
+     * @param int $userid
+     */
+    public static function drop_preview(int $userid): void {
+        global $DB, $CFG;
+        $fullname = $CFG->prefix . self::preview_name_for($userid);
+        $DB->change_database_structure("DROP VIEW IF EXISTS {$fullname}");
+    }
+
+    /**
+     * Issue CREATE OR REPLACE VIEW for the given (unprefixed) view name, resolving placeholders and
+     * normalising aliases first. Shared by the published-view and preview-view paths.
+     *
+     * @param string $viewname View name without the Moodle prefix.
+     * @param string $validatedsql Already-validated SQL.
+     * @param int $courseid Course scope to substitute into %%COURSEID%%.
+     * @return string The view name (echoed back).
+     * @throws \moodle_exception
+     */
+    private static function issue_create_or_replace(string $viewname, string $validatedsql, int $courseid): string {
         global $DB, $CFG;
 
-        $viewname = self::name_for($queryid);
         $fullname = $CFG->prefix . $viewname;
         $resolved = self::normalise_aliases(self::resolve_placeholders($validatedsql, $courseid));
 

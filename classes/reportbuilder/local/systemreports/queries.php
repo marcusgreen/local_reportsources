@@ -69,8 +69,8 @@ class queries extends system_report {
         }
         $this->add_columns_from_entities($columns);
 
-        // The most-used actions (Open report / Edit query / Edit in Report Builder / Unpublish) render as
-        // inline buttons in their own column; the rest stay in the row's kebab menu (see add_report_actions()).
+        // The most-used actions (Edit query / Unpublish) render as inline buttons in their own
+        // column; the rest stay in the row's kebab menu (see add_report_actions()).
         $this->add_buttons_column($entityname, $alias);
 
         // Course filter is redundant when the listing is already scoped to a course via the
@@ -178,8 +178,8 @@ class queries extends system_report {
     }
 
     /**
-     * Add a leading column rendering the most-used actions (Open report / Edit query / Edit in
-     * Report Builder) as inline buttons, so they sit outside the kebab menu holding the rest.
+     * Add a leading column rendering the most-used actions (Edit query / Unpublish) as inline
+     * buttons, so they sit outside the kebab menu holding the rest.
      *
      * @param string $entityname entity the column is attached to
      * @param string $alias main-table alias for the button-gating fields
@@ -236,10 +236,10 @@ class queries extends system_report {
     /**
      * Add the per-row kebab action links, mirroring the plugin's own listing page.
      *
-     * Open report, Edit query, Edit in Report Builder and Unpublish render as inline buttons (see
-     * add_buttons_column()); this covers the remainder: View chart, Schedule emails, New report,
-     * Publish, Duplicate and Delete. Each is gated by the same capability / status / owner-lock rules
-     * the hand-rolled index.php table used.
+     * Edit query and Unpublish render as inline buttons (see add_buttons_column()); this covers the
+     * remainder: Edit in Report Builder, View chart, Schedule emails, New report, Publish, Duplicate
+     * and Delete. Each is gated by the same capability / status / owner-lock rules the hand-rolled
+     * index.php table used.
      *
      * @return void
      */
@@ -253,17 +253,6 @@ class queries extends system_report {
             global $USER;
             return !is_siteadmin($row->ownerid) || is_siteadmin($USER);
         };
-
-        // Open the published report.
-        $this->add_action((new action(
-            new moodle_url('/reportbuilder/view.php', ['id' => ':reportid']),
-            new pix_icon('i/report', ''),
-            [],
-            false,
-            new lang_string('runreport', 'local_reportsources')
-        ))->add_callback(static function (\stdClass $row): bool {
-            return $row->status === query::STATUS_PUBLISHED && !empty($row->reportid);
-        }));
 
         // Edit the underlying Report Builder report (RB editors only).
         $this->add_action((new action(
@@ -308,21 +297,6 @@ class queries extends system_report {
                     ['moodle/reportbuilder:edit', 'moodle/reportbuilder:editall'],
                     \context_system::instance()
                 );
-        }));
-
-        // Create an additional report from a published query.
-        $this->add_action((new action(
-            new moodle_url(
-                '/local/reportsources/run.php',
-                ['id' => ':id', 'action' => 'newreport', 'sesskey' => sesskey()]
-            ),
-            new pix_icon('t/add', ''),
-            [],
-            false,
-            new lang_string('newreport', 'local_reportsources')
-        ))->add_callback(static function (\stdClass $row) use ($canmodifyrow): bool {
-            return $canmodifyrow($row) && $row->status === query::STATUS_PUBLISHED
-                && has_capability('local/reportsources:approve', \context_system::instance());
         }));
 
         // Publish a draft query.

@@ -49,11 +49,6 @@ try {
             $query->unpublish();
             $msg = get_string('unpublish', 'local_reportsources');
             break;
-        case 'newreport':
-            require_capability('local/reportsources:approve', $context);
-            $reportid = $query->create_additional_report();
-            redirect(new moodle_url('/reportbuilder/edit.php', ['id' => $reportid]));
-            break;
         case 'copy':
             require_capability('local/reportsources:author', $context);
             $newid = $query->duplicate();

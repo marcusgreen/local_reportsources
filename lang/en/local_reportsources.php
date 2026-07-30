@@ -239,7 +239,6 @@ $string['install:privilegefail'] = 'Report sources installed, but the database u
 $string['install:privilegeok'] = 'Report sources: the database user can create and drop views.';
 $string['lastmodified'] = 'Last modified';
 $string['name'] = 'Name';
-$string['newreport'] = 'New report from this source';
 $string['noqueries'] = 'No report sources yet.';
 $string['owner'] = 'Owner';
 $string['pluginexplained'] = 'About report sources';
@@ -249,6 +248,10 @@ When you publish a query, the plugin creates a database VIEW from your SQL, read
 
 Only SELECT queries are allowed, and a denylist blocks access to sensitive tables. Editing the SQL of a published query rebuilds the view and report on the next publish.';
 $string['pluginname'] = 'Report sources';
+$string['preview'] = 'Preview';
+$string['preview_help'] = 'Renders your current SQL as a real Report Builder report, inline and without saving or publishing. Columns are typed and formatted exactly as they would be on publish, so this is a quick way to see what the report will look like. Only the first 5 rows are shown.';
+$string['previewheading'] = 'Preview result';
+$string['previewloading'] = 'Building preview…';
 $string['privacy:metadata:query'] = 'Saved report sources authored by users.';
 $string['privacy:metadata:query:ownerid'] = 'User who authored the query.';
 $string['privacy:metadata:query:querysql'] = 'The SQL of the query.';
