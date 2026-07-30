@@ -223,8 +223,10 @@ if ($aisqlchatavailable) {
             ['class' => 'text-muted small mb-2']
         );
         if (get_config('local_sqlchat', 'showprompt') && !empty($airesult->prompt)) {
-            echo html_writer::tag('h6', get_string('ai:prompt', 'local_reportsources'), ['class' => 'mt-2']);
+            echo html_writer::start_tag('details', ['class' => 'mt-2']);
+            echo html_writer::tag('summary', get_string('ai:prompt', 'local_reportsources'), ['class' => 'h6']);
             echo html_writer::tag('pre', s($airesult->prompt), ['class' => 'bg-light p-2 small']);
+            echo html_writer::end_tag('details');
         }
     }
 
