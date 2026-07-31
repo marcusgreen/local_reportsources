@@ -723,6 +723,8 @@ Two long-standing plugins build reports from SQL: **Ad-hoc database queries** (`
 
 With thanks to **Gemma Lesterhuis — CEO, LTNC BV** for suggestions and feedback with this plugin.
 
+With thanks to **Guy Thomas** for suggestions relating to test query.
+
 ---
 
 *Report Sources — GNU GPL v3 or later.*
