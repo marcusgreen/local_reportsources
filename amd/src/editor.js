@@ -33,7 +33,7 @@ import {
     MySQL,
 } from './codemirror-lazy';
 import {format as formatSql} from './sql-formatter-lazy';
-import {get_string as getString} from 'core/str';
+import {get_string as getString, get_strings as getStrings} from 'core/str';
 import Ajax from 'core/ajax';
 
 /**
@@ -184,6 +184,8 @@ const buildEditor = (textarea, schema, fkMap) => {
     textarea.style.display = 'none';
 
     const view = new EditorView({state, parent: container});
+
+    initTimestampHover(view);
 
     // Let other modules (e.g. the Test-query "click-to-wrap" date buttons) replace the whole editor
     // contents. Setting textarea.value alone would not reach CodeMirror, so we dispatch a real doc
@@ -451,4 +453,98 @@ const buildEditor = (textarea, schema, fkMap) => {
             warningBanner.style.display = 'none';
         });
     }
+};
+
+/** Default display format applied when a %%TIMESTAMP()%% token gives no format. */
+const TIMESTAMP_DEFAULT_FORMAT = 'dd-mmm-yyyy';
+
+/** Matches a whole %%TIMESTAMP(...)%% token — the inner text never contains a % so [^%]* is safe. */
+const TIMESTAMP_TOKEN_RE = /%%TIMESTAMP[^%]*%%/gi;
+
+/**
+ * Attach a hover tooltip that explains the optional display-format argument whenever the pointer
+ * is over a %%TIMESTAMP(...)%% token.
+ *
+ * The prebuilt codemirror-lazy bundle does not export CodeMirror's own hoverTooltip helper, so we
+ * drive a lightweight tooltip from a mousemove listener + view.posAtCoords instead.
+ *
+ * @param {EditorView} view - The CodeMirror editor view.
+ */
+const initTimestampHover = (view) => {
+    const tooltip = document.createElement('div');
+    tooltip.className = 'rs-timestamp-hover card shadow-sm p-2';
+    tooltip.style.cssText = 'position:fixed;z-index:1080;max-width:24rem;display:none;font-size:.85rem;';
+    document.body.appendChild(tooltip);
+
+    // Build the tooltip body once, lazily, from lang strings the first time it is shown.
+    let contentReady = false;
+    const tokens = ['dd', 'mm', 'mon', 'month', 'yyyy', 'yy', 'ddd', 'hh', 'mi', 'ss'];
+    const populate = () => {
+        if (contentReady) {
+            return;
+        }
+        contentReady = true;
+        const requests = [
+            {key: 'tsfmthelptitle', component: 'local_reportsources'},
+            {key: 'tsfmthelpintro', component: 'local_reportsources', param: TIMESTAMP_DEFAULT_FORMAT},
+            {key: 'tsfmthelptokens', component: 'local_reportsources'},
+            ...tokens.map(t => ({key: 'tsfmt' + t, component: 'local_reportsources'})),
+        ];
+        getStrings(requests)
+            .then(([title, intro, tokensLabel, ...glosses]) => {
+                const rows = tokens.map((t, i) =>
+                    `<tr><th class="pe-2 text-nowrap"><code>${t}</code></th><td>${glosses[i]}</td></tr>`
+                ).join('');
+                tooltip.innerHTML =
+                    `<div class="fw-bold mb-1">${title}</div>` +
+                    `<div class="mb-2">${intro}</div>` +
+                    `<div class="fw-bold mb-1">${tokensLabel}</div>` +
+                    `<table class="mb-0"><tbody>${rows}</tbody></table>`;
+                return null;
+            })
+            .catch(() => {
+                contentReady = false;
+            });
+    };
+
+    // Find the %%TIMESTAMP(...)%% token, if any, spanning document position pos.
+    const tokenAt = (text, pos) => {
+        TIMESTAMP_TOKEN_RE.lastIndex = 0;
+        let m;
+        while ((m = TIMESTAMP_TOKEN_RE.exec(text)) !== null) {
+            if (pos >= m.index && pos <= m.index + m[0].length) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    const hide = () => {
+        tooltip.style.display = 'none';
+    };
+
+    view.dom.addEventListener('mousemove', (e) => {
+        const pos = view.posAtCoords({x: e.clientX, y: e.clientY}, false);
+        if (pos === null || !tokenAt(view.state.doc.toString(), pos)) {
+            hide();
+            return;
+        }
+        populate();
+        // Offset from the pointer and clamp to the viewport so the tooltip stays on-screen.
+        const pad = 12;
+        tooltip.style.display = '';
+        const rect = tooltip.getBoundingClientRect();
+        let left = e.clientX + pad;
+        let top = e.clientY + pad;
+        if (left + rect.width > window.innerWidth - pad) {
+            left = Math.max(pad, e.clientX - pad - rect.width);
+        }
+        if (top + rect.height > window.innerHeight - pad) {
+            top = Math.max(pad, e.clientY - pad - rect.height);
+        }
+        tooltip.style.left = left + 'px';
+        tooltip.style.top = top + 'px';
+    });
+    view.dom.addEventListener('mouseleave', hide);
+    view.scrollDOM.addEventListener('scroll', hide);
 };
