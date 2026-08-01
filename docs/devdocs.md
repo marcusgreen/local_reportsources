@@ -64,7 +64,7 @@ Ordering matters in two places:
 2. **`apply_report_visibility()` happens last**, once the report and its columns exist.
 
 `query::unpublish()` / editing the SQL while published reverses steps via `tear_down()`
-(`classes/local/query.php:843`), which deletes the RB report (cascading its columns/filters/
+(`classes/local/query.php:1008`), which deletes the RB report (cascading its columns/filters/
 audiences), removes the `queryid_for_report_*` config rows, and drops the VIEW.
 
 ---
@@ -183,7 +183,7 @@ The report data does **not** live behind the plugin's capabilities. It lives beh
 moodle/reportbuilder:view at the report context  AND  (viewall  OR  can_edit  OR  user ∈ audience)
 ```
 
-`apply_report_visibility()` (`classes/local/query.php:601`) drives the two core RB levers from the
+`apply_report_visibility()` (`classes/local/query.php:679`) drives the two core RB levers from the
 query's own fields — there is no extra config:
 
 - **Context** — `courseid > 0` places the report in that course's context, so `reportbuilder:view`
@@ -360,11 +360,18 @@ pages**. Who can open the generated RB report is enforced separately by core RB 
 
 ### Admin tree registration (`settings.php`)
 
-The index `admin_externalpage` (under **Reports**) is registered **outside** the `if
-($hassiteconfig)` guard, with cap `local/reportsources:author`, so the
-**Site administration → Reports → Report sources** menu entry shows for the author role *without*
-`moodle/site:config`. The settings page (denylist, AI toggle, etc.) and the admin-only externalpages
-(`testview`, `samples`, `createrole`) stay **inside** the guard.
+Three `admin_externalpage`s (under **Reports**) are registered **outside** the `if
+($hassiteconfig)` guard, so they show for the author role *without* `moodle/site:config`:
+
+- the **index** page (`local_reportsources`), cap `local/reportsources:author` — the
+  **Site administration → Reports → Report sources** menu entry;
+- the **usage overview** (`local_reportsources_usage`, hidden), cap `local/reportsources:viewall`;
+- the **samples browser** (`local_reportsources_samples`, hidden), cap `local/reportsources:author`
+  — so any author can browse/import bundled samples (§10).
+
+The settings page (denylist, AI toggle, etc.) and the admin-only externalpages
+(`testview`, `createrole`, `importcr`, `importcustomsql` — all `moodle/site:config`) stay **inside**
+the guard.
 
 ---
 
@@ -390,6 +397,34 @@ Bundled samples (`samples/samples.json`) load two ways, both via `transfer`:
 The shipped samples are cross-DB: date handling uses `%%TIMESTAMP()%%` / `%%NOW%%` rather than
 dialect-specific functions, so they import and publish on both MySQL/MariaDB and PostgreSQL.
 
+### Legacy-report importers (Configurable Reports & Ad-hoc DB Queries)
+
+Two admin pages migrate SQL reports from older plugins into RS drafts:
+
+- **Configurable Reports** — `import_cr.php` → `classes/local/cr_import.php`, table
+  `block_configurable_reports`. Decodes the serialised `components` blob; maps
+  `%%STARTTIME/ENDTIME%%` → `0` / far-future, `%%DEBUG%%` → stripped; rejects `%%USERID%%`,
+  `%%FILTER_*%%`, unknown tokens. Carries CR `courseid` / `visible`.
+- **Ad-hoc DB Queries** — `import_customsql.php` → `classes/local/customsql_import.php`, table
+  `report_customsql_queries`. Reads the plain `querysql` column (no blob); maps the customsql escape
+  tokens `%%Q%%` / `%%C%%` / `%%S%%` → `?` / `:` / `;`; **rejects** interactive named `:param`
+  placeholders and `%%USERID%%`. customsql has no course scope, so every draft lands site-wide.
+
+Both share `classes/local/import_helper.php` (a **trait**) for the deterministic, AI-free SQL
+translation: double-quote → single-quote, MySQL date functions
+(`FROM_UNIXTIME`/`DATE_FORMAT`/`UNIX_TIMESTAMP`) → portable `%%TIMESTAMP%%` / `%%EPOCH%%` / `%%NOW%%`
+tokens, literal `?` in a string → `chr(63)`, plus `validator::validate()` and a live `dry_run()`.
+The only per-source step is `rewrite_tokens()`, which each importer defines and the trait's
+`convert()` calls via **late static binding** (`static::rewrite_tokens()`). Both feed accepted
+reports to `transfer::import()`, so they land as fresh drafts owned by the importer.
+
+`rewrite_date_functions()` is **DB-family aware**: after rewriting what it can to portable tokens,
+any leftover MySQL-only date function (`DATEDIFF`, `DATE_ADD/SUB`, `STR_TO_DATE`, …) is **kept** with
+a note on a MySQL/MariaDB install (`$DB->get_dbfamily() === 'mysql'`) — it runs natively and the live
+`dry_run()` is the real gate — but is a **fatal reject** on PostgreSQL etc. where there is no
+equivalent. Both link from the settings page and reuse the shared `crimport:*` lang strings for
+conversion notes/reasons.
+
 ---
 
 ## 11. Operational requirements & gotchas
@@ -412,10 +447,14 @@ dialect-specific functions, so they import and publish on both MySQL/MariaDB and
 classes/local/query.php                          Publish lifecycle, visibility, tear-down (the core)
 classes/local/sql/view.php                       VIEW create/drop, placeholder substitution, introspection
 classes/local/sql/validator.php                  Static SQL validation + denylist
+classes/local/sql/analyser.php                   Advisory Test-query analysis (row count, index/scan hints, date cols)
 classes/local/sql/privilege_check.php            CREATE VIEW / DROP probe
 classes/local/transfer.php                       Import/export, bundled samples
 classes/local/query_naming.php                   Derive name/description from question or SQL
 classes/local/roles.php                          Report-author role creation
+classes/local/import_helper.php                  Shared trait: deterministic SQL translation for legacy importers
+classes/local/cr_import.php                      Configurable Reports → RS draft conversion
+classes/local/customsql_import.php               Ad-hoc DB Queries → RS draft conversion
 classes/reportbuilder/source/adhoc_query.php     RB datasource for per-query data reports (hidden from source picker)
 classes/reportbuilder/local/entities/adhoc_view.php  Dynamic columns/filters from columnsmeta
 classes/reportbuilder/local/systemreports/queries.php  RB system report backing the index.php query listing
@@ -423,11 +462,17 @@ classes/reportbuilder/local/entities/query.php   Entity for the query-listing sy
 classes/reportbuilder/audience/courseparticipant.php Custom "enrolled in course" audience
 classes/reportbuilder/audience/courserole.php    Custom "role in course" audience
 classes/external/validate_sql.php                Live AJAX SQL validation
+classes/external/test_query.php                  Test-query external → analyser::analyse()
 classes/external/get_schema.php                  Schema lookup for the editor
 classes/observer.php                             course_deleted → query::on_course_deleted (see db/events.php)
 classes/event/*                                  Standard lifecycle events
 index.php                                         Query listing (system_report) + publish/unpublish actions
 edit.php                                          Edit form + AI generation entry point
+usage.php                                         Usage overview page (viewall-gated)
+samples.php                                       Bundled-samples browser/import picker
+docs.php                                          Renders docs/userdocs.md in the browser
+import_cr.php                                     Configurable Reports importer page
+import_customsql.php                              Ad-hoc DB Queries importer page
 settings.php                                      Admin tree registration + settings
 db/access.php                                     Capabilities
 db/install.xml                                    local_reportsources_query schema
