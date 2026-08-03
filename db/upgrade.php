@@ -115,5 +115,20 @@ function xmldb_local_reportsources_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026072500, 'local', 'reportsources');
     }
 
+    if ($oldversion < 2026080300) {
+        // Denormalised id of the companion single-cell chart report, so it can be an RB base field
+        // (per-row action URLs) and read without a config scan. Backfilled lazily on next publish;
+        // existing charts stay reachable meanwhile via chart.php's config-scan fallback.
+        $table = new xmldb_table('local_reportsources_query');
+        $field = new xmldb_field('chartreportid', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'reportid');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        $key = new xmldb_key('chartreportid', XMLDB_KEY_FOREIGN, ['chartreportid'], 'reportbuilder_report', ['id']);
+        $dbman->add_key($table, $key);
+
+        upgrade_plugin_savepoint(true, 2026080300, 'local', 'reportsources');
+    }
+
     return true;
 }

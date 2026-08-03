@@ -416,6 +416,28 @@ class query {
     }
 
     /**
+     * Derive chart labels + numeric values from fetched rows.
+     *
+     * Shared by chart.php, the block, and {@see \local_reportsources\local\chart_svg} so the x/y
+     * extraction lives in one place. Labels are the x column cast to string; values are the y
+     * column cast to float (missing → 0).
+     *
+     * @param array<int, array<string, mixed>> $rows Rows as associative arrays.
+     * @param string $xcol Label (x) column name.
+     * @param string $ycol Value (y) column name.
+     * @return array{0: string[], 1: float[]} [labels, values]
+     */
+    public static function chart_series(array $rows, string $xcol, string $ycol): array {
+        $labels = [];
+        $values = [];
+        foreach ($rows as $row) {
+            $labels[] = (string) ($row[$xcol] ?? '');
+            $values[] = (float) ($row[$ycol] ?? 0);
+        }
+        return [$labels, $values];
+    }
+
+    /**
      * Decoded column metadata cached on save (introspected from the live VIEW).
      *
      * @return array<string, array{type:string,label:string}>
@@ -520,10 +542,11 @@ class query {
             // record to draft *first*, then tear down: if the teardown fails partway, the record
             // already reads draft rather than claiming published over a destroyed view/report.
             if ($existing->status === self::STATUS_PUBLISHED && $existing->querysql !== $sql) {
-                $record->status       = self::STATUS_DRAFT;
-                $record->viewname     = null;
-                $record->reportid     = null;
-                $record->columnsmeta  = null;
+                $record->status        = self::STATUS_DRAFT;
+                $record->viewname      = null;
+                $record->reportid      = null;
+                $record->chartreportid = null;
+                $record->columnsmeta   = null;
                 // Old column names no longer apply once the view is rebuilt.
                 $record->useridcolumn = null;
                 $record->coursecolumn = null;
@@ -634,6 +657,16 @@ class query {
         $this->apply_report_visibility($reportid);
 
         $this->record = $DB->get_record(self::TABLE, ['id' => $this->id()], '*', MUST_EXIST);
+
+        // Keep a companion single-cell chart report in sync with the query's chart config: create /
+        // reuse it when a chart type is set, drop it when the author selects "No chart".
+        $chartmeta = $this->record->chartmeta ? json_decode($this->record->chartmeta, true) : [];
+        $charttype = is_array($chartmeta) ? (string) ($chartmeta['type'] ?? 'none') : 'none';
+        if ($charttype !== '' && $charttype !== 'none') {
+            $this->create_chart_report();
+        } else {
+            $this->delete_chart_report();
+        }
 
         \local_reportsources\event\query_published::create_and_trigger($this->id(), $this->name());
     }
@@ -904,6 +937,108 @@ class query {
         $this->apply_report_visibility($reportid);
 
         return $reportid;
+    }
+
+    /**
+     * Create (or reuse) the companion single-cell chart report bound to this published query.
+     *
+     * The report uses the {@see \local_reportsources\reportbuilder\source\chart_query} source: one
+     * row, one column, rendering the query's whole dataset as an SVG image. It is bound with the
+     * same `queryid_for_report_<rid>` config key as the data report, so {@see bound_report_ids()},
+     * {@see tear_down()} and course-deletion cleanup already sweep it. Idempotent: an existing chart
+     * report is reused (visibility re-applied) rather than duplicated on re-publish.
+     *
+     * @return int Chart report id.
+     */
+    public function create_chart_report(): int {
+        $chartsource = \local_reportsources\reportbuilder\source\chart_query::class;
+
+        $reportid = $this->chart_report_id();
+        if (!$reportid) {
+            $reportmodel = reporthelper::create_report((object) [
+                'name'   => get_string('chartreportname', 'local_reportsources', $this->name()),
+                'source' => $chartsource,
+            ], false);
+            $reportid = (int) $reportmodel->get('id');
+
+            // Bind before hydrating defaults so the datasource can resolve its bound query.
+            set_config('queryid_for_report_' . $reportid, $this->id(), 'local_reportsources');
+        }
+
+        // Ensure the chart column exists — added on first create, and healing any report left
+        // column-less by an earlier bug (so a re-publish repairs it rather than staying empty).
+        if (!\core_reportbuilder\local\models\column::get_records(['reportid' => $reportid])) {
+            $reportpersistent = report_model::get_record(['id' => $reportid], MUST_EXIST);
+            /** @var \core_reportbuilder\datasource $datasource */
+            $datasource = new $chartsource($reportpersistent);
+            $datasource->add_default_columns();
+        }
+
+        $this->store_chart_report_id($reportid);
+        $this->apply_report_visibility($reportid);
+
+        return $reportid;
+    }
+
+    /**
+     * Id of the bound chart report ({@see chart_query} source), or 0 if none exists.
+     *
+     * Public so UI surfaces (chart.php, the block) can deep-link to the RB chart report at
+     * `/reportbuilder/view.php?id=<id>` — where the chart can be scheduled, exported or embedded.
+     *
+     * Prefers the denormalised `chartreportid` column (fast, and usable as an RB base field); falls
+     * back to the authoritative `queryid_for_report_<rid>` binding scan when the column is not yet
+     * populated (e.g. a query published before the column existed, not re-published since).
+     *
+     * @return int
+     */
+    public function chart_report_id(): int {
+        $stored = (int) ($this->record->chartreportid ?? 0);
+        if ($stored > 0 && report_model::record_exists($stored)) {
+            return $stored;
+        }
+
+        $chartsource = \local_reportsources\reportbuilder\source\chart_query::class;
+        foreach (self::bound_report_ids($this->id()) as $rid) {
+            $report = report_model::get_record(['id' => $rid]);
+            if ($report && $report->get('source') === $chartsource) {
+                return $rid;
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * Persist the chart report id on the query record (denormalised for base-field / UI use).
+     *
+     * @param int $reportid 0 clears the binding.
+     */
+    private function store_chart_report_id(int $reportid): void {
+        global $DB;
+        $value = $reportid > 0 ? $reportid : null;
+        if ((int) ($this->record->chartreportid ?? 0) === (int) $reportid) {
+            return;
+        }
+        $DB->set_field(self::TABLE, 'chartreportid', $value, ['id' => $this->id()]);
+        $this->record->chartreportid = $value;
+    }
+
+    /**
+     * Delete the bound chart report if one exists (used when the author selects "No chart").
+     */
+    private function delete_chart_report(): void {
+        $rid = $this->chart_report_id();
+        if (!$rid) {
+            $this->store_chart_report_id(0);
+            return;
+        }
+        try {
+            reporthelper::delete_report($rid);
+        } catch (\dml_exception | \moodle_exception $e) {
+            debugging('local_reportsources: failed to delete chart report ' . $rid . ': ' . $e->getMessage());
+        }
+        unset_config('queryid_for_report_' . $rid, 'local_reportsources');
+        $this->store_chart_report_id(0);
     }
 
     /**

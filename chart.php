@@ -101,12 +101,16 @@ if ($format === 'csv') {
     exit;
 }
 
-$labels = [];
-$values = [];
-foreach ($rows as $row) {
-    $labels[] = (string) ($row[$xcol] ?? '');
-    $values[] = (float) ($row[$ycol] ?? 0);
+// Single rendering path: the chart is now a Report Builder report. Send the HTML view there so the
+// old inline Chart.js render is retired (CSV export above still streams from here). Falls through to
+// the legacy render only when no chart report exists yet (e.g. a query not re-published since the
+// chart report was introduced).
+$chartreportid = $q->chart_report_id();
+if ($chartreportid > 0) {
+    redirect(new moodle_url('/reportbuilder/view.php', ['id' => $chartreportid]));
 }
+
+[$labels, $values] = query::chart_series($rows, $xcol, $ycol);
 
 $chart = match ($type) {
     'line'            => new \core\chart_line(),

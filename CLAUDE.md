@@ -47,8 +47,9 @@ The central flow lives in `classes/local/query.php → query::publish()`:
 5. `set_config('queryid_for_report_<reportid>', $queryid)` — the binding key (see below)
 6. `adhoc_query::add_default_columns/filters()` — hydrates RB defaults using the bound query
 7. `apply_report_visibility()` — sets the report's RB **context** and **audience** from the query's scope/visibility (see below)
+8. `create_chart_report()` / `delete_chart_report()` — when `chartmeta.type` is a real chart, create (or reuse) the companion single-cell **chart report**; when it is `none`, drop it (see [Chart report](#chart-report-graph-rendered-through-report-builder))
 
-Unpublish / SQL edit reverses steps 2-6 via `query::tear_down()` (which deletes the report, cascading its audiences).
+Unpublish / SQL edit reverses steps 2-6 via `query::tear_down()` (which deletes every bound report — data **and** chart — cascading their audiences).
 
 ### Report Builder binding
 
@@ -68,6 +69,15 @@ If that config key is absent the datasource falls back to a placeholder (single 
 Column/filter objects are built dynamically in `classes/reportbuilder/local/entities/adhoc_view.php` from `columnsmeta` — a JSON blob cached on the query record at publish time. `query::map_db_type()` maps the introspected Moodle meta_type char: `R/I→int`, `N/D→float`, `L→bool`, `T→timestamp`, everything else `→text`.
 
 **Timestamp columns** (`%%TIMESTAMP()%%`, see [SQL validation](#sql-validation--two-layers)) are *not* typed from introspection — the token resolves to a bare epoch integer, which would read back as `int`. Instead `query::publish()` calls `view::timestamp_columns()` on the saved SQL to recover which output columns came from `%%TIMESTAMP()%%` (keyed by `AS` alias, else the expression's trailing identifier) and their optional display format, and forces `columnsmeta` `type=timestamp` + `dateformat` for them. The entity then renders each timestamp column with a `userdate()` **callback** (`adhoc_view::strftime_format()` translates the neutral format e.g. `dd/mm/yyyy` → strftime `%d/%m/%Y`; empty → `%d-%b-%Y` i.e. `dd-mmm-yyyy`). Because the field stays a raw epoch, the column **sorts chronologically** while displaying the formatted string.
+
+### Chart report (graph rendered through Report Builder)
+
+Besides the *data* report (the table), a query with a chart configured (`chartmeta.type` ≠ `none`) also gets a **chart report**: a Report Builder report whose **single row / single cell** is the whole graph rendered as an inline SVG image. This makes the chart a first-class RB object — schedulable, exportable, embeddable — alongside the older interactive `chart.php` / block Chart.js render.
+
+- **Server-side SVG.** Moodle's `\core\chart_*` only serialise to JSON for client-side Chart.js — there is no server-side rasterizer. `classes/local/chart_svg.php` (`chart_svg::render($type, $labels, $values, $title)`) is a dependency-free SVG builder (bar / line / pie / doughnut) with **no external refs**, so it survives being wrapped in a `data:` URI. It XML-escapes every label/title, caps drawn x-axis labels (and line markers) to ~20 so a long series stays readable, and handles empty/negative/single-slice/ragged input. `query::chart_series($rows, $xcol, $ycol)` is the shared `[labels, values]` extraction used by `chart_svg`, `chart.php`, and the block.
+- **Source + entity.** `classes/reportbuilder/source/chart_query.php` uses the plugin's **own query table** as its main table, base-conditioned to `id = :queryid` so the report has exactly **one row** (`1 = 0` when unbound). Its single-column entity `classes/reportbuilder/local/entities/chart_view.php` (entity name **`adhocchart`** — set explicitly in the constructor; the column uid is `adhocchart:chart` and must match `chart_query::get_default_columns()`, else `add_default_columns()` throws `invalid_parameter`) exposes one `TYPE_TEXT`, non-sortable `chart` column whose callback returns the `<img data:image/svg+xml;base64,…>` (RB does **not** escape column-callback output — the callback owns safety; an SVG inside an `<img>` cannot run script; mirrors core's user-picture column). The callback **ignores `$row`** and fetches the dataset itself via `query::fetch_rows_for_viewer()` — a column callback only sees one row, but a chart aggregates many, so this is how it aggregates while still applying the same per-viewer (per-user / teacher-course) row scoping as the data report. `chart_query` is kept **outside** the `reportbuilder\datasource` namespace, same as `adhoc_query`, to stay hidden from the RB source picker.
+- **Binding & lifecycle.** The chart report is bound with the same `queryid_for_report_<rid>` config key as data reports, so `bound_report_ids()` / `tear_down()` / `on_course_deleted()` already sweep it. Its id is also **denormalised** onto the query record as `chartreportid` (single writer `store_chart_report_id()`), so it can be an RB base field / read without a config scan; `chart_report_id()` prefers that column and falls back to the config-scan for pre-`chartreportid` rows. `create_chart_report()` is idempotent (reuse by source class) and **heals** a report left column-less by adding defaults on the reuse path. `apply_report_visibility()` is called for the chart report too, so its context + audience stay in lockstep with the data report.
+- **UI.** The system report's **View chart** kebab action links straight to `/reportbuilder/view.php?id=:chartreportid`; `chart.php` redirects its HTML view to the same report (CSV export still streams from `chart.php`), so on-screen there is one rendering path. The **Schedule** action targets the **chart** report for chart queries (so the emailed report is the graph) and the **data** report otherwise. Caveat: RB tabular export (CSV / Excel / PDF dataformat) strips the `<img>` to an empty cell — the chart report is an **HTML / on-screen** artifact, so scheduled emails must use an HTML format.
 
 ### Report visibility (who can open the report)
 
@@ -143,6 +153,7 @@ One table — `local_reportsources_query`. Columns:
 - `name`, `description`, `querysql` — the query and its metadata
 - `ownerid` — author who created the query
 - `status` (`draft|published|disabled`), `viewname`, `reportid` — publish state and RB binding
+- `chartreportid` — denormalised id of the companion single-cell **chart report** (FK into `reportbuilder_report`; NULL when no chart configured — see [Chart report](#chart-report-graph-rendered-through-report-builder))
 - `columnsmeta` (JSON, frozen at publish), `chartmeta` (JSON chart config), `audiencemeta` (JSON audience picker choice — see [Report visibility](#report-visibility-who-can-open-the-report))
 - `courseid` (0 = site-wide), `visible`
 - `useridcolumn`, `coursecolumn`, `pagecoursecolumn` — per-user / per-course filter column choices

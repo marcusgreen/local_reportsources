@@ -68,6 +68,7 @@ $string['audiencetype_help'] = 'Controls who can open the published Report Build
 You can refine the audience further on the Audiences tab in Report Builder, but re-publishing the report resets it to this choice.';
 $string['bulkactions'] = 'Bulk actions';
 $string['chartbar'] = 'Bar chart';
+$string['chartcolumn'] = 'Chart';
 $string['chartdoughnut'] = 'Doughnut chart';
 $string['chartdownloadpng'] = 'Download PNG';
 $string['chartexportcsv'] = 'Export CSV';
@@ -75,6 +76,7 @@ $string['chartline'] = 'Line chart';
 $string['chartnone'] = 'No chart';
 $string['chartpie'] = 'Pie chart';
 $string['chartprint'] = 'Print';
+$string['chartreportname'] = '{$a} (chart)';
 $string['chartpublishrequired'] = 'Publish this query first to enable chart configuration.';
 $string['chartrowlimit'] = 'Chart row limit';
 $string['chartrowlimit_help'] = 'Maximum rows to plot. Keep small (≤ 200) for readable charts.';

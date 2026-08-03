@@ -52,7 +52,9 @@ class queries extends system_report {
         $this->add_entity($entity);
 
         // Base fields consumed by the row action URLs and their per-row visibility callbacks below.
-        $this->add_base_fields("{$alias}.id, {$alias}.status, {$alias}.reportid, {$alias}.ownerid, {$alias}.chartmeta");
+        $this->add_base_fields(
+            "{$alias}.id, {$alias}.status, {$alias}.reportid, {$alias}.chartreportid, {$alias}.ownerid, {$alias}.chartmeta"
+        );
 
         $columns = [
             "{$entityname}:name",
@@ -244,10 +246,6 @@ class queries extends system_report {
      * @return void
      */
     private function add_report_actions(): void {
-        // The bound course carries through the query/chart edit URLs so those pages stay in-course.
-        $courseid = (int) $this->get_parameter('courseid', 0, PARAM_INT);
-        $urlcourse = $courseid ? ['courseid' => $courseid] : [];
-
         // Admin-owned queries are locked to site admins (mirrors index.php row guard).
         $canmodifyrow = static function (\stdClass $row): bool {
             global $USER;
@@ -269,34 +267,49 @@ class queries extends system_report {
                 );
         }));
 
-        // View the configured chart (only when the query has one).
+        // View the chart as its Report Builder report (schedulable / exportable / embeddable).
+        // Shown once that report exists — created at publish time whenever a chart type is configured.
         $this->add_action((new action(
-            new moodle_url('/local/reportsources/chart.php', ['id' => ':id'] + $urlcourse),
+            new moodle_url('/reportbuilder/view.php', ['id' => ':chartreportid']),
             new pix_icon('i/chartbar', ''),
             [],
             false,
             new lang_string('viewchart', 'local_reportsources')
         ))->add_callback(static function (\stdClass $row): bool {
-            if ($row->status !== query::STATUS_PUBLISHED || empty($row->reportid)) {
-                return false;
-            }
-            $chartmeta = $row->chartmeta ? json_decode($row->chartmeta, true) : [];
-            return !empty($chartmeta['type']) && $chartmeta['type'] !== 'none';
+            return $row->status === query::STATUS_PUBLISHED && !empty($row->chartreportid);
         }));
 
         // Deep-link to the report's Schedules tab (RB editors only).
+        // RB editors can be scheduled to receive the report by email. Deep-link to the Schedules tab.
+        $canschedule = static function (\stdClass $row): bool {
+            return $row->status === query::STATUS_PUBLISHED
+                && has_any_capability(
+                    ['moodle/reportbuilder:edit', 'moodle/reportbuilder:editall'],
+                    \context_system::instance()
+                );
+        };
+
+        // For a chart query, schedule the chart report so the emailed report is the graph, not the
+        // underlying table. Shown only when the chart report exists.
+        $this->add_action((new action(
+            new moodle_url('/reportbuilder/edit.php', ['id' => ':chartreportid'], 'schedules'),
+            new pix_icon('i/scheduled', ''),
+            [],
+            false,
+            new lang_string('schedule', 'local_reportsources')
+        ))->add_callback(static function (\stdClass $row) use ($canschedule): bool {
+            return $canschedule($row) && !empty($row->chartreportid);
+        }));
+
+        // Otherwise schedule the data (table) report.
         $this->add_action((new action(
             new moodle_url('/reportbuilder/edit.php', ['id' => ':reportid'], 'schedules'),
             new pix_icon('i/scheduled', ''),
             [],
             false,
             new lang_string('schedule', 'local_reportsources')
-        ))->add_callback(static function (\stdClass $row): bool {
-            return $row->status === query::STATUS_PUBLISHED && !empty($row->reportid)
-                && has_any_capability(
-                    ['moodle/reportbuilder:edit', 'moodle/reportbuilder:editall'],
-                    \context_system::instance()
-                );
+        ))->add_callback(static function (\stdClass $row) use ($canschedule): bool {
+            return $canschedule($row) && empty($row->chartreportid) && !empty($row->reportid);
         }));
 
         // Publish a draft query.
