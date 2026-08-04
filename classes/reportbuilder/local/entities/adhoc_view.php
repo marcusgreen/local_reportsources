@@ -122,7 +122,8 @@ class adhoc_view extends base {
             if ($type === 'timestamp') {
                 $strftime = self::strftime_format((string) ($meta['dateformat'] ?? ''));
                 $column->set_callback(static function ($value, $row, $arg): string {
-                    return empty($value) ? '' : userdate((int) $value, $arg);
+                    // $fixday = false keeps the leading zero on %d (dd), so 'dd' really means 2 digits.
+                    return empty($value) ? '' : userdate((int) $value, $arg, 99, false);
                 }, $strftime);
             }
 
@@ -148,13 +149,16 @@ class adhoc_view extends base {
         if ($neutral === '') {
             return self::DEFAULT_DATE_FORMAT;
         }
-        // Longest tokens first so 'month' beats 'mon', 'yyyy' beats 'yy', 'ddd' beats 'dd'.
+        // Longest tokens first so 'month'/'mmmm' beat 'mon'/'mmm'/'mm', 'yyyy' beats 'yy',
+        // 'dddd' beats 'ddd' beats 'dd'. 'mmm'/'mmmm'/'dddd' are Excel-style aliases of
+        // 'mon'/'month'/(full weekday), matching MySQL DATE_FORMAT %b/%M/%W.
         $map = [
-            'month' => '%B', 'yyyy' => '%Y', 'ddd' => '%a', 'mon' => '%b',
+            'mmmm' => '%B', 'month' => '%B', 'dddd' => '%A', 'yyyy' => '%Y',
+            'mmm' => '%b', 'mon' => '%b', 'ddd' => '%a',
             'hh' => '%H', 'mi' => '%M', 'ss' => '%S', 'yy' => '%y', 'mm' => '%m', 'dd' => '%d',
         ];
         return (string) preg_replace_callback(
-            '/month|yyyy|ddd|mon|hh|mi|ss|yy|mm|dd/i',
+            '/mmmm|month|dddd|yyyy|mmm|mon|ddd|hh|mi|ss|yy|mm|dd/i',
             static fn(array $m): string => $map[strtolower($m[0])],
             $neutral
         );

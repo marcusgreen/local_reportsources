@@ -214,7 +214,7 @@ trait import_helper {
         $map = [
             '%Y' => 'yyyy', '%y' => 'yy', '%m' => 'mm', '%c' => 'mm', '%d' => 'dd', '%e' => 'dd',
             '%H' => 'hh', '%k' => 'hh', '%i' => 'mi', '%s' => 'ss', '%S' => 'ss',
-            '%M' => 'month', '%b' => 'mon', '%a' => 'ddd', '%%' => '%',
+            '%M' => 'month', '%b' => 'mon', '%a' => 'ddd', '%W' => 'dddd', '%%' => '%',
         ];
         $out = '';
         $len = strlen($fmt);

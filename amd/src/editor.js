@@ -160,6 +160,7 @@ const buildEditor = (textarea, schema, fkMap) => {
             basicSetup,
             sql({dialect: MySQL, schema: schema, tables: tables, upperCaseKeywords: true}),
             MySQL.language.data.of({autocomplete: aliasCompletionSource}),
+            MySQL.language.data.of({autocomplete: timestampFormatCompletionSource}),
             keymap.of([
                 {key: "Tab", run: acceptCompletion},
                 {key: "Shift-Ctrl-f", run: () => {
@@ -461,6 +462,72 @@ const TIMESTAMP_DEFAULT_FORMAT = 'dd-mmm-yyyy';
 /** Matches a whole %%TIMESTAMP(...)%% token — the inner text never contains a % so [^%]* is safe. */
 const TIMESTAMP_TOKEN_RE = /%%TIMESTAMP[^%]*%%/gi;
 
+/** Neutral display-format tokens accepted in %%TIMESTAMP(expr, format)%% (see view::strftime_format). */
+const TIMESTAMP_FORMAT_TOKENS = [
+    'dd', 'mm', 'mmm', 'mmmm', 'mon', 'month', 'yyyy', 'yy', 'ddd', 'dddd', 'hh', 'mi', 'ss',
+];
+
+/** Cached promise of the completion options (label + i18n gloss) for the format tokens. */
+let timestampFormatOptions = null;
+
+/**
+ * Lazily build (once) the autocomplete option list for the format tokens, annotating each with its
+ * translated gloss (the same tsfmt* strings the hover tooltip uses).
+ *
+ * @returns {Promise<Array<Object>>}
+ */
+const loadTimestampFormatOptions = () => {
+    if (!timestampFormatOptions) {
+        timestampFormatOptions = getStrings(
+            TIMESTAMP_FORMAT_TOKENS.map(t => ({key: 'tsfmt' + t, component: 'local_reportsources'}))
+        )
+            .then(glosses => TIMESTAMP_FORMAT_TOKENS.map((t, i) => ({
+                label: t,
+                type: 'keyword',
+                detail: glosses[i],
+            })))
+            .catch(() => {
+                // Reset so a later attempt can retry, but still offer bare labels this time.
+                timestampFormatOptions = null;
+                return TIMESTAMP_FORMAT_TOKENS.map(t => ({label: t, type: 'keyword'}));
+            });
+    }
+    return timestampFormatOptions;
+};
+
+/**
+ * CompletionSource offering the neutral date-format tokens (dd, mm, yyyy, …) while the cursor sits
+ * inside the format argument of an unclosed %%TIMESTAMP(expr, …)%% token — e.g. typing `dd` inside
+ * `%%TIMESTAMP(u.timecreated, dd` completes to a format token.
+ *
+ * @param {CompletionContext} context
+ * @returns {Promise<CompletionResult>|null}
+ */
+const timestampFormatCompletionSource = (context) => {
+    const before = context.state.doc.sliceString(0, context.pos);
+    const open = before.lastIndexOf('%%TIMESTAMP(');
+    if (open === -1) {
+        return null;
+    }
+    // A '%%' between the opening token and the cursor means the token is already closed — not inside.
+    if (before.indexOf('%%', open + 2) !== -1) {
+        return null;
+    }
+    // The format is the second argument, so only fire once a comma separates it from the expression.
+    if (!before.slice(open).includes(',')) {
+        return null;
+    }
+    const word = context.matchBefore(/[a-zA-Z]*/);
+    if (!word || (word.from === word.to && !context.explicit)) {
+        return null;
+    }
+    return loadTimestampFormatOptions().then(options => ({
+        from: word.from,
+        options,
+        validFor: /^[a-zA-Z]*$/,
+    }));
+};
+
 /**
  * Attach a hover tooltip that explains the optional display-format argument whenever the pointer
  * is over a %%TIMESTAMP(...)%% token.
@@ -478,7 +545,7 @@ const initTimestampHover = (view) => {
 
     // Build the tooltip body once, lazily, from lang strings the first time it is shown.
     let contentReady = false;
-    const tokens = ['dd', 'mm', 'mon', 'month', 'yyyy', 'yy', 'ddd', 'hh', 'mi', 'ss'];
+    const tokens = TIMESTAMP_FORMAT_TOKENS;
     const populate = () => {
         if (contentReady) {
             return;
