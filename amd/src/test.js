@@ -27,6 +27,12 @@
 import {get_string as getString} from 'core/str';
 import Ajax from 'core/ajax';
 import {exception as displayException} from 'core/notification';
+import {
+    hasQuestionmarkInString,
+    rewriteQuestionmarks,
+    hasAliasWithSpaces,
+    rewriteAliasSpaces,
+} from './sqlfix';
 
 /**
  * Wire the Test button to the analyser endpoint.
@@ -79,7 +85,17 @@ const render = async(container, data, sqlField) => {
     container.innerHTML = '';
 
     if (!data.ok) {
-        container.appendChild(alertBox('alert-danger', data.error));
+        const box = alertBox('alert-danger', data.error);
+        // Offer the same one-click auto-fixes as the submit-time validation banner (editor.js):
+        // a ? inside a string literal, or a column alias containing spaces.
+        const sql = sqlField.value;
+        if (hasQuestionmarkInString(sql)) {
+            await appendFixLink(box, sqlField, 'convertquestionmark', rewriteQuestionmarks);
+        }
+        if (hasAliasWithSpaces(sql)) {
+            await appendFixLink(box, sqlField, 'convertaliasspaces', rewriteAliasSpaces);
+        }
+        container.appendChild(box);
         return;
     }
 
@@ -165,6 +181,33 @@ const applyTimestamp = async(sqlField, col, btn) => {
     btn.classList.remove('btn-link');
     btn.classList.add('text-success');
     btn.textContent = '✓ ' + col;
+};
+
+/**
+ * Append a "…automatically" fix link to an error alert. Clicking it rewrites the SQL in place
+ * (through CodeMirror when present, else the textarea) so the next Test / submit re-checks it.
+ *
+ * @param {HTMLElement} alertDiv - The danger alert to append to.
+ * @param {HTMLTextAreaElement} sqlField - SQL textarea (and CodeMirror mirror target).
+ * @param {string} strkey - Lang string key for the link label.
+ * @param {function(string): string} rewrite - Maps the current SQL to its fixed form.
+ */
+const appendFixLink = async(alertDiv, sqlField, strkey, rewrite) => {
+    const label = await getString(strkey, 'local_reportsources');
+    alertDiv.appendChild(document.createElement('br'));
+    const link = document.createElement('button');
+    link.type = 'button';
+    link.className = 'btn btn-link btn-sm p-0 align-baseline';
+    link.textContent = label;
+    link.addEventListener('click', () => {
+        const updated = rewrite(sqlField.value);
+        if (typeof sqlField.rsReplaceContent === 'function') {
+            sqlField.rsReplaceContent(updated);
+        } else {
+            sqlField.value = updated;
+        }
+    });
+    alertDiv.appendChild(link);
 };
 
 /**

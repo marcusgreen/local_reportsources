@@ -35,6 +35,12 @@ import {
 import {format as formatSql} from './sql-formatter-lazy';
 import {get_string as getString, get_strings as getStrings} from 'core/str';
 import Ajax from 'core/ajax';
+import {
+    hasQuestionmarkInString,
+    rewriteQuestionmarks,
+    hasAliasWithSpaces,
+    rewriteAliasSpaces,
+} from './sqlfix';
 
 /**
  * Initialise a CodeMirror 6 SQL editor replacing the textarea with the given id.
@@ -310,6 +316,11 @@ const buildEditor = (textarea, schema, fkMap) => {
         if (!/^\s*(SELECT|WITH)\b/i.test(stripped)) {
             return 'Query must start with SELECT or WITH.';
         }
+        // A ? inside a string literal (e.g. a view.php?id= URL) is read as a bound parameter by
+        // Moodle's DB layer. Surface it here so the convert link appears without a server round-trip.
+        if (hasQuestionmarkInString(sql)) {
+            return questionmarkMsg;
+        }
         for (const kw of denyKeywords) {
             // REPLACE(...) the string function is legitimate; only block the REPLACE statement.
             const pattern = kw === 'REPLACE' ? '\\bREPLACE\\b(?!\\s*\\()' : '\\b' + kw + '\\b';
@@ -318,6 +329,57 @@ const buildEditor = (textarea, schema, fkMap) => {
             }
         }
         return null;
+    }
+
+    // Convert-link label and the ?-rejection message, preloaded so the error banner can be built
+    // synchronously inside the submit handler. English fallbacks cover the pre-load race.
+    let convertLabel = 'Convert ? to CHAR(63) automatically';
+    let aliasSpacesLabel = 'Replace spaces in the column alias with underscores automatically';
+    let questionmarkMsg = 'SQL contains a ? character, which the database layer treats as a query'
+        + ' parameter placeholder.';
+    getStrings([
+        {key: 'convertquestionmark', component: 'local_reportsources'},
+        {key: 'convertaliasspaces', component: 'local_reportsources'},
+        {key: 'errquestionmark', component: 'local_reportsources'},
+    ]).then(([convert, aliasspaces, err]) => {
+        convertLabel = convert;
+        aliasSpacesLabel = aliasspaces;
+        questionmarkMsg = err;
+        return null;
+    }).catch(() => null);
+
+
+    /**
+     * Show a danger message in the error banner. When the SQL carries a fixable pattern — a ? inside
+     * a string literal, or a column alias containing spaces — append a "…automatically" link that
+     * rewrites it in place via the editor.
+     *
+     * @param {string} msg - The error message.
+     * @param {string} sql - The SQL that produced it (drives the optional convert link).
+     */
+    function showError(msg, sql) {
+        errorBanner.className = 'alert alert-danger mt-1';
+        errorBanner.textContent = msg;
+        const addFixLink = (label, rewrite) => {
+            errorBanner.appendChild(document.createElement('br'));
+            const link = document.createElement('button');
+            link.type = 'button';
+            link.className = 'btn btn-link p-0 align-baseline';
+            link.textContent = label;
+            link.addEventListener('click', () => {
+                // rsReplaceContent pushes the rewrite into CodeMirror, clears serverValidated and
+                // hides the banner, so the next submit re-checks the converted SQL.
+                textarea.rsReplaceContent(rewrite(textarea.value));
+            });
+            errorBanner.appendChild(link);
+        };
+        if (sql && hasQuestionmarkInString(sql)) {
+            addFixLink(convertLabel, rewriteQuestionmarks);
+        }
+        if (sql && hasAliasWithSpaces(sql)) {
+            addFixLink(aliasSpacesLabel, rewriteAliasSpaces);
+        }
+        errorBanner.style.display = '';
     }
 
     /**
@@ -381,9 +443,7 @@ const buildEditor = (textarea, schema, fkMap) => {
             const staticErr = validateSql(textarea.value);
             if (staticErr) {
                 e.preventDefault();
-                errorBanner.className = 'alert alert-danger mt-1';
-                errorBanner.textContent = staticErr;
-                errorBanner.style.display = '';
+                showError(staticErr, textarea.value);
                 container.scrollIntoView({behavior: 'smooth', block: 'nearest'});
                 return;
             }
@@ -419,15 +479,11 @@ const buildEditor = (textarea, schema, fkMap) => {
                 const result = Array.isArray(data) ? data[0] : data;
                 if (result.error) {
                     const msg = result.error.message || JSON.stringify(result.error);
-                    errorBanner.className = 'alert alert-danger mt-1';
-                    errorBanner.textContent = msg;
-                    errorBanner.style.display = '';
+                    showError(msg, textarea.value);
                     feedAiField(textarea.value, msg);
                 } else if (result.data && !result.data.ok) {
                     const msg = result.data.error || 'Query validation failed.';
-                    errorBanner.className = 'alert alert-danger mt-1';
-                    errorBanner.textContent = msg;
-                    errorBanner.style.display = '';
+                    showError(msg, textarea.value);
                     feedAiField(textarea.value, msg);
                 } else {
                     serverValidated = true;
