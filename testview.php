@@ -23,6 +23,7 @@
  */
 
 require(__DIR__ . '/../../config.php');
+require_once($CFG->libdir . '/adminlib.php');
 
 use local_reportsources\local\sql\privilege_check;
 
