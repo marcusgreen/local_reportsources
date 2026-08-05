@@ -93,6 +93,25 @@ if ($hassiteconfig) {
         0
     ));
 
+    // Companion switch for the shared repository below. Off by default — nothing reaches out to the
+    // remote repo, and its browse page/links stay hidden, until an admin deliberately enables it.
+    $settings->add(new admin_setting_configcheckbox(
+        'local_reportsources/sharedrepositoryenabled',
+        get_string('settings:sharedrepositoryenabled', 'local_reportsources'),
+        get_string('settings:sharedrepositoryenabled_desc', 'local_reportsources'),
+        0
+    ));
+
+    // Remote repository of shared report sources. Authors can browse and import from it as drafts.
+    $settings->add(new admin_setting_configtext(
+        'local_reportsources/sharedrepository',
+        get_string('settings:sharedrepository', 'local_reportsources'),
+        get_string('settings:sharedrepository_desc', 'local_reportsources'),
+        'https://github.com/marcusgreen/moodle-reportsources_repository',
+        PARAM_URL,
+        50
+    ));
+
     // Retention window (days) for the report-view audit rows; 0 keeps them forever. Enforced by the
     // purge_views scheduled task.
     $settings->add(new admin_setting_configtext(
@@ -118,6 +137,15 @@ if ($hassiteconfig) {
         html_writer::link(
             new moodle_url('/local/reportsources/samples.php'),
             get_string('samples:linklabel', 'local_reportsources')
+        )
+    ));
+
+    $settings->add(new admin_setting_description(
+        'local_reportsources/repositorylink',
+        get_string('repository:title', 'local_reportsources'),
+        html_writer::link(
+            new moodle_url('/local/reportsources/samples.php', ['remote' => 1]),
+            get_string('repository:linklabel', 'local_reportsources')
         )
     ));
 

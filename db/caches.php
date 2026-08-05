@@ -34,4 +34,13 @@ $definitions = [
         'simplekeys' => true,
         'staticacceleration' => true,
     ],
+
+    // Parsed report sources fetched from the configured remote GitHub repository, keyed by a hash
+    // of the repository URL. Cached to stay well under GitHub's unauthenticated API rate limit; the
+    // repository browse page's Refresh action busts it. Short-lived — the remote repo can change.
+    'repositorysources' => [
+        'mode' => cache_store::MODE_APPLICATION,
+        'simplekeys' => true,
+        'ttl' => 1800,
+    ],
 ];

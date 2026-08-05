@@ -28,6 +28,7 @@
     Context variables required for this template:
     * intro - Introductory sentence (already localised).
     * single - True for radio (single-import) mode, false for checkbox (bulk) mode.
+    * remote - True when browsing the shared repository (adds a hidden remote flag to the POST).
     * actionurl - Form POST target.
     * cancelurl - Where the Cancel button returns to.
     * sesskey - Session key for the POST.
@@ -56,6 +57,7 @@
     <input type="hidden" name="sesskey" value="{{sesskey}}">
     <input type="hidden" name="import" value="1">
     {{#single}}<input type="hidden" name="single" value="1">{{/single}}
+    {{#remote}}<input type="hidden" name="remote" value="1">{{/remote}}
 
     <p>{{intro}}</p>
 

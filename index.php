@@ -89,7 +89,8 @@ if (has_capability('local/reportsources:author', $syscontext)) {
         'get'
     );
 
-    echo html_writer::div($newbutton . $samplesbutton, 'd-flex flex-wrap gap-2 align-items-start');
+    echo html_writer::div($newbutton . $samplesbutton,
+        'd-flex flex-wrap gap-2 align-items-start');
 }
 
 // Render the Bulk actions menu (export / import / delete) shown at the foot of the listing.
