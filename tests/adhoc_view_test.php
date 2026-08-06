@@ -51,6 +51,10 @@ final class adhoc_view_test extends \advanced_testcase {
         $this->assertSame('%d-%b-%y', $this->map('dd-Mon-yy'));
         $this->assertSame('%B %Y', $this->map('Month yyyy'));
         $this->assertSame('%H:%M:%S', $this->map('hh:mi:ss'));
+        // Excel-style aliases (MySQL DATE_FORMAT %b/%M/%W): mmm=Jun, mmmm=June, dddd=Monday.
+        $this->assertSame('%d %b %Y', $this->map('dd mmm yyyy'));
+        $this->assertSame('%d %B %Y', $this->map('dd mmmm yyyy'));
+        $this->assertSame('%A %d %B %Y', $this->map('dddd dd mmmm yyyy'));
         // An empty format yields the dd-mmm-yyyy default.
         $this->assertSame('%d-%b-%Y', $this->map(''));
         $this->assertSame('%d-%b-%Y', $this->map('   '));
