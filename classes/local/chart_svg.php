@@ -139,7 +139,19 @@ final class chart_svg {
         $left   = 56;
         $right  = 16;
         $top    = $title !== '' ? 34 : 14;
+        // Bar categories are drawn in full (never truncated) at 16px, rotated 40°. Reserve enough
+        // bottom margin for the longest label's vertical footprint so nothing is clipped; capped so
+        // very long labels cannot swallow the whole plot.
         $bottom = 64;
+        if ($kind === 'bar' && $labels) {
+            $maxchars = 0;
+            foreach ($labels as $label) {
+                $maxchars = max($maxchars, \core_text::strlen((string) $label));
+            }
+            $labelpx = $maxchars * 16 * 0.6;            // ~0.6em per glyph at 16px.
+            $needed  = (int) ceil($labelpx * 0.643) + 24; // sin(40°) ≈ 0.643, plus tick/pad.
+            $bottom  = (int) min($height * 0.55, max($bottom, $needed));
+        }
         $plotw  = $width - $left - $right;
         $ploth  = $height - $top - $bottom;
         $x0     = $left;
@@ -206,7 +218,9 @@ final class chart_svg {
                     . self::coord($bw) . '" height="' . self::coord(max(0.0, $bh)) . '" fill="'
                     . self::esc($fill) . '"/>';
                 if ($i % $labelstep === 0) {
-                    $svg .= self::xlabel($x0 + ($i + 0.5) * $band, $ybot, $labels[$i], $textcolor);
+                    // Bar categories get larger labels than the line chart's thinned markers, and
+                    // are shown in full (the bottom margin above is sized to fit them).
+                    $svg .= self::xlabel($x0 + ($i + 0.5) * $band, $ybot, $labels[$i], $textcolor, 16, false);
                 }
             }
         }
@@ -356,13 +370,24 @@ final class chart_svg {
      * @param float $ybot Plot bottom y.
      * @param string $label
      * @param string $textcolor
+     * @param int $size Font size in px.
+     * @param bool $truncate Whether to shorten over-long labels with an ellipsis.
      * @return string
      */
-    private static function xlabel(float $cx, float $ybot, string $label, string $textcolor): string {
-        $label = self::truncate($label);
+    private static function xlabel(
+        float $cx,
+        float $ybot,
+        string $label,
+        string $textcolor,
+        int $size = 11,
+        bool $truncate = true
+    ): string {
+        if ($truncate) {
+            $label = self::truncate($label);
+        }
         return '<text x="' . self::coord($cx) . '" y="' . self::coord($ybot + 14)
             . '" transform="rotate(-40 ' . self::coord($cx) . ' ' . self::coord($ybot + 14) . ')" '
-            . 'font-size="11" fill="' . self::esc($textcolor) . '" text-anchor="end" '
+            . 'font-size="' . $size . '" fill="' . self::esc($textcolor) . '" text-anchor="end" '
             . 'font-family="sans-serif">' . self::esc($label) . '</text>';
     }
 
