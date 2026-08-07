@@ -266,7 +266,7 @@ final class chart_svg {
         }
 
         $top    = $title !== '' ? 34 : 10;
-        $legendw = 160;
+        $legendw = 250;
         $cx     = ($width - $legendw) / 2;
         $cy     = $top + ($height - $top - 10) / 2;
         $r      = max(20.0, min($cx, $cy - $top) - 10);
@@ -302,10 +302,10 @@ final class chart_svg {
         foreach ($slices as $slice) {
             $fill = $palette[$slice['i'] % count($palette)];
             $svg .= '<rect x="' . self::coord($lx) . '" y="' . self::coord($ly)
-                . '" width="12" height="12" fill="' . self::esc($fill) . '"/>';
-            $label = self::truncate($slice['label']) . ' (' . self::num($slice['value']) . ')';
-            $svg .= self::text($lx + 18, $ly + 11, $label, $textcolor, 11, 'start');
-            $ly += 20;
+                . '" width="16" height="16" fill="' . self::esc($fill) . '"/>';
+            $label = self::truncate($slice['label'], 18) . ' (' . self::num($slice['value']) . ')';
+            $svg .= self::text($lx + 22, $ly + 14, $label, $textcolor, 18, 'start');
+            $ly += 26;
         }
 
         return $svg;
