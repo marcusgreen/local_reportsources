@@ -169,10 +169,46 @@ function local_reportsources_output_fragment_preview(array $args): string {
             ]
         );
 
-        return $report->output();
+        // Reuse the just-built preview view to attach the same advisory summary the Test button
+        // shows — row count and performance warnings — so a preview doubles as a lightweight test
+        // without standing up a second view. Passing $viewname makes the analyser skip its own
+        // dry-run and probe view. Advisory only: any failure degrades to just the rendered rows.
+        $summary = local_reportsources_preview_summary($sql, $courseid, $viewname);
+
+        return $summary . $report->output();
     } catch (\moodle_exception $e) {
         return $OUTPUT->notification($e->getMessage(), 'error');
     } finally {
         \local_reportsources\local\sql\view::drop_preview($USER->id);
     }
+}
+
+/**
+ * Build the advisory summary strip shown above the inline preview rows: row count and any
+ * performance warnings, from {@see \local_reportsources\local\sql\analyser::analyse()} run against
+ * the caller's already-built preview view.
+ *
+ * @param string $sql Raw author SQL (re-validated inside analyse()).
+ * @param int $courseid Bound course id (0 = site-wide).
+ * @param string $viewname Unprefixed name of the live preview view to reuse for introspection.
+ * @return string Summary HTML, or '' when the analysis yields nothing worth showing.
+ */
+function local_reportsources_preview_summary(string $sql, int $courseid, string $viewname): string {
+    $feedback = \local_reportsources\local\sql\analyser::analyse($sql, $courseid, $viewname);
+    if (!$feedback['ok']) {
+        // The rows rendered, so a failed advisory pass is not worth surfacing here.
+        return '';
+    }
+
+    $lines = [];
+    if ($feedback['rowcount'] >= 0) {
+        $lines[] = get_string('checkrowcount', 'local_reportsources', $feedback['rowcount']);
+    }
+    $lines = array_merge($lines, $feedback['warnings']);
+    if (!$lines) {
+        return '';
+    }
+
+    $items = array_map(static fn(string $line): string => \html_writer::div(s($line)), $lines);
+    return \html_writer::div(implode('', $items), 'alert alert-secondary py-1 mb-2', ['role' => 'status']);
 }

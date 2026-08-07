@@ -254,4 +254,32 @@ final class analyser_test extends \advanced_testcase {
         $this->assertStringNotContainsStringIgnoringCase('non-sargable', $joined);
         $this->assertStringNotContainsStringIgnoringCase('subquery', $joined);
     }
+
+    /**
+     * When a caller supplies a pre-built view (the inline-preview path), analyse() introspects it
+     * for date columns instead of building its own probe view, and does not leave that probe view
+     * behind. The result matches the no-view path.
+     */
+    public function test_analyse_reuses_supplied_view(): void {
+        global $USER, $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $user = $this->getDataGenerator()->create_user(['timecreated' => time()]);
+
+        $sql = 'SELECT id, timecreated FROM {user} WHERE id = ' . (int) $user->id;
+        $validated = \local_reportsources\local\sql\validator::validate($sql);
+        $viewname = \local_reportsources\local\sql\view::create_or_replace_preview((int) $USER->id, $validated, 0);
+
+        try {
+            $result = analyser::analyse($sql, 0, $viewname);
+        } finally {
+            \local_reportsources\local\sql\view::drop_preview((int) $USER->id);
+        }
+
+        $this->assertTrue($result['ok']);
+        $this->assertContainsEquals('timecreated', $result['datecolumns']);
+        // The private probe view is never created on the supplied-view path, so none is left behind.
+        $probe = \local_reportsources\local\sql\privilege_check::PROBE_NAME . '_chk';
+        $this->assertArrayNotHasKey($probe, $DB->get_tables(false));
+    }
 }
