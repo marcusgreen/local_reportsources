@@ -59,7 +59,15 @@ final class chart_svg {
         $height    = max(160, (int) ($opts['height'] ?? 380));
         $axiscolor = (string) ($opts['axiscolor'] ?? '#888888');
         $textcolor = (string) ($opts['textcolor'] ?? '#444444');
+        $labelsize = max(8, min(48, (int) ($opts['labelsize'] ?? 16)));
         $palette   = !empty($opts['palette']) && is_array($opts['palette']) ? $opts['palette'] : self::PALETTE;
+
+        // Pie/doughnut labels live in a right-hand legend. Larger label sizes need a wider legend
+        // column; widen the whole canvas so the pie itself is not squeezed and labels are not
+        // truncated (the rendered <img> is fluid, so a wider SVG just scales down in its container).
+        if ($type === 'pie' || $type === 'doughnut') {
+            $width += (int) round(max(0, $labelsize - 16) * 14);
+        }
 
         // Normalise the two arrays to the same length and drop non-finite values.
         $labels = array_values($labels);
@@ -84,7 +92,8 @@ final class chart_svg {
                     $height,
                     $title,
                     $textcolor,
-                    $palette
+                    $palette,
+                    $labelsize
                 ),
                 default => self::render_cartesian(
                     $type === 'line' ? 'line' : 'bar',
@@ -95,7 +104,8 @@ final class chart_svg {
                     $title,
                     $axiscolor,
                     $textcolor,
-                    $palette
+                    $palette,
+                    $labelsize
                 ),
             };
         }
@@ -123,6 +133,7 @@ final class chart_svg {
      * @param string $axiscolor
      * @param string $textcolor
      * @param string[] $palette
+     * @param int $labelsize Category-label font size in px.
      * @return string
      */
     private static function render_cartesian(
@@ -134,21 +145,22 @@ final class chart_svg {
         string $title,
         string $axiscolor,
         string $textcolor,
-        array $palette
+        array $palette,
+        int $labelsize
     ): string {
         $left   = 56;
         $right  = 16;
         $top    = $title !== '' ? 34 : 14;
-        // Bar categories are drawn in full (never truncated) at 16px, rotated 40°. Reserve enough
-        // bottom margin for the longest label's vertical footprint so nothing is clipped; capped so
-        // very long labels cannot swallow the whole plot.
+        // Bar categories are drawn in full (never truncated) at $labelsize px, rotated 40°. Reserve
+        // enough bottom margin for the longest label's vertical footprint so nothing is clipped;
+        // capped so very long labels cannot swallow the whole plot.
         $bottom = 64;
         if ($kind === 'bar' && $labels) {
             $maxchars = 0;
             foreach ($labels as $label) {
                 $maxchars = max($maxchars, \core_text::strlen((string) $label));
             }
-            $labelpx = $maxchars * 16 * 0.6;            // ~0.6em per glyph at 16px.
+            $labelpx = $maxchars * $labelsize * 0.6;    // ~0.6em per glyph at $labelsize px.
             $needed  = (int) ceil($labelpx * 0.643) + 24; // sin(40°) ≈ 0.643, plus tick/pad.
             $bottom  = (int) min($height * 0.55, max($bottom, $needed));
         }
@@ -204,7 +216,7 @@ final class chart_svg {
                 $px = $x0 + ($i + 0.5) * $band;
                 $svg .= '<circle cx="' . self::coord($px) . '" cy="' . self::coord($y($values[$i]))
                     . '" r="3" fill="' . self::esc($palette[0]) . '"/>';
-                $svg .= self::xlabel($px, $ybot, $labels[$i], $textcolor);
+                $svg .= self::xlabel($px, $ybot, $labels[$i], $textcolor, $labelsize);
             }
         } else {
             $bw = $band * 0.7;
@@ -220,7 +232,7 @@ final class chart_svg {
                 if ($i % $labelstep === 0) {
                     // Bar categories get larger labels than the line chart's thinned markers, and
                     // are shown in full (the bottom margin above is sized to fit them).
-                    $svg .= self::xlabel($x0 + ($i + 0.5) * $band, $ybot, $labels[$i], $textcolor, 16, false);
+                    $svg .= self::xlabel($x0 + ($i + 0.5) * $band, $ybot, $labels[$i], $textcolor, $labelsize, false);
                 }
             }
         }
@@ -239,6 +251,7 @@ final class chart_svg {
      * @param string $title
      * @param string $textcolor
      * @param string[] $palette
+     * @param int $labelsize Legend-label font size in px.
      * @return string
      */
     private static function render_pie(
@@ -249,7 +262,8 @@ final class chart_svg {
         int $height,
         string $title,
         string $textcolor,
-        array $palette
+        array $palette,
+        int $labelsize
     ): string {
         // Pie slices are non-negative; negatives contribute nothing.
         $slices = [];
@@ -266,7 +280,15 @@ final class chart_svg {
         }
 
         $top    = $title !== '' ? 34 : 10;
-        $legendw = 250;
+        // Legend geometry scales with the label font size. Swatch + gap sit left of the text; the
+        // column is wide enough for ~22 glyphs at this size but never eats more than half the canvas.
+        $swatch  = max(10, (int) round($labelsize * 0.9));
+        $textoff = $swatch + 6;                           // swatch + gap before the text starts.
+        $charw   = $labelsize * 0.6;                      // ~0.6em per glyph.
+        // Column wide enough for ~24 glyphs at this size. The canvas was already widened for large
+        // label sizes in render(), so this is not capped against the width — that cap is what used
+        // to truncate labels above ~24 pt.
+        $legendw = (int) max(140, round(8 + $textoff + 24 * $charw + 8));
         $cx     = ($width - $legendw) / 2;
         $cy     = $top + ($height - $top - 10) / 2;
         $r      = max(20.0, min($cx, $cy - $top) - 10);
@@ -296,16 +318,20 @@ final class chart_svg {
             }
         }
 
-        // Legend down the right edge: colour swatch + "label (value)".
+        // Legend down the right edge: colour swatch + "label (value)". Row step, swatch size and
+        // the per-row character budget all track $labelsize so bigger text still fits its column.
         $lx = $width - $legendw + 8;
         $ly = $top + 6;
+        $rowstep = $labelsize + 8;
+        $maxchars = max(6, (int) floor(($legendw - 16 - $textoff) / $charw));
         foreach ($slices as $slice) {
             $fill = $palette[$slice['i'] % count($palette)];
             $svg .= '<rect x="' . self::coord($lx) . '" y="' . self::coord($ly)
-                . '" width="16" height="16" fill="' . self::esc($fill) . '"/>';
-            $label = self::truncate($slice['label'], 18) . ' (' . self::num($slice['value']) . ')';
-            $svg .= self::text($lx + 22, $ly + 14, $label, $textcolor, 18, 'start');
-            $ly += 26;
+                . '" width="' . $swatch . '" height="' . $swatch . '" fill="' . self::esc($fill) . '"/>';
+            $suffix = ' (' . self::num($slice['value']) . ')';
+            $label  = self::truncate($slice['label'], max(3, $maxchars - \core_text::strlen($suffix))) . $suffix;
+            $svg .= self::text($lx + $textoff, $ly + $swatch - 2, $label, $textcolor, $labelsize, 'start');
+            $ly += $rowstep;
         }
 
         return $svg;

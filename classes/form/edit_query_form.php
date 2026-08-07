@@ -343,6 +343,15 @@ class edit_query_form extends moodleform {
         $mform->setType('chart_rowlimit', PARAM_INT);
         $mform->setDefault('chart_rowlimit', (int) ($chartmeta['rowlimit'] ?? 200));
         $mform->addHelpButton('chart_rowlimit', 'chartrowlimit', 'local_reportsources');
+
+        $labelsizes = [];
+        foreach ([11, 12, 14, 16, 18, 20, 24, 28, 32] as $pt) {
+            $labelsizes[$pt] = get_string('chartlabelsizeoption', 'local_reportsources', $pt);
+        }
+        $mform->addElement('select', 'chart_labelsize', get_string('chartlabelsize', 'local_reportsources'), $labelsizes);
+        $mform->setType('chart_labelsize', PARAM_INT);
+        $mform->setDefault('chart_labelsize', (int) ($chartmeta['labelsize'] ?? 16));
+        $mform->addHelpButton('chart_labelsize', 'chartlabelsize', 'local_reportsources');
     }
 
     /**

@@ -124,13 +124,14 @@ class chart_view extends base {
         $xcol = (string) ($chartmeta['xcol'] ?? '');
         $ycol = (string) ($chartmeta['ycol'] ?? '');
         $rowlimit = max(1, min(5000, (int) ($chartmeta['rowlimit'] ?? 200)));
+        $labelsize = max(11, min(32, (int) ($chartmeta['labelsize'] ?? 16)));
 
         // Viewer-scoped fetch: same per-user / teacher-course row filtering as the data report.
         $rows = $q->fetch_rows_for_viewer($rowlimit);
         [$labels, $values] = query::chart_series($rows, $xcol, $ycol);
 
         $title = format_string($rec->name);
-        $svg = chart_svg::render($type, $labels, $values, $title);
+        $svg = chart_svg::render($type, $labels, $values, $title, ['labelsize' => $labelsize]);
         $datauri = 'data:image/svg+xml;base64,' . base64_encode($svg);
 
         return \html_writer::img($datauri, $title, [

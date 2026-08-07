@@ -525,6 +525,7 @@ class query {
                 'xcol'     => clean_param((string) ($data->chart_xcol ?? ''), PARAM_ALPHANUMEXT),
                 'ycol'     => clean_param((string) ($data->chart_ycol ?? ''), PARAM_ALPHANUMEXT),
                 'rowlimit' => max(1, min(5000, (int) ($data->chart_rowlimit ?? 200))),
+                'labelsize' => max(11, min(32, (int) ($data->chart_labelsize ?? 16))),
             ]);
         }
 
