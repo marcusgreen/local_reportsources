@@ -289,6 +289,8 @@ $string['querysql_help'] = 'A single SELECT or WITH...SELECT statement. Use Mood
 
 Always alias tables (e.g. FROM {user} u) since {user} resolves to mdl_user at runtime.
 
+Wrap a text column in %%CASE(expr, mode)%% to display it in upper, lower, title or sentence case (e.g. %%CASE(u.lastname, upper)%%). The stored value is unchanged, so the column still sorts and filters on the original text, and the transform works the same on MySQL/MariaDB and PostgreSQL.
+
 For the Moodle database schema see <a href="https://www.examulator.com/er/output/index.html" target="_blank">examulator.com/er</a>.
 
 For sample queries and inspiration see <a href="https://docs.moodle.org/502/en/ad-hoc_contributed_reports" target="_blank">Moodle ad-hoc contributed reports</a>.';

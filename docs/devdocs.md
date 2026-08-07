@@ -46,7 +46,8 @@ publish()
  ├─ view::create_or_replace($id, $sql, $courseid)   → CREATE OR REPLACE VIEW mdl_local_reportsources_v_<id>
  ├─ view::columns($viewname)                          → introspect the new VIEW's columns
  ├─ view::timestamp_columns($sql)                     → recover %%TIMESTAMP()%% columns + formats
- ├─ build $meta (columnsmeta)                          → per-column {type,label[,dateformat]}
+ ├─ view::case_columns($sql)                          → recover %%CASE()%% columns + case mode
+ ├─ build $meta (columnsmeta)                          → per-column {type,label[,dateformat][,textcase]}
  ├─ reporthelper::create_report(... source: adhoc_query ...)  → a reportbuilder_report row (defaults OFF)
  ├─ set_config('queryid_for_report_<reportid>', $queryid)     → the binding (BEFORE hydrating defaults)
  ├─ persist status=published, viewname, reportid, columnsmeta on the query record
@@ -164,6 +165,17 @@ Types are derived two ways:
    renders it with a `userdate()` **callback** (`adhoc_view::build_columns()`); the strftime format
    comes from `strftime_format()`, which translates a neutral format like `dd/mm/yyyy` →
    `%d/%m/%Y`, defaulting to `dd-mmm-yyyy` when none was given.
+
+3. **Text-case recovery (same pattern).** A `%%CASE(expr, mode)%%` token resolves to the *bare text
+   expression* `(expr)` in the VIEW (§6), so the column keeps its introspected `text` type but the
+   value is unchanged. `build_columnsmeta()` calls `view::case_columns($sql)` (keyed like
+   timestamps — `AS` alias, else trailing identifier) to recover the `mode` and stashes it as
+   `columnsmeta` `textcase`. `adhoc_view::build_columns()` attaches a case-transform **callback**
+   (`apply_textcase()`): `upper`/`lower` via `\core_text`, `title` via `mb_convert_case(…,
+   MB_CASE_TITLE)` (reproduces Postgres `INITCAP`, which MySQL/MariaDB lacks), `sentence` = lower
+   then upper-case the first letter. Because the stored value is the raw text, the column still
+   **sorts and filters on the original**; only the display changes. Unknown/missing modes are
+   dropped, leaving a plain text column.
 
 **Consequence:** editing the SQL after publish does not retype columns on the fly — `columnsmeta`
 is regenerated only on the next publish, which drops and rebuilds the VIEW + report.
@@ -298,6 +310,7 @@ resolves:
 | `%%NOW%%` | current epoch int — `UNIX_TIMESTAMP()` (MySQL) / `EXTRACT(EPOCH FROM now())::int` (Postgres) |
 | `%%TIMESTAMP(expr[, format])%%` | the **bare epoch expression** `(expr)` — no DB date function (so it sorts; typing/format applied later from `columnsmeta`) |
 | `%%EPOCH(datetime)%%` | epoch int in the live dialect (string literals get an explicit Postgres `TIMESTAMP` cast) |
+| `%%CASE(expr, mode)%%` | the **bare text expression** `(expr)` — `mode` (`upper`/`lower`/`title`/`sentence`) is dropped from SQL and re-applied as a display callback from `columnsmeta` `textcase`, so the stored value (and sort/filter) stay on the original text |
 
 The dialect is chosen via `$DB->get_dbfamily()`. `normalise_aliases()` then makes quoted column
 aliases identifier-safe (spaces → underscores; lowercases double-quoted aliases on Postgres so RB's

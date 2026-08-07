@@ -168,4 +168,34 @@ final class chart_svg_test extends \advanced_testcase {
         $this->assertSame([''], $labels);
         $this->assertSame([0.0], $values);
     }
+
+    /**
+     * chart_series applies a %%CASE() mode to the labels so a chart matches the data report (which
+     * transforms the same column in its display callback).
+     *
+     * @return void
+     */
+    public function test_chart_series_applies_textcase(): void {
+        $rows = [['city' => 'new york', 'n' => 1], ['city' => 'LONDON', 'n' => 2]];
+        [$labels] = query::chart_series($rows, 'city', 'n', 'title');
+        $this->assertSame(['New York', 'London'], $labels);
+        // Empty mode leaves labels untouched.
+        [$raw] = query::chart_series($rows, 'city', 'n', '');
+        $this->assertSame(['new york', 'LONDON'], $raw);
+    }
+
+    /**
+     * format_textcase applies each mode, is UTF-8-safe, and passes through empty/unknown modes.
+     *
+     * @return void
+     */
+    public function test_format_textcase_modes(): void {
+        $this->assertSame('JOSÉ', query::format_textcase('josé', 'upper'));
+        $this->assertSame('josé', query::format_textcase('JOSÉ', 'lower'));
+        $this->assertSame('New York', query::format_textcase('new york', 'title'));
+        $this->assertSame('Hello world', query::format_textcase('hELLO wORLD', 'sentence'));
+        $this->assertSame('unchanged', query::format_textcase('unchanged', ''));
+        $this->assertSame('unchanged', query::format_textcase('unchanged', 'bogus'));
+        $this->assertSame('', query::format_textcase('', 'upper'));
+    }
 }

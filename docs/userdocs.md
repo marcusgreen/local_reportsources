@@ -245,6 +245,7 @@ The plugin supports a small, fixed set of placeholder forms in your SQL. Everyth
 | `%%NOW%%` | Current Unix time (integer seconds) | Cross-database |
 | `%%EPOCH(datetime)%%` | A datetime literal/expression as Unix time (integer seconds) | Cross-database |
 | `%%TIMESTAMP(expr[, format])%%` | `expr` (an epoch column) as a date, optionally formatted | Cross-database; date-sortable |
+| `%%CASE(expr, mode)%%` | `expr` (a text column) displayed in `upper`, `lower`, `title` or `sentence` case | Cross-database; stored value unchanged, so it still sorts/filters on the original text |
 
 All are substituted once, when the view is built — the view is a fixed `CREATE VIEW`, so these bake a value in; they are **not** per-request parameters.
 
@@ -398,6 +399,36 @@ FROM logstore_standard_log
 GROUP BY (timecreated - (timecreated % 86400))
 ORDER BY day
 ```
+
+### `%%CASE(expr, mode)%%` — text case
+
+Displays a **text** column in a chosen letter case without changing the stored value. Wrap the column expression and give a `mode`:
+
+| `mode` | Effect | `example input` → output |
+|---|---|---|
+| `upper` | ALL UPPERCASE | `smith` → `SMITH` |
+| `lower` | all lowercase | `SMITH` → `smith` |
+| `title` | Each Word Capitalised (like Postgres `INITCAP`) | `new york` → `New York` |
+| `sentence` | First letter only | `hELLO wORLD` → `Hello world` |
+
+```sql
+SELECT u.id,
+       %%CASE(u.lastname, upper)%%   AS lastname,   -- SMITH
+       %%CASE(u.firstname, title)%%  AS firstname,  -- Joanne
+       %%CASE(u.city, sentence)%%    AS city        -- New york
+FROM {user} u
+```
+
+Why a token instead of SQL `UPPER()` / `INITCAP()`? Two reasons:
+
+- **Cross-database.** `UPPER`/`LOWER` exist everywhere, but **title/sentence case do not** — `INITCAP` is PostgreSQL-only, MySQL/MariaDB has no equivalent. The token applies the case in the report display layer (Unicode-aware), so all four modes work identically on both engines.
+- **Sorting & filtering stay natural.** The stored column keeps its **original** text, so the column still sorts and filters on the real value — only the display is transformed.
+
+Notes:
+
+- Give the column an `AS alias` (or wrap a bare `column`) so the plugin can name the output column. A complex expression with no alias is left as plain text.
+- `mode` must be one of the four above; an unknown mode is ignored (the column shows unchanged).
+- `expr` **cannot contain a `%` character** (the token scan stops at `%`), same as `%%TIMESTAMP%%`.
 
 ### Rejected placeholders
 

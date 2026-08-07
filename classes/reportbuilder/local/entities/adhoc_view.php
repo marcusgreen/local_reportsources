@@ -21,6 +21,7 @@ namespace local_reportsources\reportbuilder\local\entities;
 use core_reportbuilder\local\entities\base;
 use core_reportbuilder\local\filters\{boolean_select, date, number, text};
 use core_reportbuilder\local\report\{column, filter};
+use local_reportsources\local\query;
 use lang_string;
 
 /**
@@ -125,6 +126,13 @@ class adhoc_view extends base {
                     // $fixday = false keeps the leading zero on %d (dd), so 'dd' really means 2 digits.
                     return empty($value) ? '' : userdate((int) $value, $arg, 99, false);
                 }, $strftime);
+            } else if (!empty($meta['textcase'])) {
+                // A %%CASE() column stores the raw text (so it sorts/filters on the original value);
+                // apply the requested case only for display. The same helper formats chart labels
+                // (see query::chart_series()), so table and chart match.
+                $column->set_callback(static function ($value, $row, $arg): string {
+                    return query::format_textcase((string) ($value ?? ''), (string) $arg);
+                }, (string) $meta['textcase']);
             }
 
             $cols[] = $column;

@@ -128,7 +128,7 @@ class chart_view extends base {
 
         // Viewer-scoped fetch: same per-user / teacher-course row filtering as the data report.
         $rows = $q->fetch_rows_for_viewer($rowlimit);
-        [$labels, $values] = query::chart_series($rows, $xcol, $ycol);
+        [$labels, $values] = query::chart_series($rows, $xcol, $ycol, $q->column_textcase($xcol));
 
         $title = format_string($rec->name);
         $svg = chart_svg::render($type, $labels, $values, $title, ['labelsize' => $labelsize]);

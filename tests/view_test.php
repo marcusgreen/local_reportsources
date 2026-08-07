@@ -165,4 +165,44 @@ final class view_test extends \advanced_testcase {
         // The lastlogin token has no AS of its own; it is named after its trailing identifier.
         $this->assertSame('dd/mm/yy', $map['lastlogin']);
     }
+
+    /**
+     * %%CASE(expr, mode)%% resolves to the bare text expression (the mode is dropped from the SQL
+     * and applied later as a display callback), leaving no token or mode word behind.
+     */
+    public function test_resolve_strips_case_token_to_bare_expr(): void {
+        $this->resetAfterTest();
+
+        $resolved = view::resolve_placeholders(
+            'SELECT %%CASE(u.lastname, upper)%% AS surname, %%CASE(u.city, sentence)%% FROM {user} u'
+        );
+
+        $this->assertStringContainsString('(u.lastname) AS surname', $resolved);
+        $this->assertStringContainsString('(u.city)', $resolved);
+        $this->assertStringNotContainsString('%%', $resolved);
+        $this->assertStringNotContainsStringIgnoringCase('upper', $resolved);
+        $this->assertStringNotContainsStringIgnoringCase('sentence', $resolved);
+    }
+
+    /**
+     * case_columns() maps each token's output column (AS alias, else trailing identifier) to its
+     * case mode, and ignores unknown modes.
+     */
+    public function test_case_columns_parses_aliases_and_modes(): void {
+        $sql = 'SELECT '
+            . '%%CASE(u.lastname, upper)%% AS surname, '   // Aliased.
+            . '%%CASE(u.firstname, title)%% AS given, '    // Aliased.
+            . '%%CASE(city)%% , '                          // No mode -> not a case column.
+            . '%%CASE(u.username, lower)%%, '              // No alias -> trailing identifier.
+            . '%%CASE(u.email, bogus)%% AS mail '          // Unknown mode -> ignored.
+            . 'FROM {user} u';
+
+        $map = view::case_columns($sql);
+
+        $this->assertSame('upper', $map['surname']);
+        $this->assertSame('title', $map['given']);
+        $this->assertSame('lower', $map['username']);
+        $this->assertArrayNotHasKey('city', $map);
+        $this->assertArrayNotHasKey('mail', $map);
+    }
 }

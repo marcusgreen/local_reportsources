@@ -110,7 +110,7 @@ if ($chartreportid > 0) {
     redirect(new moodle_url('/reportbuilder/view.php', ['id' => $chartreportid]));
 }
 
-[$labels, $values] = query::chart_series($rows, $xcol, $ycol);
+[$labels, $values] = query::chart_series($rows, $xcol, $ycol, $q->column_textcase($xcol));
 
 $chart = match ($type) {
     'line'            => new \core\chart_line(),

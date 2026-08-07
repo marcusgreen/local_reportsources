@@ -277,6 +277,16 @@ class view {
             $sql
         ) ?? $sql;
 
+        // Token %%CASE(expr, mode)%% — emit the *raw text* expression. The column keeps its original
+        // value (so it sorts and filters on the untransformed text); the requested case (upper /
+        // lower / title / sentence) is applied per-viewer as a Report Builder display callback. The
+        // mode argument is therefore dropped from the SQL here; see self::case_columns().
+        $sql = preg_replace_callback(
+            '/%%CASE\(\s*([^,)]+?)\s*(?:,[^)]*)?\)%%/i',
+            static fn(array $m): string => '(' . $m[1] . ')',
+            $sql
+        ) ?? $sql;
+
         return preg_replace_callback(
             '/\{([a-z0-9_]+)\}/i',
             static fn(array $m): string => $CFG->prefix . $m[1],
@@ -322,6 +332,50 @@ class view {
                 continue;
             }
             $columns[strtolower($name)] = $format;
+        }
+        return $columns;
+    }
+
+    /** Case modes a %%CASE()%% token may request. */
+    private const CASE_MODES = ['upper', 'lower', 'title', 'sentence'];
+
+    /**
+     * Find the output columns produced by `%%CASE(expr, mode)%%` tokens in a saved query, mapping
+     * each to its requested case mode.
+     *
+     * Mirrors {@see self::timestamp_columns()}: the resolved SQL emits the bare text expression, so
+     * the transform is recorded in `columnsmeta` and applied by the Report Builder entity as a
+     * display callback (the stored value stays the original text, so sort/filter act on it). The
+     * output column name is the `AS` alias when present, else the trailing identifier of a simple
+     * `a.b` / `b` expression; tokens too complex to name without an alias are skipped. An unknown or
+     * missing mode is ignored, leaving the column as plain text.
+     *
+     * @param string $sql Raw saved SQL (before placeholder resolution).
+     * @return array<string, string> Lower-cased output column name => case mode.
+     */
+    public static function case_columns(string $sql): array {
+        $pattern = '/%%CASE\(\s*([^,)]+?)\s*,\s*([A-Za-z]+)\s*\)%%'
+            // phpcs:ignore moodle.Strings.ForbiddenStrings.Found
+            . '(?:\s+AS\s+(["`]?)([A-Za-z0-9_]+)\3)?/i';
+        if (!preg_match_all($pattern, $sql, $matches, PREG_SET_ORDER)) {
+            return [];
+        }
+        $columns = [];
+        foreach ($matches as $m) {
+            $expr  = $m[1];
+            $mode  = strtolower($m[2]);
+            $alias = $m[4] ?? '';
+            if (!in_array($mode, self::CASE_MODES, true)) {
+                continue;
+            }
+            if ($alias !== '') {
+                $name = $alias;
+            } else if (preg_match('/([A-Za-z0-9_]+)\s*$/', $expr, $im)) {
+                $name = $im[1];
+            } else {
+                continue;
+            }
+            $columns[strtolower($name)] = $mode;
         }
         return $columns;
     }

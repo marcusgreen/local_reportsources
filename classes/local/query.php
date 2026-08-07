@@ -422,19 +422,50 @@ class query {
      * extraction lives in one place. Labels are the x column cast to string; values are the y
      * column cast to float (missing → 0).
      *
+     * The x column may carry a %%CASE()%% transform. Because charts read the raw VIEW value (not the
+     * Report Builder display callback that formats table cells), the case is applied here to the
+     * labels so a pie/bar chart matches the data report; pass the mode as $xcase.
+     *
      * @param array<int, array<string, mixed>> $rows Rows as associative arrays.
      * @param string $xcol Label (x) column name.
      * @param string $ycol Value (y) column name.
+     * @param string $xcase Optional %%CASE()%% mode for the x column (upper|lower|title|sentence).
      * @return array{0: string[], 1: float[]} [labels, values]
      */
-    public static function chart_series(array $rows, string $xcol, string $ycol): array {
+    public static function chart_series(array $rows, string $xcol, string $ycol, string $xcase = ''): array {
         $labels = [];
         $values = [];
         foreach ($rows as $row) {
-            $labels[] = (string) ($row[$xcol] ?? '');
+            $labels[] = self::format_textcase((string) ($row[$xcol] ?? ''), $xcase);
             $values[] = (float) ($row[$ycol] ?? 0);
         }
         return [$labels, $values];
+    }
+
+    /**
+     * Apply a %%CASE() display transform to a value. UTF-8-safe and identical on every database (the
+     * transform runs in PHP, not SQL) — notably `title` reproduces Postgres INITCAP, which
+     * MySQL/MariaDB has no equivalent for; `sentence` lower-cases then upper-cases the first letter.
+     * An empty or unknown mode returns the value unchanged. Shared by the Report Builder column
+     * callback ({@see \local_reportsources\reportbuilder\local\entities\adhoc_view}) and the chart
+     * label extraction above, so table and chart render the same text.
+     *
+     * @param string $value Raw column value.
+     * @param string $mode ''|upper|lower|title|sentence.
+     * @return string
+     */
+    public static function format_textcase(string $value, string $mode): string {
+        if ($value === '' || $mode === '') {
+            return $value;
+        }
+        return match ($mode) {
+            'upper' => \core_text::strtoupper($value),
+            'lower' => \core_text::strtolower($value),
+            'title' => mb_convert_case($value, MB_CASE_TITLE, 'UTF-8'),
+            'sentence' => \core_text::strtoupper(\core_text::substr($value, 0, 1))
+                . \core_text::strtolower(\core_text::substr($value, 1)),
+            default => $value,
+        };
     }
 
     /**
@@ -446,6 +477,23 @@ class query {
         $raw = $this->record->columnsmeta ?: '[]';
         $decoded = json_decode($raw, true);
         return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * The %%CASE() mode recorded for an output column, or '' if none. Column names in columnsmeta
+     * preserve their published casing, so match case-insensitively. Used to give chart labels the
+     * same case transform as the data report.
+     *
+     * @param string $col Output column name.
+     * @return string ''|upper|lower|title|sentence.
+     */
+    public function column_textcase(string $col): string {
+        foreach ($this->columns_meta() as $name => $meta) {
+            if (strcasecmp((string) $name, $col) === 0) {
+                return (string) ($meta['textcase'] ?? '');
+            }
+        }
+        return '';
     }
 
     /**
@@ -1198,12 +1246,17 @@ class query {
      * introspection alone would type them as int. Recover the intended timestamp type — and any
      * requested display format — from the saved SQL tokens, keyed by output column name.
      *
+     * Case columns (%%CASE(expr, mode)%%) keep their introspected text type but carry a `textcase`
+     * transform applied at display time (the stored value stays the original text so sort/filter
+     * act on it); recover the mode from the saved SQL the same way.
+     *
      * @param array<string, object> $columns Column map from {@see view::columns()} (has `meta_type`).
      * @param string $sql Raw saved SQL (before placeholder resolution), for timestamp-token recovery.
-     * @return array<string, array{type:string,label:string,dateformat?:string}>
+     * @return array<string, array{type:string,label:string,dateformat?:string,textcase?:string}>
      */
     public static function build_columnsmeta(array $columns, string $sql): array {
         $tsformats = view::timestamp_columns($sql);
+        $casemodes = view::case_columns($sql);
 
         $meta = [];
         foreach ($columns as $name => $info) {
@@ -1219,6 +1272,9 @@ class query {
                     'type'  => self::map_db_type((string) $info->meta_type),
                     'label' => $name,
                 ];
+                if (array_key_exists($key, $casemodes)) {
+                    $meta[$name]['textcase'] = $casemodes[$key];
+                }
             }
         }
         return $meta;

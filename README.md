@@ -18,7 +18,7 @@ The [full user documentation](docs/userdocs.md) covers the edit form, writing SQ
 - Choose columns, filters, sorting, and charts through the standard Report Builder UI.
 - Control who can open each report via audiences (course participants, roles, cohorts, all users).
 - Schedule reports to be emailed on a recurring basis.
-- Cross-database placeholders (`%%TIMESTAMP%%`, `%%NOW%%`, `%%COURSEID%%`, …) keep queries portable across MySQL/MariaDB and PostgreSQL.
+- Cross-database placeholders (`%%TIMESTAMP%%`, `%%NOW%%`, `%%COURSEID%%`, `%%CASE%%`, …) keep queries portable across MySQL/MariaDB and PostgreSQL.
 - Import and export report views as portable JSON.
 
 ## Requirements
