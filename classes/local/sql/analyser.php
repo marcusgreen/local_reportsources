@@ -57,9 +57,13 @@ class analyser {
      *
      * @param string $sql Raw author SQL.
      * @param int $courseid Bound course id (0 = site-wide) for placeholder resolution.
+     * @param string|null $viewname Name (unprefixed) of a live view the caller has already built and
+     *  executed for this exact SQL — the inline preview passes its throwaway view here. When given,
+     *  the dry-run gate and the private probe view are skipped: the caller has already proven the SQL
+     *  runs, and date-column introspection reuses the supplied view instead of building a second one.
      * @return array{ok: bool, error: string, rowcount: int, datecolumns: string[], suggestions: string[], warnings: string[], indexinfo: string[]}
      */
-    public static function analyse(string $sql, int $courseid = 0): array {
+    public static function analyse(string $sql, int $courseid = 0, ?string $viewname = null): array {
         $result = [
             'ok'          => true,
             'error'       => '',
@@ -90,16 +94,19 @@ class analyser {
             // query for a single row and surface the DB message. Unlike the advisory probes below
             // (which degrade silently on error), a query that will not execute is a hard failure the
             // author needs to see, so report it and stop. Mirrors the publish-time live check in
-            // {@see \local_reportsources\external\validate_sql}.
-            $error = self::dry_run($resolved);
-            if ($error !== null) {
-                $result['ok'] = false;
-                $result['error'] = $error;
-                return $result;
+            // {@see \local_reportsources\external\validate_sql}. Skipped when the caller supplied a
+            // view: building + rendering that view already proved the SQL executes.
+            if ($viewname === null) {
+                $error = self::dry_run($resolved);
+                if ($error !== null) {
+                    $result['ok'] = false;
+                    $result['error'] = $error;
+                    return $result;
+                }
             }
 
             $result['rowcount'] = self::row_count($resolved, $result['warnings']);
-            $result['datecolumns'] = self::date_columns($validated, $resolved);
+            $result['datecolumns'] = self::date_columns($validated, $resolved, $viewname);
             $result['indexinfo'] = self::index_report($validated, $resolved, $result['warnings']);
         } finally {
             // The DB connection may be reused (or persistent) for the rest of the request, so always
@@ -210,26 +217,38 @@ class analyser {
      *
      * @param string $validated Auto-braced validated SQL.
      * @param string $resolved Placeholder-resolved SQL.
+     * @param string|null $viewname Unprefixed name of a live view already built for this SQL. When
+     *  given, its columns are introspected directly instead of building a throwaway probe view.
      * @return string[] Date-like output column names (empty when none).
      */
-    private static function date_columns(string $validated, string $resolved): array {
+    private static function date_columns(string $validated, string $resolved, ?string $viewname = null): array {
         global $DB, $CFG;
 
         $datecols = []; // Output column names that look like stored dates.
         $already = view::timestamp_columns($validated); // Keyed by lowercased column name.
 
-        $probe = privilege_check::PROBE_NAME . '_chk';
-        $fullprobe = $CFG->prefix . $probe;
-        $columns = [];
-        try {
-            $DB->change_database_structure("CREATE OR REPLACE VIEW {$fullprobe} AS {$resolved}");
-            $columns = view::columns($probe);
-            $DB->change_database_structure("DROP VIEW IF EXISTS {$fullprobe}");
-        } catch (\moodle_exception $e) {
-            // If the probe view cannot be built, skip date suggestions silently — validate_sql
-            // is the endpoint that reports SQL faults; analyse() is advisory only.
-            $DB->change_database_structure("DROP VIEW IF EXISTS {$fullprobe}");
-            return $datecols;
+        if ($viewname !== null) {
+            // Reuse the caller's live view (e.g. the inline preview) rather than standing up a
+            // second throwaway probe view for the same SQL.
+            try {
+                $columns = view::columns($viewname);
+            } catch (\moodle_exception $e) {
+                return $datecols;
+            }
+        } else {
+            $probe = privilege_check::PROBE_NAME . '_chk';
+            $fullprobe = $CFG->prefix . $probe;
+            $columns = [];
+            try {
+                $DB->change_database_structure("CREATE OR REPLACE VIEW {$fullprobe} AS {$resolved}");
+                $columns = view::columns($probe);
+                $DB->change_database_structure("DROP VIEW IF EXISTS {$fullprobe}");
+            } catch (\moodle_exception $e) {
+                // If the probe view cannot be built, skip date suggestions silently — validate_sql
+                // is the endpoint that reports SQL faults; analyse() is advisory only.
+                $DB->change_database_structure("DROP VIEW IF EXISTS {$fullprobe}");
+                return $datecols;
+            }
         }
 
         // Sample one row so a name match can be corroborated by a plausible-epoch value.
