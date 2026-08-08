@@ -52,6 +52,24 @@ final class schema_test extends \advanced_testcase {
     }
 
     /**
+     * The curated implied-key map fills relationships install.xml does not declare, including
+     * non-`id` reference columns.
+     */
+    public function test_fkmap_includes_implied_keys(): void {
+        $this->resetAfterTest();
+
+        $fkmap = schema::get()['fkmap'];
+
+        // course_modules.course -> course.id is a convention FK, not declared in install.xml.
+        $this->assertSame('course', $fkmap['course_modules']['course']['reftable']);
+        $this->assertSame('id', $fkmap['course_modules']['course']['refcol']);
+
+        // block_instances.blockname -> block.name exercises a non-id reference column.
+        $this->assertSame('block', $fkmap['block_instances']['blockname']['reftable']);
+        $this->assertSame('name', $fkmap['block_instances']['blockname']['refcol']);
+    }
+
+    /**
      * A second call is served from the MUC cache rather than rebuilt.
      */
     public function test_get_is_cached(): void {

@@ -34,6 +34,9 @@ class schema {
     /** @var string MUC cache key for the schema payload. */
     private const CACHE_KEY = 'data';
 
+    /** @var string Bundled curated implied-key map (see tools/xml_to_keys.php). */
+    private const IMPLIED_KEYS_FILE = __DIR__ . '/../../db/implied_keys.php';
+
     /**
      * Return the cached schema payload, rebuilding it if missing or stale.
      *
@@ -43,8 +46,9 @@ class schema {
         global $CFG;
 
         $cache = \cache::make('local_reportsources', 'schema');
+        $stamp = self::cache_stamp();
         $cached = $cache->get(self::CACHE_KEY);
-        if (is_array($cached) && ($cached['version'] ?? null) === $CFG->version) {
+        if (is_array($cached) && ($cached['stamp'] ?? null) === $stamp) {
             return ['tables' => $cached['tables'], 'fkmap' => $cached['fkmap']];
         }
 
@@ -52,9 +56,21 @@ class schema {
             'tables' => self::build_tables(),
             'fkmap'  => self::build_fk_map(),
         ];
-        $cache->set(self::CACHE_KEY, ['version' => $CFG->version] + $data);
+        $cache->set(self::CACHE_KEY, ['stamp' => $stamp] + $data);
 
         return $data;
+    }
+
+    /**
+     * Cache validity stamp: Moodle version plus the curated implied-key file mtime, so refreshing the
+     * bundled implied keys busts the cache without needing a core upgrade.
+     *
+     * @return string
+     */
+    private static function cache_stamp(): string {
+        global $CFG;
+        $mtime = file_exists(self::IMPLIED_KEYS_FILE) ? (int) filemtime(self::IMPLIED_KEYS_FILE) : 0;
+        return $CFG->version . ':' . $mtime;
     }
 
     /**
@@ -125,6 +141,31 @@ class schema {
             }
         }
 
+        // Fill columns that install.xml leaves undeclared with the curated implied keys. Declared FKs
+        // are authoritative, so they win: only add an implied entry where nothing was declared.
+        foreach (self::load_implied_keys() as $table => $cols) {
+            foreach ($cols as $col => $ref) {
+                if (!isset($map[$table][$col])) {
+                    $map[$table][$col] = $ref;
+                }
+            }
+        }
+
         return $map;
+    }
+
+    /**
+     * Load the bundled curated implied foreign-key map (Moodle relationships not declared in any
+     * install.xml). Generated from upstream morekeys.xml by tools/xml_to_keys.php; the shape already
+     * matches {@see build_fk_map()} ([table => [col => [reftable, refcol]]]), so no parsing is needed.
+     *
+     * @return array<string, array<string, array{reftable: string, refcol: string}>>
+     */
+    private static function load_implied_keys(): array {
+        if (!is_readable(self::IMPLIED_KEYS_FILE)) {
+            return [];
+        }
+        $data = require self::IMPLIED_KEYS_FILE;
+        return is_array($data) ? $data : [];
     }
 }

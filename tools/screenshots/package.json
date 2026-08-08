@@ -1,0 +1,13 @@
+{
+  "name": "reportsources-screenshots",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Puppeteer helper that logs into Moodle and screenshots local_reportsources pages.",
+  "type": "module",
+  "scripts": {
+    "shot": "node shoot.mjs"
+  },
+  "dependencies": {
+    "puppeteer-core": "^23.0.0"
+  }
+}

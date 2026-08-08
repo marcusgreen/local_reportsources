@@ -1,0 +1,3 @@
+# Dev-only paths excluded from `git archive` release tarballs.
+tools/            export-ignore
+.gitattributes    export-ignore
