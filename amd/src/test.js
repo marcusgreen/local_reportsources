@@ -144,7 +144,11 @@ const dateColumnsAlert = async(cols, sqlField) => {
         btn.type = 'button';
         btn.className = 'btn btn-link btn-sm p-0 align-baseline';
         btn.textContent = col;
-        btn.addEventListener('click', () => applyTimestamp(sqlField, col, btn));
+        btn.addEventListener('click', () => {
+            applyTimestamp(sqlField, col, btn).catch(() => {
+                // getString rejection on the fallback path — nothing actionable, don't leak it.
+            });
+        });
         div.appendChild(btn);
     });
 
@@ -264,14 +268,18 @@ const maskSql = (sql) => {
                 out[k] = ' ';
             }
             i = j;
-        } else if (sql[i] === "'" || sql[i] === '"') {
-            const q = sql[i];
+        } else if (sql[i] === "'" || sql[i] === '"' || sql[i] === '`' || sql[i] === '[') {
+            // Quoted string ('…', "…") or quoted identifier (`…` MySQL, […] MSSQL). Blank the whole
+            // span so keywords/commas quoted inside it (e.g. AS `from`) don't fool the region scan.
+            // The closer is the matching bracket for '[', else the same char; both allow a doubled
+            // closer as an escape ('' "" `` ]]).
+            const close = sql[i] === '[' ? ']' : sql[i];
             out[i] = ' ';
             i++;
             while (i < n) {
-                if (sql[i] === q) {
-                    // Doubled quote is an escaped quote, not the terminator.
-                    if (sql[i + 1] === q) {
+                if (sql[i] === close) {
+                    // Doubled closer is an escape, not the terminator.
+                    if (sql[i + 1] === close) {
                         out[i] = ' ';
                         out[i + 1] = ' ';
                         i += 2;
