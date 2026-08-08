@@ -468,6 +468,41 @@ class query {
         };
     }
 
+    /** Default display format when a %%TIMESTAMP() token gives none: `dd-mmm-yyyy`, e.g. 15-Jun-2026. */
+    public const DEFAULT_DATE_FORMAT = '%d-%b-%Y';
+
+    /**
+     * Translate a neutral display format (e.g. `dd/mm/yyyy`, `ddd dd Mon yyyy`) into the strftime-style
+     * format {@see userdate()} expects. Unrecognised characters pass through, so separators like
+     * `/ - . :` and spaces are preserved. An empty format yields the default `dd-mmm-yyyy`.
+     *
+     * Single source shared by the Report Builder column callback
+     * ({@see \local_reportsources\reportbuilder\local\entities\adhoc_view}) and the block table, so a
+     * %%TIMESTAMP() column formats identically on every surface.
+     *
+     * @param string $neutral Neutral format from the %%TIMESTAMP(expr, format)%% token.
+     * @return string strftime format.
+     */
+    public static function strftime_format(string $neutral): string {
+        $neutral = trim($neutral);
+        if ($neutral === '') {
+            return self::DEFAULT_DATE_FORMAT;
+        }
+        // Longest tokens first so 'month'/'mmmm' beat 'mon'/'mmm'/'mm', 'yyyy' beats 'yy',
+        // 'dddd' beats 'ddd' beats 'dd'. 'mmm'/'mmmm'/'dddd' are Excel-style aliases of
+        // 'mon'/'month'/(full weekday), matching MySQL DATE_FORMAT %b/%M/%W.
+        $map = [
+            'mmmm' => '%B', 'month' => '%B', 'dddd' => '%A', 'yyyy' => '%Y',
+            'mmm' => '%b', 'mon' => '%b', 'ddd' => '%a',
+            'hh' => '%H', 'mi' => '%M', 'ss' => '%S', 'yy' => '%y', 'mm' => '%m', 'dd' => '%d',
+        ];
+        return (string) preg_replace_callback(
+            '/mmmm|month|dddd|yyyy|mmm|mon|ddd|hh|mi|ss|yy|mm|dd/i',
+            static fn(array $m): string => $map[strtolower($m[0])],
+            $neutral
+        );
+    }
+
     /**
      * Decoded column metadata cached on save (introspected from the live VIEW).
      *
@@ -573,7 +608,7 @@ class query {
                 'xcol'     => clean_param((string) ($data->chart_xcol ?? ''), PARAM_ALPHANUMEXT),
                 'ycol'     => clean_param((string) ($data->chart_ycol ?? ''), PARAM_ALPHANUMEXT),
                 'rowlimit' => max(1, min(5000, (int) ($data->chart_rowlimit ?? 200))),
-                'labelsize' => max(11, min(32, (int) ($data->chart_labelsize ?? 16))),
+                'labelsize' => max(11, min(48, (int) ($data->chart_labelsize ?? 16))),
             ]);
         }
 

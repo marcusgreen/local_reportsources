@@ -18,27 +18,25 @@ declare(strict_types=1);
 
 namespace local_reportsources;
 
-use local_reportsources\reportbuilder\local\entities\adhoc_view;
+use local_reportsources\local\query;
 
 /**
- * Tests for the ad-hoc view Report Builder entity, focused on date formatting.
+ * Tests for the neutral-to-strftime date-format mapper shared by the RB entity and the block.
  *
  * @package   local_reportsources
  * @copyright 2026 Marcus Green
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers    \local_reportsources\reportbuilder\local\entities\adhoc_view
+ * @covers    \local_reportsources\local\query::strftime_format
  */
 final class adhoc_view_test extends \advanced_testcase {
     /**
-     * Invoke the private static strftime_format() mapper.
+     * Invoke the public static strftime_format() mapper (now the single source on query).
      *
      * @param string $neutral
      * @return string
      */
     private function map(string $neutral): string {
-        $method = new \ReflectionMethod(adhoc_view::class, 'strftime_format');
-        $method->setAccessible(true);
-        return $method->invoke(null, $neutral);
+        return query::strftime_format($neutral);
     }
 
     /**

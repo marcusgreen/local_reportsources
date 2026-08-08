@@ -121,7 +121,7 @@ class adhoc_view extends base {
             // it for display with a callback (the optional per-column format, else Moodle's default).
             // Sorting still uses the underlying epoch field, not the formatted string.
             if ($type === 'timestamp') {
-                $strftime = self::strftime_format((string) ($meta['dateformat'] ?? ''));
+                $strftime = query::strftime_format((string) ($meta['dateformat'] ?? ''));
                 $column->set_callback(static function ($value, $row, $arg): string {
                     // $fixday = false keeps the leading zero on %d (dd), so 'dd' really means 2 digits.
                     return empty($value) ? '' : userdate((int) $value, $arg, 99, false);
@@ -138,38 +138,6 @@ class adhoc_view extends base {
             $cols[] = $column;
         }
         return $cols;
-    }
-
-    /** Default display format when a %%TIMESTAMP() token gives none: `dd-mmm-yyyy`, e.g. 15-Jun-2026. */
-    private const DEFAULT_DATE_FORMAT = '%d-%b-%Y';
-
-    /**
-     * Translate a neutral display format (e.g. `dd/mm/yyyy`, `ddd dd Mon yyyy`) into the
-     * strftime-style format {@see userdate()} expects. Unrecognised characters pass through, so
-     * separators like `/ - . :` and spaces are preserved. An empty format yields the default
-     * `dd-mmm-yyyy` (e.g. `15-Jun-2026`).
-     *
-     * @param string $neutral Neutral format from the %%TIMESTAMP(expr, format)%% token.
-     * @return string strftime format.
-     */
-    private static function strftime_format(string $neutral): string {
-        $neutral = trim($neutral);
-        if ($neutral === '') {
-            return self::DEFAULT_DATE_FORMAT;
-        }
-        // Longest tokens first so 'month'/'mmmm' beat 'mon'/'mmm'/'mm', 'yyyy' beats 'yy',
-        // 'dddd' beats 'ddd' beats 'dd'. 'mmm'/'mmmm'/'dddd' are Excel-style aliases of
-        // 'mon'/'month'/(full weekday), matching MySQL DATE_FORMAT %b/%M/%W.
-        $map = [
-            'mmmm' => '%B', 'month' => '%B', 'dddd' => '%A', 'yyyy' => '%Y',
-            'mmm' => '%b', 'mon' => '%b', 'ddd' => '%a',
-            'hh' => '%H', 'mi' => '%M', 'ss' => '%S', 'yy' => '%y', 'mm' => '%m', 'dd' => '%d',
-        ];
-        return (string) preg_replace_callback(
-            '/mmmm|month|dddd|yyyy|mmm|mon|ddd|hh|mi|ss|yy|mm|dd/i',
-            static fn(array $m): string => $map[strtolower($m[0])],
-            $neutral
-        );
     }
 
     /**

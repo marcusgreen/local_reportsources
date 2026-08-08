@@ -345,7 +345,7 @@ class edit_query_form extends moodleform {
         $mform->addHelpButton('chart_rowlimit', 'chartrowlimit', 'local_reportsources');
 
         $labelsizes = [];
-        foreach ([11, 12, 14, 16, 18, 20, 24, 28, 32] as $pt) {
+        foreach ([11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 42] as $pt) {
             $labelsizes[$pt] = get_string('chartlabelsizeoption', 'local_reportsources', $pt);
         }
         $mform->addElement('select', 'chart_labelsize', get_string('chartlabelsize', 'local_reportsources'), $labelsizes);

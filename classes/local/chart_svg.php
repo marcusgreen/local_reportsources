@@ -38,6 +38,9 @@ final class chart_svg {
         '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
     ];
 
+    /** Fixed width (px) of the pie/doughnut disc area; the legend column is added to the right. */
+    private const PIE_PLOT = 360;
+
     /**
      * Render a chart to SVG markup.
      *
@@ -62,13 +65,6 @@ final class chart_svg {
         $labelsize = max(8, min(48, (int) ($opts['labelsize'] ?? 16)));
         $palette   = !empty($opts['palette']) && is_array($opts['palette']) ? $opts['palette'] : self::PALETTE;
 
-        // Pie/doughnut labels live in a right-hand legend. Larger label sizes need a wider legend
-        // column; widen the whole canvas so the pie itself is not squeezed and labels are not
-        // truncated (the rendered <img> is fluid, so a wider SVG just scales down in its container).
-        if ($type === 'pie' || $type === 'doughnut') {
-            $width += (int) round(max(0, $labelsize - 16) * 14);
-        }
-
         // Normalise the two arrays to the same length and drop non-finite values.
         $labels = array_values($labels);
         $values = array_values(array_map(static function ($v): float {
@@ -78,6 +74,14 @@ final class chart_svg {
         $n = min(count($labels), count($values));
         $labels = array_slice($labels, 0, $n);
         $values = array_slice($values, 0, $n);
+
+        // Pie/doughnut labels live in a right-hand legend. Size the canvas to a fixed plot area plus
+        // exactly the legend width the actual longest label needs at this font size — a flat per-size
+        // bump reserved empty legend space for short labels, and since the rendered <img> is fluid,
+        // that extra width shrank the whole SVG (and its labels) in narrow containers like the block.
+        if ($type === 'pie' || $type === 'doughnut') {
+            $width = self::PIE_PLOT + self::pie_legend_width($labels, $labelsize);
+        }
 
         $body = '';
         if ($n === 0) {
@@ -280,15 +284,13 @@ final class chart_svg {
         }
 
         $top    = $title !== '' ? 34 : 10;
-        // Legend geometry scales with the label font size. Swatch + gap sit left of the text; the
-        // column is wide enough for ~22 glyphs at this size but never eats more than half the canvas.
+        // Legend geometry scales with the label font size. Swatch + gap sit left of the text. The
+        // column width is content-aware (sized to the actual longest label) via the same helper
+        // render() used to size the canvas, so the legend and the canvas always agree.
         $swatch  = max(10, (int) round($labelsize * 0.9));
         $textoff = $swatch + 6;                           // swatch + gap before the text starts.
         $charw   = $labelsize * 0.6;                      // ~0.6em per glyph.
-        // Column wide enough for ~24 glyphs at this size. The canvas was already widened for large
-        // label sizes in render(), so this is not capped against the width — that cap is what used
-        // to truncate labels above ~24 pt.
-        $legendw = (int) max(140, round(8 + $textoff + 24 * $charw + 8));
+        $legendw = self::pie_legend_width($labels, $labelsize);
         $cx     = ($width - $legendw) / 2;
         $cy     = $top + ($height - $top - 10) / 2;
         $r      = max(20.0, min($cx, $cy - $top) - 10);
@@ -503,6 +505,33 @@ final class chart_svg {
      */
     private static function truncate(string $s, int $max = 22): string {
         return \core_text::strlen($s) > $max ? \core_text::substr($s, 0, $max - 1) . '…' : $s;
+    }
+
+    /**
+     * Width (px) of the pie/doughnut legend column for the given labels at the given font size.
+     *
+     * Sized to the actual longest label (plus room for the appended " (value)" suffix), not a flat
+     * per-size constant — so short labels no longer reserve empty width that, on a fluid <img>,
+     * shrinks the whole chart in narrow containers. Floored so a tiny label still gets a usable
+     * column and capped so a very long label never dominates the canvas (it truncates instead).
+     * Both {@see render()} (to size the canvas) and {@see render_pie()} (to place the legend) call
+     * this, so the two always agree.
+     *
+     * @param string[] $labels
+     * @param int $labelsize Legend font size in px.
+     * @return int Legend column width in px.
+     */
+    private static function pie_legend_width(array $labels, int $labelsize): int {
+        $charw  = $labelsize * 0.6;                        // ~0.6em per glyph.
+        $swatch = max(10, (int) round($labelsize * 0.9));
+        $glyphs = 8;                                       // floor: swatch + a short "(n)" suffix.
+        foreach ($labels as $lab) {
+            // +6 glyphs of headroom for the " (value)" the legend appends to each label.
+            $glyphs = max($glyphs, \core_text::strlen((string) $lab) + 6);
+        }
+        $glyphs = min($glyphs, 28);                        // cap: longer labels truncate, not widen.
+        $col = 8 + $swatch + 6 + (int) round($glyphs * $charw) + 8;
+        return (int) max(140, min(520, $col));
     }
 
     /**

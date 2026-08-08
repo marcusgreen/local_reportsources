@@ -124,7 +124,7 @@ class chart_view extends base {
         $xcol = (string) ($chartmeta['xcol'] ?? '');
         $ycol = (string) ($chartmeta['ycol'] ?? '');
         $rowlimit = max(1, min(5000, (int) ($chartmeta['rowlimit'] ?? 200)));
-        $labelsize = max(11, min(32, (int) ($chartmeta['labelsize'] ?? 16)));
+        $labelsize = max(11, min(48, (int) ($chartmeta['labelsize'] ?? 16)));
 
         // Viewer-scoped fetch: same per-user / teacher-course row filtering as the data report.
         $rows = $q->fetch_rows_for_viewer($rowlimit);
