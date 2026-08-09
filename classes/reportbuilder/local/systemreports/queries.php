@@ -71,8 +71,8 @@ class queries extends system_report {
         }
         $this->add_columns_from_entities($columns);
 
-        // The most-used actions (Edit query / Unpublish) render as inline buttons in their own
-        // column; the rest stay in the row's kebab menu (see add_report_actions()).
+        // The most-used actions (Edit query, and the Publish / Unpublish pair) render as inline
+        // buttons in their own column; the rest stay in the row's kebab menu (see add_report_actions()).
         $this->add_buttons_column($entityname, $alias);
 
         // Course filter is redundant when the listing is already scoped to a course via the
@@ -180,8 +180,8 @@ class queries extends system_report {
     }
 
     /**
-     * Add a leading column rendering the most-used actions (Edit query / Unpublish) as inline
-     * buttons, so they sit outside the kebab menu holding the rest.
+     * Add a leading column rendering the most-used actions (Edit query, and the status-exclusive
+     * Publish / Unpublish pair) as inline buttons, so they sit outside the kebab menu holding the rest.
      *
      * @param string $entityname entity the column is attached to
      * @param string $alias main-table alias for the button-gating fields
@@ -212,20 +212,32 @@ class queries extends system_report {
                     );
                 }
 
-                // Unpublish a published query (approve capability; admin-owned queries locked to admins).
+                // Publish / Unpublish — a status-exclusive pair, rendered as one inline button so the
+                // primary next action (Publish a draft, Unpublish a published query) is never buried
+                // in the kebab. Both need the approve capability; admin-owned queries locked to admins.
                 if (
-                    $row->status === query::STATUS_PUBLISHED
-                    && (!is_siteadmin($row->ownerid) || is_siteadmin($USER))
+                    (!is_siteadmin($row->ownerid) || is_siteadmin($USER))
                     && has_capability('local/reportsources:approve', \context_system::instance())
                 ) {
-                    $buttons .= html_writer::link(
-                        new moodle_url(
-                            '/local/reportsources/run.php',
-                            ['id' => $row->id, 'action' => 'unpublish', 'sesskey' => sesskey()]
-                        ),
-                        get_string('unpublish', 'local_reportsources'),
-                        ['class' => 'btn btn-sm btn-warning']
-                    );
+                    if ($row->status === query::STATUS_DRAFT) {
+                        $buttons .= html_writer::link(
+                            new moodle_url(
+                                '/local/reportsources/run.php',
+                                ['id' => $row->id, 'action' => 'publish', 'sesskey' => sesskey()]
+                            ),
+                            get_string('publish', 'local_reportsources'),
+                            ['class' => 'btn btn-sm btn-success rs-publish-toggle']
+                        );
+                    } else if ($row->status === query::STATUS_PUBLISHED) {
+                        $buttons .= html_writer::link(
+                            new moodle_url(
+                                '/local/reportsources/run.php',
+                                ['id' => $row->id, 'action' => 'unpublish', 'sesskey' => sesskey()]
+                            ),
+                            get_string('unpublish', 'local_reportsources'),
+                            ['class' => 'btn btn-sm btn-warning rs-publish-toggle']
+                        );
+                    }
                 }
 
                 // Keep the action buttons on a single line instead of wrapping in the narrow cell.
@@ -238,10 +250,10 @@ class queries extends system_report {
     /**
      * Add the per-row kebab action links, mirroring the plugin's own listing page.
      *
-     * Edit query and Unpublish render as inline buttons (see add_buttons_column()); this covers the
-     * remainder: Edit in Report Builder, View chart, Schedule emails, New report, Publish, Duplicate
-     * and Delete. Each is gated by the same capability / status / owner-lock rules the hand-rolled
-     * index.php table used.
+     * Edit query and the Publish / Unpublish pair render as inline buttons (see add_buttons_column());
+     * this covers the remainder: Edit in Report Builder, View chart, Schedule emails, New report,
+     * Duplicate and Delete. Each is gated by the same capability / status / owner-lock rules the
+     * hand-rolled index.php table used.
      *
      * @return void
      */
@@ -312,20 +324,7 @@ class queries extends system_report {
             return $canschedule($row) && empty($row->chartreportid) && !empty($row->reportid);
         }));
 
-        // Publish a draft query.
-        $this->add_action((new action(
-            new moodle_url(
-                '/local/reportsources/run.php',
-                ['id' => ':id', 'action' => 'publish', 'sesskey' => sesskey()]
-            ),
-            new pix_icon('t/show', ''),
-            [],
-            false,
-            new lang_string('publish', 'local_reportsources')
-        ))->add_callback(static function (\stdClass $row) use ($canmodifyrow): bool {
-            return $canmodifyrow($row) && $row->status === query::STATUS_DRAFT
-                && has_capability('local/reportsources:approve', \context_system::instance());
-        }));
+        // Publish is an inline button (see add_buttons_column()), paired with Unpublish.
 
         // Duplicate the query (any author).
         $this->add_action((new action(

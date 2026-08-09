@@ -15,6 +15,13 @@
     white-space: nowrap;
 }
 
+/* Publish (draft rows) and Unpublish (published rows) are the same status-exclusive button. Give
+   them a shared min-width so the shorter "Publish" is as wide as "Unpublish" and the Actions column
+   stays a consistent width down the list. */
+.rs-publish-toggle {
+    min-width: 6.5rem;
+}
+
 /* Inline SQL preview: let the embedded Report Builder table use the full width and scroll
    horizontally rather than be squeezed (and its column headers clipped) by the surrounding
    form layout. */
