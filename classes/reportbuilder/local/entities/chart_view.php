@@ -21,7 +21,6 @@ namespace local_reportsources\reportbuilder\local\entities;
 use core_reportbuilder\local\entities\base;
 use core_reportbuilder\local\report\column;
 use lang_string;
-use local_reportsources\local\chart_svg;
 use local_reportsources\local\query;
 
 /**
@@ -29,7 +28,8 @@ use local_reportsources\local\query;
  *
  * Unlike {@see adhoc_view}, which surfaces one column per view column, this entity has exactly one
  * column ("chart"). The bound report is scoped to a single query row by {@see chart_query}, so the
- * column's callback runs once and renders the whole dataset as one SVG image (see {@see chart_svg}).
+ * column's callback runs once and renders the whole dataset as one SVG image (see
+ * {@see \local_reportsources\local\chart_svg}).
  *
  * The dataset itself is *not* read from the column's `$row` — a Report Builder column callback only
  * ever receives one row, and a chart aggregates many. Instead the callback fetches the rows itself
@@ -98,7 +98,8 @@ class chart_view extends base {
      * Render the chart for a query as an inline `<img>` holding a base64 SVG data URI.
      *
      * Safe to embed unescaped: Report Builder does not escape column-callback output (the callback
-     * owns safety), an SVG inside an `<img>` cannot execute script, and {@see chart_svg} XML-escapes
+     * owns safety), an SVG inside an `<img>` cannot execute script, and
+     * {@see \local_reportsources\local\chart_svg} XML-escapes
      * every label/title it draws. Returns an empty string (no image) when the query is missing, not
      * published, or has no chart configured.
      *
@@ -131,12 +132,14 @@ class chart_view extends base {
         [$labels, $values] = query::chart_series($rows, $xcol, $ycol, $q->column_textcase($xcol));
 
         $title = format_string($rec->name);
-        $svg = chart_svg::render($type, $labels, $values, $title, ['labelsize' => $labelsize]);
-        $datauri = 'data:image/svg+xml;base64,' . base64_encode($svg);
 
-        return \html_writer::img($datauri, $title, [
-            'class' => 'local-reportsources-chart img-fluid',
-            'style' => 'max-width:100%;height:auto;',
+        // Delegate to the shared renderer so the chart report, the block, and any future surface all
+        // draw the chart identically (image + optional data table). See query::chart_figure_html().
+        return query::chart_figure_html($type, $labels, $values, $xcol, $ycol, [
+            'labelsize' => $labelsize,
+            'showdata'  => !empty($chartmeta['showdata']),
+            'title'     => $title,
+            'alt'       => $title,
         ]);
     }
 }

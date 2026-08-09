@@ -468,6 +468,60 @@ class query {
         };
     }
 
+    /**
+     * Build the chart's display HTML: the SVG chart as an inline `<img>`, plus — when the `showdata`
+     * option is set — the accessible label/value table beneath it.
+     *
+     * Single source of truth for how a chart is rendered, shared by the Report Builder chart report
+     * ({@see \local_reportsources\reportbuilder\local\entities\chart_view}) and the Report sources
+     * block, so a change to chart display appears on every surface at once. The `<img>` holds a
+     * base64 SVG data URI (cannot execute script); the data-table cells are all s()-escaped.
+     *
+     * @param string $type Chart type (bar|line|pie|doughnut).
+     * @param string[] $labels Category labels.
+     * @param float[] $values Numeric values, index-aligned with $labels.
+     * @param string $xcol Label (x) column name — the first data-table header.
+     * @param string $ycol Value (y) column name — the second data-table header.
+     * @param array{labelsize?:int,showdata?:bool,title?:string,alt?:string} $opts Display options.
+     * @return string HTML.
+     */
+    public static function chart_figure_html(
+        string $type,
+        array $labels,
+        array $values,
+        string $xcol,
+        string $ycol,
+        array $opts = []
+    ): string {
+        $labelsize = max(11, min(48, (int) ($opts['labelsize'] ?? 16)));
+        $title = (string) ($opts['title'] ?? '');
+        $alt = (string) ($opts['alt'] ?? '');
+
+        $svg = chart_svg::render($type, $labels, $values, $title, ['labelsize' => $labelsize]);
+        $html = \html_writer::img('data:image/svg+xml;base64,' . base64_encode($svg), $alt, [
+            'class' => 'local-reportsources-chart img-fluid',
+            'style' => 'max-width:100%;height:auto;',
+        ]);
+
+        if (!empty($opts['showdata'])) {
+            $head = \html_writer::tag('thead', \html_writer::tag('tr',
+                \html_writer::tag('th', s($xcol), ['scope' => 'col'])
+                . \html_writer::tag('th', s($ycol), ['scope' => 'col'])));
+            $body = '';
+            foreach ($labels as $i => $label) {
+                $value = $values[$i] ?? 0;
+                $body .= \html_writer::tag('tr',
+                    \html_writer::tag('td', s((string) $label))
+                    . \html_writer::tag('td', s((string) $value)));
+            }
+            $html .= \html_writer::tag('table',
+                $head . \html_writer::tag('tbody', $body),
+                ['class' => 'local-reportsources-chart-data table table-sm table-striped w-auto mt-2']);
+        }
+
+        return $html;
+    }
+
     /** Default display format when a %%TIMESTAMP() token gives none: `dd-mmm-yyyy`, e.g. 15-Jun-2026. */
     public const DEFAULT_DATE_FORMAT = '%d-%b-%Y';
 
@@ -609,6 +663,7 @@ class query {
                 'ycol'     => clean_param((string) ($data->chart_ycol ?? ''), PARAM_ALPHANUMEXT),
                 'rowlimit' => max(1, min(5000, (int) ($data->chart_rowlimit ?? 200))),
                 'labelsize' => max(11, min(48, (int) ($data->chart_labelsize ?? 16))),
+                'showdata' => !empty($data->chart_showdata),
             ]);
         }
 

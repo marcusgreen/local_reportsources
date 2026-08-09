@@ -352,6 +352,12 @@ class edit_query_form extends moodleform {
         $mform->setType('chart_labelsize', PARAM_INT);
         $mform->setDefault('chart_labelsize', (int) ($chartmeta['labelsize'] ?? 16));
         $mform->addHelpButton('chart_labelsize', 'chartlabelsize', 'local_reportsources');
+
+        $mform->addElement('advcheckbox', 'chart_showdata', get_string('chartshowdata', 'local_reportsources'),
+            get_string('chartshowdatalabel', 'local_reportsources'));
+        $mform->setType('chart_showdata', PARAM_BOOL);
+        $mform->setDefault('chart_showdata', !empty($chartmeta['showdata']));
+        $mform->addHelpButton('chart_showdata', 'chartshowdata', 'local_reportsources');
     }
 
     /**
