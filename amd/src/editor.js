@@ -167,6 +167,7 @@ const buildEditor = (textarea, schema, fkMap) => {
             sql({dialect: MySQL, schema: schema, tables: tables, upperCaseKeywords: true}),
             MySQL.language.data.of({autocomplete: aliasCompletionSource}),
             MySQL.language.data.of({autocomplete: timestampFormatCompletionSource}),
+            MySQL.language.data.of({autocomplete: tokenCompletionSource}),
             keymap.of([
                 {key: "Tab", run: acceptCompletion},
                 {key: "Shift-Ctrl-f", run: () => {
@@ -581,6 +582,96 @@ const timestampFormatCompletionSource = (context) => {
         from: word.from,
         options,
         validFor: /^[a-zA-Z]*$/,
+    }));
+};
+
+/**
+ * The reserved %%TOKEN%% placeholders offered by the %% autocomplete. Mirrors the server-side
+ * source of truth (validator::is_supported_token / view::context_level_tokens) so the editor never
+ * suggests a token publish would reject. `caret` (parameterised tokens only) is the offset from the
+ * token start at which to drop the cursor — inside the parentheses — after insertion.
+ */
+const TOKENS = [
+    {label: '%%WWWROOT%%', key: 'tokenhintwwwroot'},
+    {label: '%%COURSEID%%', key: 'tokenhintcourseid'},
+    {label: '%%COURSECONTEXT%%', key: 'tokenhintcoursecontext'},
+    {label: '%%NOW%%', key: 'tokenhintnow'},
+    {label: '%%CONTEXT_SYSTEM%%', key: 'tokenhintcontextsystem'},
+    {label: '%%CONTEXT_USER%%', key: 'tokenhintcontextuser'},
+    {label: '%%CONTEXT_COURSECAT%%', key: 'tokenhintcontextcoursecat'},
+    {label: '%%CONTEXT_COURSE%%', key: 'tokenhintcontextcourse'},
+    {label: '%%CONTEXT_MODULE%%', key: 'tokenhintcontextmodule'},
+    {label: '%%CONTEXT_BLOCK%%', key: 'tokenhintcontextblock'},
+    {label: '%%TIMESTAMP()%%', key: 'tokenhinttimestamp', caret: 12},
+    {label: '%%EPOCH()%%', key: 'tokenhintepoch', caret: 8},
+    {label: '%%CASE()%%', key: 'tokenhintcase', caret: 7},
+];
+
+/**
+ * Build a single CodeMirror completion option for a token. Parameterised tokens (those with a
+ * `caret`) get a custom apply that leaves the cursor between the parentheses so the author types the
+ * expression straight away.
+ *
+ * @param {Object} token - One TOKENS entry.
+ * @param {string} gloss - Translated one-line description (may be empty on lang failure).
+ * @returns {Object} A CodeMirror Completion.
+ */
+const makeTokenOption = (token, gloss) => {
+    const option = {label: token.label, type: 'constant'};
+    if (gloss) {
+        option.detail = gloss;
+    }
+    if (token.caret) {
+        option.apply = (view, completion, from, to) => {
+            view.dispatch({
+                changes: {from, to, insert: token.label},
+                selection: {anchor: from + token.caret},
+            });
+        };
+    }
+    return option;
+};
+
+/** Cached promise of the completion options (label + i18n gloss) for the %%TOKEN%% placeholders. */
+let tokenOptions = null;
+
+/**
+ * Lazily build (once) the autocomplete option list for the %%TOKEN%% placeholders, annotating each
+ * with its translated gloss. On lang failure it resets the cache (so a later attempt retries) and
+ * still offers bare labels this time.
+ *
+ * @returns {Promise<Array<Object>>}
+ */
+const loadTokenOptions = () => {
+    if (!tokenOptions) {
+        tokenOptions = getStrings(TOKENS.map(t => ({key: t.key, component: 'local_reportsources'})))
+            .then(glosses => TOKENS.map((t, i) => makeTokenOption(t, glosses[i])))
+            .catch(() => {
+                tokenOptions = null;
+                return TOKENS.map(t => makeTokenOption(t, ''));
+            });
+    }
+    return tokenOptions;
+};
+
+/**
+ * CompletionSource offering the reserved %%TOKEN%% placeholders once the cursor sits just after a
+ * `%%` opener — typing `%%` offers the whole list, `%%C` narrows to CASE / COURSEID / COURSECONTEXT
+ * / CONTEXT_*, `%%T` to TIMESTAMP, and so on. Does not fire inside an already-closed token or in the
+ * format argument of %%TIMESTAMP(…)%% (a comma/space/dot breaks the match back to the opener).
+ *
+ * @param {CompletionContext} context
+ * @returns {Promise<CompletionResult>|null}
+ */
+const tokenCompletionSource = (context) => {
+    const before = context.matchBefore(/%%[A-Za-z_()]*/);
+    if (!before || before.from === before.to) {
+        return null;
+    }
+    return loadTokenOptions().then(options => ({
+        from: before.from,
+        options,
+        validFor: /^%%[A-Za-z_()]*$/,
     }));
 };
 
