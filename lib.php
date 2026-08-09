@@ -175,7 +175,11 @@ function local_reportsources_output_fragment_preview(array $args): string {
         // dry-run and probe view. Advisory only: any failure degrades to just the rendered rows.
         $summary = local_reportsources_preview_summary($sql, $courseid, $viewname);
 
-        return $summary . $report->output();
+        // When a chart is configured on the (unsaved) form, render it above the table off the same
+        // preview view, so the author sees the graph their axis choices produce before publishing.
+        $chart = local_reportsources_preview_chart($args, $viewname, $meta);
+
+        return $summary . $chart . $report->output();
     } catch (\moodle_exception $e) {
         return $OUTPUT->notification($e->getMessage(), 'error');
     } finally {
@@ -211,4 +215,64 @@ function local_reportsources_preview_summary(string $sql, int $courseid, string 
 
     $items = array_map(static fn(string $line): string => \html_writer::div(s($line)), $lines);
     return \html_writer::div(implode('', $items), 'alert alert-secondary py-1 mb-2', ['role' => 'status']);
+}
+
+/**
+ * Render the configured chart for the inline preview, above the table.
+ *
+ * Mirrors {@see \local_reportsources\reportbuilder\local\entities\chart_view::render_chart_cell()},
+ * but reads the axis/type/sizing from the *unsaved* form args and pulls rows straight from the
+ * caller's already-built preview view (unscoped — the preview view is the author's own throwaway
+ * copy). Returns '' when no real chart type is selected or the chosen axes are not real columns.
+ *
+ * The SVG is embedded unescaped inside an `<img>` for the same reason as the RB chart column:
+ * {@see \local_reportsources\local\chart_svg} XML-escapes every label/title it draws, and an SVG in
+ * an `<img>` cannot execute script.
+ *
+ * @param array $args Fragment args carrying the chart_* fields.
+ * @param string $viewname Unprefixed name of the live preview view to read rows from.
+ * @param array $meta Frozen columnsmeta (assoc by column name) for the preview view.
+ * @return string Chart HTML, or '' when nothing to render.
+ */
+function local_reportsources_preview_chart(array $args, string $viewname, array $meta): string {
+    global $DB;
+
+    $type = (string) ($args['chart_type'] ?? 'none');
+    if ($type === '' || $type === 'none') {
+        return '';
+    }
+    $xcol = (string) ($args['chart_xcol'] ?? '');
+    $ycol = (string) ($args['chart_ycol'] ?? '');
+    // Both axes must resolve to real view columns, else there is nothing to plot.
+    if ($xcol === '' || $ycol === '' || !array_key_exists($xcol, $meta) || !array_key_exists($ycol, $meta)) {
+        return '';
+    }
+    $rowlimit = max(1, min(5000, (int) ($args['chart_rowlimit'] ?? 200)));
+    $labelsize = max(11, min(48, (int) ($args['chart_labelsize'] ?? 16)));
+
+    // Read straight from the preview view. A raw recordset (not get_records) preserves every row and
+    // its order — a grouped chart query has no unique id column to key on.
+    $rows = [];
+    try {
+        $rs = $DB->get_recordset_sql('SELECT * FROM {' . $viewname . '}', null, 0, $rowlimit);
+        foreach ($rs as $row) {
+            $rows[] = (array) $row;
+        }
+        $rs->close();
+    } catch (\dml_exception $e) {
+        // Advisory only: a failed chart pass degrades to just the rendered table.
+        debugging($e->getMessage(), DEBUG_DEVELOPER);
+        return '';
+    }
+
+    $xcase = (string) ($meta[$xcol]['textcase'] ?? '');
+    [$labels, $values] = \local_reportsources\local\query::chart_series($rows, $xcol, $ycol, $xcase);
+
+    $svg = \local_reportsources\local\chart_svg::render($type, $labels, $values, '', ['labelsize' => $labelsize]);
+    $datauri = 'data:image/svg+xml;base64,' . base64_encode($svg);
+    $img = \html_writer::img($datauri, get_string('chartcolumn', 'local_reportsources'), [
+        'class' => 'local-reportsources-chart img-fluid',
+        'style' => 'max-width:100%;height:auto;',
+    ]);
+    return \html_writer::div($img, 'mb-3');
 }

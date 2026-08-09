@@ -30,6 +30,33 @@ import {get_string as getString} from 'core/str';
 import {exception as displayException} from 'core/notification';
 
 /**
+ * Read the current (unsaved) chart configuration off the edit form.
+ *
+ * The chart selects only exist once the query has columns (see definition_after_data()), so this
+ * returns an empty object on a fresh draft — the fragment then renders no chart. When a real chart
+ * type is chosen, the axis and sizing values are forwarded to the preview fragment.
+ *
+ * @return {Object} Fragment arg fragments (chart_type, chart_xcol, …), or {} when no chart selected.
+ */
+const collectChartArgs = () => {
+    const type = document.getElementById('id_chart_type');
+    if (!type || type.value === '' || type.value === 'none') {
+        return {};
+    }
+    const val = (id) => {
+        const el = document.getElementById(id);
+        return el ? el.value : '';
+    };
+    return {
+        chart_type: type.value,
+        chart_xcol: val('id_chart_xcol'),
+        chart_ycol: val('id_chart_ycol'),
+        chart_rowlimit: val('id_chart_rowlimit'),
+        chart_labelsize: val('id_chart_labelsize'),
+    };
+};
+
+/**
  * Wire the Preview button to the fragment renderer.
  *
  * @param {string} btnid - Preview button element id (carries data-contextid).
@@ -56,6 +83,11 @@ export const init = (btnid, sqlid, courseid, regionid, detailsid) => {
         const courseField = document.getElementById(courseid);
         const course = courseField ? parseInt(courseField.value, 10) || 0 : 0;
 
+        // Chart config lives on the same form (only present once the query has columns). When a real
+        // chart type is selected, pass the axis + sizing choices so the fragment renders the chart
+        // above the table — the preview then reflects the *current, unsaved* chart selection.
+        const chartArgs = collectChartArgs();
+
         // Reveal the collapsible region (hidden until the first run) and show a loading note.
         if (details) {
             details.classList.remove('d-none');
@@ -67,7 +99,7 @@ export const init = (btnid, sqlid, courseid, regionid, detailsid) => {
         // Fragment.loadFragment resolves a jQuery Deferred with (html, js); keep the two-arg .then
         // (await would drop the js), then hand both to replaceNodeContents so the report's JS runs.
         const promise = Fragment.loadFragment(
-            'local_reportsources', 'preview', contextid, {sql: sql, courseid: course}
+            'local_reportsources', 'preview', contextid, {sql: sql, courseid: course, ...chartArgs}
         );
         promise.then((html, js) => {
             Templates.replaceNodeContents(region, html, js);
