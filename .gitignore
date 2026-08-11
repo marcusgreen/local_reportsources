@@ -1,2 +1,5 @@
 # Scratch session/dev logs, not part of the plugin.
 SESSION-*.md
+
+# Local dev tooling / generated ERD key data, not part of the plugin.
+tools/
