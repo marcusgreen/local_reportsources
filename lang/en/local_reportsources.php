@@ -81,6 +81,7 @@ $string['chartpie'] = 'Pie chart';
 $string['chartprint'] = 'Print';
 $string['chartreportname'] = '{$a} (chart)';
 $string['chartpublishrequired'] = 'Publish this query first to enable chart configuration.';
+$string['filterpublishrequired'] = 'Publish this query first to enable the per-user and per-course filters.';
 $string['focuschart'] = 'When I click Save and publish, reopen this form so I can configure the chart';
 $string['chartrowlimit'] = 'Chart row limit';
 $string['chartrowlimit_help'] = 'Maximum rows to plot. Keep small (≤ 200) for readable charts.';

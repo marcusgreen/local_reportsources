@@ -248,6 +248,20 @@ class edit_query_form extends moodleform {
         $record = $DB->get_record('local_reportsources_query', ['id' => $id]);
         if (!$record || empty($record->columnsmeta)) {
             if ($record) {
+                // The per-user / per-course filters are gated by the same publish check as the chart
+                // (their column lists come from the live view), so name them as locked too — matching
+                // the published layout, where the filter header precedes the chart header.
+                $mform->addElement('header', 'useridfilterheader', get_string('useridfilter', 'local_reportsources'));
+                $mform->addElement(
+                    'static',
+                    'filter_unpublished_note',
+                    '',
+                    \html_writer::div(
+                        get_string('filterpublishrequired', 'local_reportsources'),
+                        'alert alert-warning',
+                        ['role' => 'alert']
+                    )
+                );
                 $mform->addElement('header', 'chartheader', get_string('chartsettings', 'local_reportsources'));
                 $mform->addElement(
                     'static',
