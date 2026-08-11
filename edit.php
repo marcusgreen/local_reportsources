@@ -28,6 +28,7 @@ use local_reportsources\form\edit_query_form;
 use local_reportsources\local\query;
 use local_reportsources\local\query_naming;
 use local_reportsources\local\sql\validator;
+use local_reportsources\local\sql\view;
 
 require_login();
 
@@ -106,7 +107,10 @@ if ($aisqlchatavailable && $aiaction === 'generate' && $aiquestion !== '') {
         ) {
             $prompt = $aiquestion . "\n\nExisting SQL to use as the basis:\n" . $currentsql;
         }
-        $airesult = \local_sqlchat\api::generate_sql($prompt, $context->id);
+        // Pass our token rules as the third arg so the AI emits reportsources %%…%%
+        // tokens (dates, case, context, …); they resolve when the view is built.
+        // local_sqlchat itself knows nothing about these tokens.
+        $airesult = \local_sqlchat\api::generate_sql($prompt, $context->id, view::ai_prompt_rules());
         $mergedata = $formdefaults ? (array) $formdefaults : [];
         $mergedata['querysql'] = validator::strip_braces($airesult->sql);
         // Make up a name/description when none exist yet, so the generated query is immediately
@@ -219,7 +223,7 @@ if ($aisqlchatavailable) {
     if ($airesult) {
         echo html_writer::tag(
             'p',
-            get_string('ai:latency', 'local_reportsources', $airesult->latency_ms),
+            get_string('ai:latency', 'local_reportsources', number_format($airesult->latency_ms / 1000, 2)),
             ['class' => 'text-muted small mb-2']
         );
         if (get_config('local_sqlchat', 'showprompt') && !empty($airesult->prompt)) {

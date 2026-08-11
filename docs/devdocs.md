@@ -363,12 +363,18 @@ AI generation is **not** implemented in this plugin. It is delegated to the sepa
 and, on an AI request, calls:
 
 ```php
-$airesult = \local_sqlchat\api::generate_sql($prompt, $context->id);
+// The third argument is an opaque prompt-rules string. local_sqlchat is token-agnostic
+// and appends it verbatim; view::ai_prompt_rules() describes our %%…%% tokens so the AI
+// emits them (dates, case, context, …). They resolve in view::resolve_placeholders()
+// when the view is built.
+$airesult = \local_sqlchat\api::generate_sql(
+    $prompt, $context->id, \local_reportsources\local\sql\view::ai_prompt_rules());
 ```
 
-`local_sqlchat` builds the prompt (compressed schema + question), sends it to the configured AI
-backend via `tool_ai_bridge`, and returns a `result` object (`sql`, `raw_response`, `prompt`,
-`latency_ms`). `edit.php` loads the generated SQL into the edit form and, when the
+`local_sqlchat` builds the prompt (compressed schema + question + our `$extrarules`), sends it to
+the configured AI backend via `tool_ai_bridge`, and returns a `result` object (`sql`,
+`raw_response`, `prompt`, `latency_ms`). The single source of truth for what tokens the AI may
+emit is `view::ai_prompt_rules()`; `local_sqlchat` knows nothing about them. `edit.php` loads the generated SQL into the edit form and, when the
 `local_sqlchat/showprompt` admin setting is on, renders the prompt sent to the LLM (for reuse on a
 different model). `classes/local/query_naming.php` provides helpers that derive a query name /
 description from either the question or the generated SQL.

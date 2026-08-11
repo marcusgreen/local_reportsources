@@ -205,6 +205,52 @@ class view {
     }
 
     /**
+     * Prompt rules describing the reportsources %%…%% tokens, for appending to an
+     * AI SQL-generation prompt (e.g. local_sqlchat's api::generate_sql third arg).
+     *
+     * This is the single place that teaches an LLM about our tokens: local_sqlchat
+     * is token-agnostic and appends whatever string this returns. If reportsources
+     * is not installed the caller never obtains this text, so no tokens are emitted.
+     * The tokens are resolved later by {@see self::resolve_placeholders()} when the
+     * view is built, so generated SQL stays portable across MySQL/MariaDB/PostgreSQL.
+     *
+     * @return string Rule lines (each starting with "- "), or '' if none apply.
+     */
+    public static function ai_prompt_rules(): string {
+        return <<<RULES
+- local_reportsources portable tokens: this SQL will be saved as a report, so
+  prefer these %%…%% tokens over raw dialect functions — they are rewritten for
+  the live database when the report is built.
+  CRITICAL SYNTAX: every token is bounded by a leading %% and a trailing %%, and
+  the function-style tokens close their parenthesis BEFORE that trailing %% —
+  i.e. %%NAME(args)%%. Always write the complete closing )%% ; a token missing
+  its )%% (e.g. %%CASE(u.city, upper) with no )%%) is invalid and breaks the SQL.
+  Count: for every "%%" you open, emit a matching "%%" to close, and for every
+  "(" inside a token emit its ")" before the closing %%.
+  - Dates: Moodle stores dates as Unix-epoch INTEGER columns (name contains one
+    of time, date, created, modified, start, end, expir, due, login, logout,
+    access, seen, stamp, cron, sync, sent, finish, run). Wrap such a column's
+    SELECT output in %%TIMESTAMP(expr)%% so it renders as a sortable date — e.g.
+    SELECT %%TIMESTAMP(u.timecreated)%% AS timecreated. Keep the raw column in
+    WHERE, ORDER BY, GROUP BY and joins; do NOT wrap non-date integers (ids,
+    counts, durations such as enrolperiod).
+  - %%EPOCH(datetime)%% converts a datetime literal/expression to a Unix-epoch
+    integer (use in WHERE against an epoch column); %%NOW%% is the current epoch.
+  - Text case (display only, stored value and sort/filter unchanged):
+    %%CASE(expr, mode)%% with mode one of upper|lower|title|sentence — e.g.
+    %%CASE(u.lastname, upper)%% AS lastname. Note the full closing )%% after the
+    mode. expr must not contain '%'.
+  - %%WWWROOT%% is the site URL, for building links inside a CONCAT.
+  - %%CONTEXT_SYSTEM/USER/COURSECAT/COURSE/MODULE/BLOCK%% are the context-level
+    constants (e.g. %%CONTEXT_COURSE%% = 50) — prefer these over the literal
+    number when filtering context.contextlevel.
+  - Course scope: use %%COURSEID%% (bound course id) and %%COURSECONTEXT%% (its
+    context row id) ONLY when the question is clearly about a single course;
+    otherwise filter courses explicitly.
+RULES;
+    }
+
+    /**
      * Replace `{tablename}` with the prefixed table name, `%%WWWROOT%%` with the site URL,
      * `%%COURSEID%%` with the query's course scope, and the portable date/time tokens `%%NOW%%`
      * and `%%TIMESTAMP(expr)%%` with their dialect for the live database. The Moodle DML layer
