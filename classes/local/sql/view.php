@@ -246,7 +246,12 @@ class view {
     number when filtering context.contextlevel.
   - Course scope: use %%COURSEID%% (bound course id) and %%COURSECONTEXT%% (its
     context row id) ONLY when the question is clearly about a single course;
-    otherwise filter courses explicitly.
+    otherwise filter courses explicitly. When the question refers to "this
+    course" (or "the current course", "this course's", or similar deixis
+    meaning the course in scope), add a WHERE clause pinning the relevant
+    course-id column to %%COURSEID%% — e.g. WHERE c.id = %%COURSEID%%, or on a
+    table carrying a courseid column WHERE courseid = %%COURSEID%%. Join to
+    course only if no course-id column is already reachable in the query.
 RULES;
     }
 
