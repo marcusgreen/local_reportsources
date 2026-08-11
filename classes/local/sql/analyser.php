@@ -61,7 +61,7 @@ class analyser {
      *  executed for this exact SQL — the inline preview passes its throwaway view here. When given,
      *  the dry-run gate and the private probe view are skipped: the caller has already proven the SQL
      *  runs, and date-column introspection reuses the supplied view instead of building a second one.
-     * @return array{ok: bool, error: string, rowcount: int, datecolumns: string[], suggestions: string[], warnings: string[], indexinfo: string[]}
+     * @return array{ok: bool, error: string, rowcount: int, datecolumns: string[], casecolumns: array<array{col: string, mode: string}>, suggestions: string[], warnings: string[], indexinfo: string[]}
      */
     public static function analyse(string $sql, int $courseid = 0, ?string $viewname = null): array {
         $result = [
@@ -69,6 +69,7 @@ class analyser {
             'error'       => '',
             'rowcount'    => 0,
             'datecolumns' => [],
+            'casecolumns' => [],
             'suggestions' => [],
             'warnings'    => [],
             'indexinfo'   => [],
@@ -114,6 +115,8 @@ class analyser {
             self::set_statement_timeout(0);
         }
         self::performance_hints($validated, $result['rowcount'], $result['warnings']);
+        // Purely textual, no DB — safe outside the probe-timeout block.
+        $result['casecolumns'] = self::case_columns($validated);
 
         return $result;
     }
@@ -552,6 +555,215 @@ class analyser {
         }
         $tail = substr($nostr, $m[0][1] + strlen($m[0][0]));
         return preg_split('/\b(?:GROUP|ORDER|HAVING|LIMIT|WINDOW)\b/i', $tail)[0];
+    }
+
+    /** @var string SQL-side case functions the %%CASE()%% token supersedes (UCASE/LCASE are MySQL-only). */
+    private const CASE_FUNCTIONS = 'UPPER|LOWER|UCASE|LCASE';
+
+    /**
+     * Find output columns whose select-list expression is a raw SQL case call — UPPER()/LOWER(), or
+     * the MySQL-only UCASE()/LCASE() — wrapping a value. Such a call bakes the transform into the
+     * *stored* column, so Report Builder sorts/filters on the upper/lowercased text (and UCASE/LCASE
+     * are not portable). The %%CASE(expr, upper|lower)%% token applies the same case at display time
+     * while keeping the column sorting/filtering on the original value, so the Test-query UI offers
+     * each of these as a click-to-wrap control ({@see \local_reportsources\external\test_query}).
+     *
+     * Only a call spanning the whole select-list item is matched (optional leading DISTINCT), and
+     * only where the item has a usable output name (an `AS` alias, else a trailing identifier — a
+     * bare `UPPER(col)` ends in ")", so an unaliased one is skipped, matching the unreferenceable
+     * view column it would produce). Mirrors the naming rule in {@see view::case_columns()}.
+     *
+     * @param string $validated Auto-braced validated SQL.
+     * @return array<array{col: string, mode: string}> One {col, mode} per raw case column (empty when none).
+     */
+    private static function case_columns(string $validated): array {
+        $mask = self::mask_sql($validated);
+        $region = self::select_list_region($mask);
+        if ($region === null) {
+            return [];
+        }
+        [$start, $end] = $region;
+        $out = [];
+        foreach (self::split_items($mask, $start, $end) as [$from, $to]) {
+            $orig = substr($validated, $from, $to - $from);
+            $maskitem = substr($mask, $from, $to - $from);
+
+            // Trailing "AS alias" located on the mask (so quoted text can't fool it), sliced from
+            // the original. What precedes it is the column expression.
+            $expr = $orig;
+            $alias = '';
+            if (preg_match('/\bas\s+(["`]?)(\w+)\1\s*$/i', $maskitem, $am, PREG_OFFSET_CAPTURE)) {
+                $expr = substr($orig, 0, $am[0][1]);
+                $alias = trim((string) preg_replace('/^\s*as\s+/i', '', substr($orig, $am[0][1])), " `\"");
+            }
+            $maskexpr = substr($maskitem, 0, strlen($expr));
+
+            // The whole expression must be a single case call (bar an optional leading DISTINCT).
+            if (!preg_match('/^\s*(?:DISTINCT\s+)?(' . self::CASE_FUNCTIONS . ')\s*\(/i',
+                    $maskexpr, $fm, PREG_OFFSET_CAPTURE)) {
+                continue;
+            }
+            $open = strpos($maskexpr, '(', (int) $fm[1][1]);
+            $close = self::match_paren($maskexpr, (int) $open);
+            if ($close === false || trim(substr($maskexpr, $close + 1)) !== '') {
+                continue; // Text after the call (e.g. UPPER(x) || 'y') — not a pure case column.
+            }
+            $mode = in_array(strtolower($fm[1][0]), ['upper', 'ucase'], true) ? 'upper' : 'lower';
+
+            $name = $alias;
+            if ($name === '' && preg_match('/([A-Za-z_]\w*)\s*$/', $expr, $im)) {
+                $name = $im[1];
+            }
+            if ($name === '') {
+                continue;
+            }
+            $out[] = ['col' => $name, 'mode' => $mode];
+        }
+        return $out;
+    }
+
+    /**
+     * Length-preserving mask of SQL comments and quoted spans (string literals and `…`/[…] quoted
+     * identifiers): every masked character becomes a space, so offset scans over the result map 1:1
+     * onto the original SQL. Mirrors the client-side maskSql() in amd/src/test.js.
+     *
+     * @param string $sql
+     * @return string Same-length SQL with comments/quotes blanked to spaces.
+     */
+    private static function mask_sql(string $sql): string {
+        $out = $sql;
+        $n = strlen($sql);
+        $i = 0;
+        while ($i < $n) {
+            $two = substr($sql, $i, 2);
+            if ($two === '/*') {
+                $j = strpos($sql, '*/', $i + 2);
+                $j = ($j === false) ? $n : $j + 2;
+                $out = substr_replace($out, str_repeat(' ', $j - $i), $i, $j - $i);
+                $i = $j;
+            } else if ($two === '--' || $sql[$i] === '#') {
+                $j = strpos($sql, "\n", $i);
+                $j = ($j === false) ? $n : $j;
+                $out = substr_replace($out, str_repeat(' ', $j - $i), $i, $j - $i);
+                $i = $j;
+            } else if ($sql[$i] === "'" || $sql[$i] === '"' || $sql[$i] === '`' || $sql[$i] === '[') {
+                $close = $sql[$i] === '[' ? ']' : $sql[$i];
+                $out[$i] = ' ';
+                $i++;
+                while ($i < $n) {
+                    if ($sql[$i] === $close) {
+                        if (($sql[$i + 1] ?? '') === $close) { // Doubled closer is an escape.
+                            $out[$i] = ' ';
+                            $out[$i + 1] = ' ';
+                            $i += 2;
+                            continue;
+                        }
+                        $out[$i] = ' ';
+                        $i++;
+                        break;
+                    }
+                    $out[$i] = ' ';
+                    $i++;
+                }
+            } else {
+                $i++;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Offsets of the top-level (paren depth 0) select list — between the outer SELECT and its
+     * matching FROM. Handles CTEs / select-list subqueries because those sit at a deeper paren
+     * level. Mirrors selectListRegion() in amd/src/test.js.
+     *
+     * @param string $mask Length-preserving masked SQL ({@see self::mask_sql()}).
+     * @return array{0: int, 1: int}|null [selectlist start, FROM offset], or null when not found.
+     */
+    private static function select_list_region(string $mask): ?array {
+        $depth = 0;
+        $selend = -1;
+        $len = strlen($mask);
+        for ($i = 0; $i < $len; $i++) {
+            $ch = $mask[$i];
+            if ($ch === '(') {
+                $depth++;
+            } else if ($ch === ')') {
+                $depth--;
+            } else if ($depth === 0) {
+                if ($selend === -1) {
+                    if (self::word_start($mask, $i) && preg_match('/^select\b/i', substr($mask, $i, 7))) {
+                        $selend = $i + 6;
+                    }
+                } else if (self::word_start($mask, $i) && preg_match('/^from\b/i', substr($mask, $i, 5))) {
+                    return [$selend, $i];
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Split a select list into top-level (paren depth 0) items as [from, to] offset pairs.
+     * Mirrors splitItems() in amd/src/test.js.
+     *
+     * @param string $mask Masked SQL.
+     * @param int $start Select-list start offset.
+     * @param int $end Select-list end offset (position of FROM).
+     * @return array<array{0: int, 1: int}>
+     */
+    private static function split_items(string $mask, int $start, int $end): array {
+        $items = [];
+        $depth = 0;
+        $from = $start;
+        for ($i = $start; $i < $end; $i++) {
+            $ch = $mask[$i];
+            if ($ch === '(') {
+                $depth++;
+            } else if ($ch === ')') {
+                $depth--;
+            } else if ($ch === ',' && $depth === 0) {
+                $items[] = [$from, $i];
+                $from = $i + 1;
+            }
+        }
+        $items[] = [$from, $end];
+        return $items;
+    }
+
+    /**
+     * Index of the ")" matching the "(" at $open, or false if unbalanced. Scans a masked string so
+     * parens inside string literals are already blanked out.
+     *
+     * @param string $mask Masked SQL.
+     * @param int $open Offset of the opening "(".
+     * @return int|false
+     */
+    private static function match_paren(string $mask, int $open): int|false {
+        $depth = 0;
+        $len = strlen($mask);
+        for ($i = $open; $i < $len; $i++) {
+            if ($mask[$i] === '(') {
+                $depth++;
+            } else if ($mask[$i] === ')') {
+                $depth--;
+                if ($depth === 0) {
+                    return $i;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether the token at offset $i begins on a word boundary.
+     *
+     * @param string $mask
+     * @param int $i
+     * @return bool
+     */
+    private static function word_start(string $mask, int $i): bool {
+        return $i === 0 || !ctype_alnum($mask[$i - 1]) && $mask[$i - 1] !== '_';
     }
 
     /**

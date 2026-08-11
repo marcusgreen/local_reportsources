@@ -19,6 +19,8 @@
  *
  * Date-like columns are rendered as click-to-wrap controls: clicking one rewrites
  * that column's select-list expression in place, wrapping it in %%TIMESTAMP(...)%%.
+ * Columns using raw UPPER()/LOWER() in SQL get the same treatment, switching to
+ * %%CASE(expr, upper|lower)%% so the transform is display-only.
  *
  * @module     local_reportsources/test
  * @copyright  2026 Marcus Green
@@ -109,11 +111,16 @@ const render = async(container, data, sqlField) => {
         container.appendChild(await dateColumnsAlert(datecols, sqlField));
     }
 
+    const casecols = data.casecolumns || [];
+    if (casecols.length) {
+        container.appendChild(await caseColumnsAlert(casecols, sqlField));
+    }
+
     appendList(container, data.suggestions, 'alert-warning');
     appendList(container, data.warnings, 'alert-warning');
     appendList(container, data.indexinfo, 'alert-secondary');
 
-    if (!datecols.length && !data.suggestions.length && !data.warnings.length) {
+    if (!datecols.length && !casecols.length && !data.suggestions.length && !data.warnings.length) {
         const ok = await getString('checkallgood', 'local_reportsources');
         container.appendChild(alertBox('alert-success', ok));
     }
@@ -181,6 +188,72 @@ const applyTimestamp = async(sqlField, col, btn) => {
         sqlField.value = updated;
     }
     // Mark this column as done — the button is no longer actionable.
+    btn.disabled = true;
+    btn.classList.remove('btn-link');
+    btn.classList.add('text-success');
+    btn.textContent = '✓ ' + col;
+};
+
+/**
+ * Build a warning alert listing columns that apply UPPER()/LOWER() in SQL, each as a button
+ * that rewrites its select-list expression to %%CASE(expr, upper|lower)%%.
+ *
+ * @param {Array<{col: string, mode: string}>} cols - Raw-case output columns and their mode.
+ * @param {HTMLTextAreaElement} sqlField - SQL textarea to rewrite.
+ * @return {Promise<HTMLElement>}
+ */
+const caseColumnsAlert = async(cols, sqlField) => {
+    const div = document.createElement('div');
+    div.className = 'alert alert-warning mb-1 py-1';
+    div.setAttribute('role', 'alert');
+
+    const introkey = cols.length === 1 ? 'checkcasecolumnsintroone' : 'checkcasecolumnsintro';
+    const intro = await getString(introkey, 'local_reportsources');
+    div.appendChild(document.createTextNode(intro + ' '));
+
+    cols.forEach((entry, i) => {
+        if (i > 0) {
+            div.appendChild(document.createTextNode(', '));
+        }
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-link btn-sm p-0 align-baseline';
+        btn.textContent = entry.col;
+        btn.addEventListener('click', () => {
+            applyCase(sqlField, entry.col, entry.mode, btn).catch(() => {
+                // getString rejection on the fallback path — nothing actionable, don't leak it.
+            });
+        });
+        div.appendChild(btn);
+    });
+
+    const outro = await getString('checkcasecolumnsoutro', 'local_reportsources');
+    div.appendChild(document.createTextNode(' ' + outro));
+    return div;
+};
+
+/**
+ * Switch the given column's UPPER()/LOWER() call to %%CASE(expr, mode)%% and push it back
+ * into the editor.
+ *
+ * @param {HTMLTextAreaElement} sqlField - SQL textarea (and CodeMirror mirror target).
+ * @param {string} col - Output column name to rewrite.
+ * @param {string} mode - Case mode (upper|lower).
+ * @param {HTMLButtonElement} btn - The clicked button (disabled once applied).
+ */
+const applyCase = async(sqlField, col, mode, btn) => {
+    const updated = wrapCase(sqlField.value, col, mode);
+    if (updated === null) {
+        btn.disabled = true;
+        btn.classList.add('text-muted');
+        btn.title = await getString('checkcasecolumnsmanual', 'local_reportsources');
+        return;
+    }
+    if (typeof sqlField.rsReplaceContent === 'function') {
+        sqlField.rsReplaceContent(updated);
+    } else {
+        sqlField.value = updated;
+    }
     btn.disabled = true;
     btn.classList.remove('btn-link');
     btn.classList.add('text-success');
@@ -420,6 +493,96 @@ const wrapTimestamp = (sql, col) => {
         const distinct = /^\s*DISTINCT\b/i.test(expr) ? 'DISTINCT ' : '';
         const core = expr.replace(/^\s*DISTINCT\b\s*/i, '').trim();
         const wrapped = lead + distinct + '%%TIMESTAMP(' + core + ')%%' + (alias ? ' AS ' + alias : '') + trail;
+        return sql.slice(0, item.from) + wrapped + sql.slice(item.to);
+    }
+    return null;
+};
+
+/**
+ * Index of the ")" matching the "(" at `open` in `mask`, or -1 if unbalanced. Scans a masked
+ * string so parens inside string literals are already blanked.
+ *
+ * @param {string} mask - Masked SQL (see {@see maskSql}).
+ * @param {number} open - Offset of the opening "(".
+ * @return {number}
+ */
+const matchParen = (mask, open) => {
+    let depth = 0;
+    for (let i = open; i < mask.length; i++) {
+        if (mask[i] === '(') {
+            depth++;
+        } else if (mask[i] === ')') {
+            depth--;
+            if (depth === 0) {
+                return i;
+            }
+        }
+    }
+    return -1;
+};
+
+/**
+ * Rewrite `sql` so the select-list item producing `col` — a raw UPPER()/LOWER() (or MySQL
+ * UCASE()/LCASE()) call wrapping a value — becomes %%CASE(innerExpr, mode)%%. The call's inner
+ * argument becomes the token expression, so `UPPER(x.name) AS n` → `%%CASE(x.name, upper)%% AS n`.
+ * Returns null when the item cannot be located or is not a bare case call spanning the whole
+ * expression (e.g. SELECT *, or `UPPER(x) || 'y'`).
+ *
+ * @param {string} sql - Current editor SQL.
+ * @param {string} col - Output column name to rewrite.
+ * @param {string} mode - Case mode (upper|lower).
+ * @return {?string} Rewritten SQL, or null if the column's case call was not found.
+ */
+const wrapCase = (sql, col, mode) => {
+    const mask = maskSql(sql);
+    const region = selectListRegion(mask);
+    if (!region) {
+        return null;
+    }
+    const target = col.toLowerCase();
+    const items = splitItems(mask, region.start, region.end);
+    for (const item of items) {
+        const orig = sql.slice(item.from, item.to);
+        const maskItem = mask.slice(item.from, item.to);
+
+        // Trailing "AS alias" (found on the mask, extracted from the original).
+        const asMatch = /\bas\s+([`"[]?\w+[\]`"]?)\s*$/i.exec(maskItem);
+        let expr;
+        let alias = '';
+        if (asMatch) {
+            expr = orig.slice(0, asMatch.index);
+            alias = orig.slice(asMatch.index).replace(/^\s*as\s+/i, '').trim();
+        } else {
+            expr = orig;
+        }
+        const maskExpr = maskItem.slice(0, expr.length);
+
+        // Output name: the alias if present, else the trailing identifier of the expression.
+        let outName = alias.replace(/^[`"[]|[\]`"]$/g, '');
+        if (!outName) {
+            const idMatch = /([A-Za-z_]\w*)\s*$/.exec(expr);
+            outName = idMatch ? idMatch[1] : '';
+        }
+        if (outName.toLowerCase() !== target) {
+            continue;
+        }
+
+        // The whole expression must be a single case call (bar an optional leading DISTINCT).
+        const fnMatch = /^(\s*(?:DISTINCT\s+)?)(UPPER|LOWER|UCASE|LCASE)\s*\(/i.exec(maskExpr);
+        if (!fnMatch) {
+            return null;
+        }
+        const open = fnMatch.index + fnMatch[0].length - 1; // Offset of the "(".
+        const close = matchParen(maskExpr, open);
+        if (close === -1 || maskExpr.slice(close + 1).trim() !== '') {
+            return null; // Unbalanced, or text after the call — not a pure case column.
+        }
+
+        const prefix = expr.slice(0, fnMatch.index + fnMatch[1].length); // Leading ws + DISTINCT.
+        const innerExpr = expr.slice(open + 1, close).trim();
+        const trail = orig.match(/\s*$/)[0];
+        const wrapped = prefix + '%%CASE(' + innerExpr + ', ' + mode + ')%%'
+            + (alias ? ' AS ' + alias : '') + trail;
         return sql.slice(0, item.from) + wrapped + sql.slice(item.to);
     }
     return null;

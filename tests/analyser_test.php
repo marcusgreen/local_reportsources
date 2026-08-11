@@ -146,6 +146,52 @@ final class analyser_test extends \advanced_testcase {
     }
 
     /**
+     * A select-list UPPER()/LOWER() call over a column is offered as a %%CASE()%% click-to-wrap,
+     * carrying the requested output name and mode.
+     */
+    public function test_case_column_suggested(): void {
+        $this->resetAfterTest();
+        $result = analyser::analyse('SELECT id, UPPER(username) AS uname, LOWER(email) AS mail FROM {user}');
+        $this->assertTrue($result['ok']);
+        $this->assertContainsEquals(['col' => 'uname', 'mode' => 'upper'], $result['casecolumns']);
+        $this->assertContainsEquals(['col' => 'mail', 'mode' => 'lower'], $result['casecolumns']);
+    }
+
+    /**
+     * The MySQL-only UCASE()/LCASE() aliases map to the same upper/lower modes.
+     */
+    public function test_case_column_mysql_aliases(): void {
+        $this->resetAfterTest();
+        $result = analyser::analyse('SELECT UCASE(username) AS u, LCASE(username) AS l FROM {user}');
+        $this->assertTrue($result['ok']);
+        $this->assertContainsEquals(['col' => 'u', 'mode' => 'upper'], $result['casecolumns']);
+        $this->assertContainsEquals(['col' => 'l', 'mode' => 'lower'], $result['casecolumns']);
+    }
+
+    /**
+     * A column already using the %%CASE()%% token, and a plain column, are not listed; nor is an
+     * UPPER() that only appears in the WHERE clause (no output column to wrap).
+     */
+    public function test_case_column_not_over_suggested(): void {
+        $this->resetAfterTest();
+        $result = analyser::analyse(
+            "SELECT id, %%CASE(username, upper)%% AS uname FROM {user} WHERE UPPER(email) = 'X'");
+        $this->assertTrue($result['ok']);
+        $this->assertSame([], $result['casecolumns']);
+    }
+
+    /**
+     * A case call that does not span the whole select-list item (concatenated with more SQL) is
+     * not offered — wrapping only its inner argument would drop the rest.
+     */
+    public function test_case_column_partial_expression_skipped(): void {
+        $this->resetAfterTest();
+        $result = analyser::analyse("SELECT UPPER(firstname) || ' ' || lastname AS n FROM {user}");
+        $this->assertTrue($result['ok']);
+        $this->assertSame([], $result['casecolumns']);
+    }
+
+    /**
      * Sorting by an unindexed column, when the table has indexed columns, produces an index
      * suggestion naming the sorted column and the indexed alternatives.
      */
