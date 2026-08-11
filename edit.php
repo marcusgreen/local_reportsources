@@ -36,6 +36,9 @@ $id = optional_param('id', 0, PARAM_INT);
 $courseid = optional_param('courseid', 0, PARAM_INT);
 $aiquestion = optional_param('aiquestion', '', PARAM_RAW_TRIMMED);
 $aiaction = optional_param('aiaction', '', PARAM_ALPHA);
+// Set when the author reached the edit form via "Save, publish & configure chart": expand and jump
+// to the chart section on the reopened (now published) form. See edit_query_form::definition_after_data().
+$focuschart = optional_param('focuschart', 0, PARAM_BOOL);
 // SQL currently in the "SQL (select only)" field, posted alongside an AI generate request so a
 // prompt that refers to existing SQL ("add a column to this", "fix this error") can use it as basis.
 $aicurrentsql = optional_param('querysql', '', PARAM_RAW);
@@ -67,7 +70,11 @@ if ($id) {
 // The audience picker offers course-scoped options only when the query is bound to a course.
 $formcourseid = $existing ? (int) $existing->courseid : $courseid;
 $canpublish = has_capability('local/reportsources:approve', $context);
-$mform = new edit_query_form(null, ['courseid' => $formcourseid, 'canpublish' => $canpublish]);
+$mform = new edit_query_form(null, [
+    'courseid' => $formcourseid,
+    'canpublish' => $canpublish,
+    'focuschart' => $focuschart,
+]);
 
 // Consolidate form defaults into one object so AI generation can override querysql.
 $formdefaults = null;
@@ -176,8 +183,17 @@ if ($mform->is_cancelled()) {
                 \core\output\notification::NOTIFY_ERROR
             );
         }
+        // "Save, publish & configure chart" reopens this form (now published, chart section unlocked)
+        // scrolled to and expanded at the chart header, instead of returning to the index.
+        $publishtarget = !empty($data->focuschart)
+            ? new moodle_url(
+                '/local/reportsources/edit.php',
+                ['id' => $newid, 'focuschart' => 1],
+                'id_chartheader'
+            )
+            : $returnurl;
         redirect(
-            $returnurl,
+            $publishtarget,
             get_string('savedandpublished', 'local_reportsources'),
             null,
             \core\output\notification::NOTIFY_SUCCESS

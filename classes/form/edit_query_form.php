@@ -259,6 +259,19 @@ class edit_query_form extends moodleform {
                         ['role' => 'alert']
                     )
                 );
+                // Approvers get a one-tick path: publish now and reopen here with the chart section
+                // unlocked (edit.php reads focuschart on the Save & publish redirect). Authors without
+                // approve can't publish, so the option is pointless for them.
+                if (!empty($this->_customdata['canpublish'])) {
+                    $mform->addElement(
+                        'advcheckbox',
+                        'focuschart',
+                        '',
+                        get_string('focuschart', 'local_reportsources')
+                    );
+                    $mform->setType('focuschart', PARAM_BOOL);
+                    $mform->setDefault('focuschart', 0);
+                }
             }
             return;
         }
@@ -309,6 +322,11 @@ class edit_query_form extends moodleform {
         $mform->addHelpButton('pagecoursecolumn', 'pagecoursecolumn', 'local_reportsources');
 
         $mform->addElement('header', 'chartheader', get_string('chartsettings', 'local_reportsources'));
+        // Arrived via "Save, publish & configure chart": expand the section so the anchor jump lands
+        // on open controls rather than a collapsed header.
+        if (!empty($this->_customdata['focuschart'])) {
+            $mform->setExpanded('chartheader', true);
+        }
 
         $mform->addElement('select', 'chart_type', get_string('charttype', 'local_reportsources'), [
             'none'     => get_string('chartnone', 'local_reportsources'),

@@ -40,7 +40,7 @@ You can also refer to the SQL already in the editor — prompts like "add a colu
 In particular, starting your prompt with the word **also** pulls in your existing SQL and builds on it — for example "also show the user\'s last login" adds to the current query instead of replacing it.
 
 Always review the generated SQL before saving — the AI can make mistakes.';
-$string['ai:latency'] = 'Generated in {$a} ms — review the SQL before saving.';
+$string['ai:latency'] = 'Generated in {$a} s — review the SQL before saving.';
 $string['ai:prompt'] = 'Prompt sent to the LLM';
 $string['ai:placeholder'] = 'e.g. Show all students enrolled in more than 3 courses';
 $string['ai:question'] = 'Describe the data you want';
@@ -81,6 +81,7 @@ $string['chartpie'] = 'Pie chart';
 $string['chartprint'] = 'Print';
 $string['chartreportname'] = '{$a} (chart)';
 $string['chartpublishrequired'] = 'Publish this query first to enable chart configuration.';
+$string['focuschart'] = 'When I click Save and publish, reopen this form so I can configure the chart';
 $string['chartrowlimit'] = 'Chart row limit';
 $string['chartrowlimit_help'] = 'Maximum rows to plot. Keep small (≤ 200) for readable charts.';
 $string['chartsettings'] = 'Chart settings';
@@ -93,6 +94,10 @@ $string['chartxcol_help'] = 'Column whose values label each bar, point, or pie s
 $string['chartycol'] = 'Value column (Y axis)';
 $string['chartycol_help'] = 'Column whose values are plotted. Must contain numeric data.';
 $string['checkallgood'] = 'No issues found. The query looks good.';
+$string['checkcasecolumnsintro'] = 'These columns apply UPPER()/LOWER() in SQL:';
+$string['checkcasecolumnsintroone'] = 'This column applies UPPER()/LOWER() in SQL:';
+$string['checkcasecolumnsmanual'] = 'Could not locate this column\'s expression automatically — switch it to %%CASE()%% by hand.';
+$string['checkcasecolumnsoutro'] = 'Click the name to switch it to %%CASE()%% so the case is applied on display while the column still sorts and filters on the original value (and stays portable across databases).';
 $string['checkdatecolumnsintro'] = 'These columns look like dates:';
 $string['checkdatecolumnsintroone'] = 'This column looks like a date:';
 $string['checkdatecolumnsmanual'] = 'Could not locate this column\'s expression automatically — wrap it in %%TIMESTAMP()%% by hand.';
