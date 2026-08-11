@@ -262,6 +262,17 @@ class edit_query_form extends moodleform {
                         ['role' => 'alert']
                     )
                 );
+                // Approvers get the same one-tick reopen path for the filter section as for the chart.
+                if (!empty($this->_customdata['canpublish'])) {
+                    $mform->addElement(
+                        'advcheckbox',
+                        'focusfilter',
+                        '',
+                        get_string('focusfilter', 'local_reportsources')
+                    );
+                    $mform->setType('focusfilter', PARAM_BOOL);
+                    $mform->setDefault('focusfilter', 0);
+                }
                 $mform->addElement('header', 'chartheader', get_string('chartsettings', 'local_reportsources'));
                 $mform->addElement(
                     'static',
@@ -303,6 +314,11 @@ class edit_query_form extends moodleform {
         // Per-user filter: restrict the report to rows whose chosen column matches the viewing
         // user's id. Offered only once published, since the column list comes from the live view.
         $mform->addElement('header', 'useridfilterheader', get_string('useridfilter', 'local_reportsources'));
+        // Arrived via "Save, publish & configure filters": expand so the anchor jump lands on open
+        // controls rather than a collapsed header.
+        if (!empty($this->_customdata['focusfilter'])) {
+            $mform->setExpanded('useridfilterheader', true);
+        }
         $mform->addElement(
             'select',
             'useridcolumn',
