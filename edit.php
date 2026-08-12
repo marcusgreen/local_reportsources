@@ -255,8 +255,46 @@ if ($aisqlchatavailable) {
         if (get_config('local_sqlchat', 'showprompt') && !empty($airesult->prompt)) {
             echo html_writer::start_tag('details', ['class' => 'mt-2']);
             echo html_writer::tag('summary', get_string('ai:prompt', 'local_reportsources'), ['class' => 'h6']);
-            echo html_writer::tag('pre', s($airesult->prompt), ['class' => 'bg-light p-2 small']);
+            echo html_writer::tag('button', get_string('ai:copy', 'local_reportsources'), [
+                'type' => 'button',
+                'class' => 'btn btn-sm btn-outline-secondary mb-2',
+                'data-sqlchat-copy' => 'rs-sqlchat-prompt',
+                'data-copied-label' => get_string('ai:copied', 'local_reportsources'),
+            ]);
+            echo html_writer::tag('pre', s($airesult->prompt), [
+                'id' => 'rs-sqlchat-prompt', 'class' => 'bg-light p-2 small',
+            ]);
             echo html_writer::end_tag('details');
+            echo html_writer::script("
+document.querySelectorAll('[data-sqlchat-copy]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        var pre = document.getElementById(btn.getAttribute('data-sqlchat-copy'));
+        if (!pre) { return; }
+        var text = pre.textContent;
+        var flash = function() {
+            var orig = btn.textContent;
+            btn.textContent = btn.getAttribute('data-copied-label');
+            setTimeout(function() { btn.textContent = orig; }, 1500);
+        };
+        var fallback = function() {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            try { document.execCommand('copy'); flash(); } catch (e) { /* noop */ }
+            document.body.removeChild(ta);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(flash, fallback);
+        } else {
+            fallback();
+        }
+    });
+});
+");
         }
     }
 
