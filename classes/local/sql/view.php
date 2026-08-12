@@ -234,8 +234,19 @@ class view {
     SELECT %%TIMESTAMP(u.timecreated)%% AS timecreated. Keep the raw column in
     WHERE, ORDER BY, GROUP BY and joins; do NOT wrap non-date integers (ids,
     counts, durations such as enrolperiod).
-  - %%EPOCH(datetime)%% converts a datetime literal/expression to a Unix-epoch
-    integer (use in WHERE against an epoch column); %%NOW%% is the current epoch.
+  - %%NOW%% is the current time as a bare epoch INTEGER (seconds). It is NOT a
+    function: write %%NOW%%, never %%NOW()%% or NOW(). Do relative-time maths on it
+    with plain integer arithmetic in seconds (1 hour = 3600, 1 day = 86400) — e.g.
+    "last 24 hours" is WHERE timemodified >= %%NOW%% - 86400, "last 7 days" is
+    %%NOW%% - 7 * 86400. Never use SQL INTERVAL, DATE_SUB/DATE_ADD, or NOW() for
+    relative time — those are dialect-specific and will be rejected.
+  - %%EPOCH(datetime)%% converts a fixed datetime STRING LITERAL to a Unix-epoch
+    integer, for WHERE against an epoch column — e.g. WHERE timecreated >=
+    %%EPOCH('2025-01-01 00:00:00')%%. Do NOT put %%NOW%%, INTERVAL, or arithmetic
+    inside %%EPOCH()%%; for "now" or relative time use %%NOW%% arithmetic (above).
+  - Do NOT wrap a computed epoch such as %%NOW%% - 86400 in %%TIMESTAMP()%% or
+    %%EPOCH()%%: %%TIMESTAMP()%% is display-only over a STORED epoch column, and
+    %%EPOCH()%% takes a datetime literal — a WHERE bound is already an integer.
   - Text case (display only, stored value and sort/filter unchanged):
     %%CASE(expr, mode)%% with mode one of upper|lower|title|sentence — e.g.
     %%CASE(u.lastname, upper)%% AS lastname. Note the full closing )%% after the
@@ -323,7 +334,7 @@ RULES;
         // timestamp and applies the optional display format as a Report Builder callback; see
         // self::timestamp_columns(). The format argument is therefore dropped from the SQL here.
         $sql = preg_replace_callback(
-            '/%%TIMESTAMP\(\s*([^,)]+?)\s*(?:,[^)]*)?\)%%/i',
+            '/%%TIMESTAMP\(\s*(' . self::TOKEN_EXPR . ')\s*(?:,[^)]*)?\)%%/i',
             static fn(array $m): string => '(' . $m[1] . ')',
             $sql
         ) ?? $sql;
@@ -333,7 +344,7 @@ RULES;
         // lower / title / sentence) is applied per-viewer as a Report Builder display callback. The
         // mode argument is therefore dropped from the SQL here; see self::case_columns().
         $sql = preg_replace_callback(
-            '/%%CASE\(\s*([^,)]+?)\s*(?:,[^)]*)?\)%%/i',
+            '/%%CASE\(\s*(' . self::TOKEN_EXPR . ')\s*(?:,[^)]*)?\)%%/i',
             static fn(array $m): string => '(' . $m[1] . ')',
             $sql
         ) ?? $sql;
@@ -363,7 +374,7 @@ RULES;
      * @return array<string, string> Lower-cased output column name => neutral format ('' if none).
      */
     public static function timestamp_columns(string $sql): array {
-        $pattern = '/%%TIMESTAMP\(\s*([^,)]+?)\s*(?:,\s*([^)]*?)\s*)?\)%%'
+        $pattern = '/%%TIMESTAMP\(\s*(' . self::TOKEN_EXPR . ')\s*(?:,\s*([^)]*?)\s*)?\)%%'
             // phpcs:ignore moodle.Strings.ForbiddenStrings.Found
             . '(?:\s+AS\s+(["`]?)([A-Za-z0-9_]+)\3)?/i';
         if (!preg_match_all($pattern, $sql, $matches, PREG_SET_ORDER)) {
@@ -391,6 +402,15 @@ RULES;
     private const CASE_MODES = ['upper', 'lower', 'title', 'sentence'];
 
     /**
+     * Regex fragment matching a token's `expr` argument. A run of characters that are not
+     * a paren, comma or %, plus single-level balanced parens so nested calls survive — e.g.
+     * %%TIMESTAMP(UNIX_TIMESTAMP() - 86400)%%. Stops at the top-level comma (the optional
+     * format / mode separator) and at the closing `)%%`. `%` is excluded because expr may
+     * not contain it (the validator's token scan stops at %).
+     */
+    private const TOKEN_EXPR = '(?:[^(),%]|\([^()%]*\))+?';
+
+    /**
      * Find the output columns produced by `%%CASE(expr, mode)%%` tokens in a saved query, mapping
      * each to its requested case mode.
      *
@@ -405,7 +425,7 @@ RULES;
      * @return array<string, string> Lower-cased output column name => case mode.
      */
     public static function case_columns(string $sql): array {
-        $pattern = '/%%CASE\(\s*([^,)]+?)\s*,\s*([A-Za-z]+)\s*\)%%'
+        $pattern = '/%%CASE\(\s*(' . self::TOKEN_EXPR . ')\s*,\s*([A-Za-z]+)\s*\)%%'
             // phpcs:ignore moodle.Strings.ForbiddenStrings.Found
             . '(?:\s+AS\s+(["`]?)([A-Za-z0-9_]+)\3)?/i';
         if (!preg_match_all($pattern, $sql, $matches, PREG_SET_ORDER)) {
