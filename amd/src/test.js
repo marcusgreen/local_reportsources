@@ -98,6 +98,11 @@ const render = async(container, data, sqlField) => {
             await appendFixLink(box, sqlField, 'convertaliasspaces', rewriteAliasSpaces);
         }
         container.appendChild(box);
+        // When "Generate SQL with AI" is enabled, feed the error back into the AI
+        // question box, mirroring how the submit-time validation banner does it
+        // (see ai_feedback.js). The Test error is appended (a childList change) so
+        // that module's attribute-only observer never sees it — prefill directly.
+        prefillAiQuestion(data.error, sql);
         return;
     }
 
@@ -311,6 +316,25 @@ const alertBox = (cls, text) => {
     div.setAttribute('role', 'alert');
     div.textContent = text;
     return div;
+};
+
+/**
+ * When "Generate SQL with AI" is enabled the edit form renders an AI question box
+ * (#rs-ai-question). Pre-fill it with the Test-query error and the offending SQL,
+ * using the same "Fix this SQL error: …" framing as ai_feedback.js so the two paths
+ * (submit-time validation banner and Test button) feed the AI identically. No-op
+ * when AI is disabled (the field is absent).
+ *
+ * @param {string} error - The DB / validation error message from test_query.
+ * @param {string} sql - The current SQL from the editor textarea.
+ */
+const prefillAiQuestion = (error, sql) => {
+    const aiField = document.getElementById('rs-ai-question');
+    if (!aiField || !error || !sql.trim()) {
+        return;
+    }
+    aiField.value = 'Fix this SQL error: ' + error.trim() + '\n\n' + sql.trim();
+    aiField.scrollIntoView({behavior: 'smooth', block: 'nearest'});
 };
 
 /**
