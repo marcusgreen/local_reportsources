@@ -5,8 +5,8 @@
     "sources": [
         {
             "name": "Bar chart of user enrolments",
-            "description": "Count of distinct users holding each role site-wide, rendered as a bar chart (x = role shortname, y = user count). Roles with no users are dropped.",
-            "querysql": "SELECT r.shortname, COUNT(DISTINCT ra.userid) AS usercount\r\nFROM {role} r\r\nJOIN {role_assignments} ra ON r.id = ra.roleid\r\nGROUP BY r.shortname\r\nHAVING COUNT(DISTINCT ra.userid) > 0\r\nLIMIT 100",
+            "description": "Count of distinct users holding each role, grouped by course. Rendered as a bar chart (x = role shortname, y = user count). Roles with no assignments are dropped. To restrict to a single course, add: WHERE c.id = %%COURSEID%% (and pick the course from the dropdown)",
+            "querysql": "SELECT r.shortname, COUNT(DISTINCT ra.userid) AS usercount, c.id AS courseid\r\nFROM {role} r\r\nJOIN {role_assignments} ra ON r.id = ra.roleid\r\nJOIN {context} ctx ON ra.contextid = ctx.id\r\nJOIN {course} c ON ctx.instanceid = c.id AND ctx.contextlevel = %%CONTEXT_COURSE%%\r\nGROUP BY r.shortname, c.id\r\nHAVING COUNT(DISTINCT ra.userid) > 0\r\nLIMIT 100",
             "courseid": 0,
             "visible": 1,
             "chartmeta": {
