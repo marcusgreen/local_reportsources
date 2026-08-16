@@ -8,3 +8,7 @@ tools/
 *.mp4
 *.webm
 video/
+
+# Local demo/recording harness and scratch design notes, not part of the plugin.
+cli/record_reportsources.js
+rbfilter.md
