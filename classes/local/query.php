@@ -1371,6 +1371,55 @@ class query {
     }
 
     /**
+     * Parse the top-level ORDER BY of the saved SQL into an ordered map of output column name to sort
+     * direction, so the generated report can reproduce the query's ordering. Report Builder never
+     * carries a view's internal ORDER BY (MySQL drops it, and RB re-selects with no ORDER BY of its
+     * own), so this recovered ordering is fed back as the report's default column sorting — see
+     * {@see \local_reportsources\reportbuilder\source\adhoc_query::get_default_column_sorting()} and
+     * the inline preview.
+     *
+     * Only bare column references can be honoured: RB sorts on output columns, so an ORDER BY term
+     * must resolve to a column the report exposes. Alias/table prefixes are stripped and the token is
+     * lowercased to match {@see build_columnsmeta()} keys; expression terms (containing parens) and
+     * ordinal positions (ORDER BY 1) are skipped — they cannot be mapped to a column here. A term
+     * that targets a source column rather than the output alias (e.g. `ORDER BY c.id` where the
+     * column is aliased `AS courseid`) simply will not match and is dropped.
+     *
+     * @param string $sql Raw saved SQL (before placeholder resolution).
+     * @return array<string, int> Ordered [lowercased column name => SORT_ASC|SORT_DESC].
+     */
+    public static function order_by_sorting(string $sql): array {
+        if (!preg_match('/\bORDER\s+BY\b(.*)$/is', $sql, $m)) {
+            return [];
+        }
+        // ORDER BY is the last clause; trim any trailing LIMIT/OFFSET/FETCH tail.
+        $tail = preg_split('/\b(?:LIMIT|OFFSET|FETCH)\b/i', $m[1])[0];
+        $sorting = [];
+        foreach (explode(',', $tail) as $term) {
+            $term = trim($term);
+            if ($term === '' || strpos($term, '(') !== false) {
+                continue; // Skip expression terms — no output column to sort on.
+            }
+            $parts = preg_split('/\s+/', $term);
+            $token = preg_replace('/^\{?\w+\}?\./', '', $parts[0]); // Strip {table}. or alias. prefix.
+            $token = strtolower(trim($token, '`"[]{}'));
+            if ($token === '' || ctype_digit($token)) {
+                continue; // Skip ordinal positions (ORDER BY 1) and empties.
+            }
+            // A trailing DESC (any part) flips direction; ASC / NULLS FIRST|LAST are the default.
+            $desc = false;
+            foreach (array_slice($parts, 1) as $part) {
+                if (strcasecmp($part, 'DESC') === 0) {
+                    $desc = true;
+                    break;
+                }
+            }
+            $sorting[$token] = $desc ? SORT_DESC : SORT_ASC;
+        }
+        return $sorting;
+    }
+
+    /**
      * List queries visible to the current user, optionally scoped to a course.
      *
      * - viewall (system): all queries.

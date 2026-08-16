@@ -469,4 +469,90 @@ final class query_test extends \advanced_testcase {
         query::get($id)->unpublish();
         $this->assertSame(query::STATUS_DRAFT, query::get($id)->status());
     }
+
+    /**
+     * order_by_sorting() recovers the query's ORDER BY as [column => direction], preserving order.
+     */
+    public function test_order_by_sorting_parses_columns_and_directions(): void {
+        $this->assertSame(
+            ['shortname' => SORT_ASC, 'usercount' => SORT_DESC],
+            query::order_by_sorting('SELECT r.shortname, c FROM {role} r ORDER BY r.shortname ASC, usercount DESC')
+        );
+    }
+
+    /**
+     * A query with no ORDER BY yields no sorting.
+     */
+    public function test_order_by_sorting_empty_without_order_by(): void {
+        $this->assertSame([], query::order_by_sorting('SELECT id FROM {user}'));
+    }
+
+    /**
+     * Terms that cannot map to an output column — expressions and ordinal positions — are skipped;
+     * a trailing LIMIT does not leak into the last term. Alias prefixes are stripped and lowercased.
+     */
+    public function test_order_by_sorting_skips_expressions_and_ordinals(): void {
+        $this->assertSame(
+            ['name' => SORT_ASC],
+            query::order_by_sorting('SELECT name FROM {user} ORDER BY 1, LOWER(name) DESC, U.Name LIMIT 10')
+        );
+    }
+
+    /**
+     * End-to-end: the inline preview renders rows in the query's ORDER BY order, and does so without
+     * exposing a header sort link (the ordering is a default sort on a non-sortable column).
+     */
+    public function test_preview_orders_rows_and_hides_sort_link(): void {
+        global $CFG;
+        require_once($CFG->dirroot . '/local/reportsources/lib.php');
+
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        // Three users whose insertion order (b, a, c) differs from the requested ORDER BY (a, b, c).
+        foreach (['rsorder_b', 'rsorder_a', 'rsorder_c'] as $username) {
+            $this->getDataGenerator()->create_user(['username' => $username]);
+        }
+
+        $sql = "SELECT u.username AS uname FROM {user} u WHERE u.username LIKE 'rsorder\\_%' ORDER BY uname ASC";
+        $html = \local_reportsources_output_fragment_preview(['sql' => $sql, 'courseid' => 0]);
+
+        // Rows appear in ORDER BY order, not insertion order.
+        $posa = strpos($html, 'rsorder_a');
+        $posb = strpos($html, 'rsorder_b');
+        $posc = strpos($html, 'rsorder_c');
+        $this->assertNotFalse($posa);
+        $this->assertLessThan($posb, $posa);
+        $this->assertLessThan($posc, $posb);
+
+        // No header sort link/icon: flexible_table only emits data-sortby for sortable columns.
+        $this->assertStringNotContainsString('data-sortby', $html);
+    }
+
+    /**
+     * The published report carries the query's ORDER BY as default column sorting, so its columns are
+     * created with sortenabled + the right direction.
+     */
+    public function test_published_report_applies_order_by_sorting(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $id = query::save($this->formdata([
+            'name'     => 'Ordered',
+            'querysql' => 'SELECT u.username AS uname FROM {user} u ORDER BY uname DESC',
+        ]));
+        query::get($id)->publish();
+        $reportid = query::get($id)->reportid();
+
+        $sorted = $DB->get_records_select(
+            'reportbuilder_column',
+            'reportid = :rid AND sortenabled = 1',
+            ['rid' => $reportid]
+        );
+        $this->assertCount(1, $sorted);
+        $column = reset($sorted);
+        $this->assertStringEndsWith(':uname', $column->uniqueidentifier);
+        $this->assertEquals(SORT_DESC, $column->sortdirection);
+    }
 }

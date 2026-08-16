@@ -44,6 +44,8 @@ class preview extends system_report {
         $viewname = $this->get_parameter('viewname', '', PARAM_ALPHANUMEXT);
         $columnsmeta = json_decode($this->get_parameter('columnsmeta', '[]', PARAM_RAW), true) ?: [];
         $title = $this->get_parameter('title', '', PARAM_TEXT);
+        $sortcolumn = $this->get_parameter('sortcolumn', '', PARAM_ALPHANUMEXT);
+        $sortdir = (int) $this->get_parameter('sortdir', SORT_ASC, PARAM_INT);
 
         $entity = new adhoc_view($viewname, $columnsmeta, $title);
         $entityname = $entity->get_entity_name();
@@ -63,6 +65,15 @@ class preview extends system_report {
         // Preview is non-interactive: strip sorting from every column so no header sort links render.
         foreach ($this->get_columns() as $column) {
             $column->set_is_sortable(false);
+        }
+
+        // Reproduce the query's ORDER BY (primary term only) so the preview rows match the order the
+        // published report will show — RB never carries a view's internal ORDER BY. This is a *default*
+        // sort: flexible_table applies the default sort column even though it is non-sortable (so no
+        // header icon appears), because get_sort_columns() only requires the column to be defined.
+        $sortuid = $sortcolumn !== '' ? "{$entityname}:{$sortcolumn}" : '';
+        if ($sortuid !== '' && $this->get_column($sortuid) !== null) {
+            $this->set_initial_sort_column($sortuid, $sortdir === SORT_DESC ? SORT_DESC : SORT_ASC);
         }
 
         // Preview only: first 5 rows, no interactivity, no export.

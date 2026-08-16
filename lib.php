@@ -156,6 +156,24 @@ function local_reportsources_output_fragment_preview(array $args): string {
 
         $meta = \local_reportsources\local\query::build_columnsmeta($columns, $validated);
 
+        // Reproduce the query's ORDER BY so the preview rows appear in the same order the published
+        // report will show them (RB never carries a view's internal ORDER BY). A system report sorts
+        // on a single initial column, so only the primary ORDER BY term that maps to an output column
+        // is applied here; the published report honours the full multi-column ordering.
+        $sortcolumn = '';
+        $sortdir = SORT_ASC;
+        $metakeys = [];
+        foreach (array_keys($meta) as $name) {
+            $metakeys[strtolower($name)] = $name;
+        }
+        foreach (\local_reportsources\local\query::order_by_sorting($validated) as $name => $direction) {
+            if (isset($metakeys[$name])) {
+                $sortcolumn = $metakeys[$name];
+                $sortdir = $direction;
+                break;
+            }
+        }
+
         $report = \core_reportbuilder\system_report_factory::create(
             \local_reportsources\reportbuilder\local\systemreports\preview::class,
             $context,
@@ -166,6 +184,8 @@ function local_reportsources_output_fragment_preview(array $args): string {
                 'viewname'    => $viewname,
                 'columnsmeta' => json_encode($meta),
                 'title'       => get_string('preview', 'local_reportsources'),
+                'sortcolumn'  => $sortcolumn,
+                'sortdir'     => $sortdir,
             ]
         );
 

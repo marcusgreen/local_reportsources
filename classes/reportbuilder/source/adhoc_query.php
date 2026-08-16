@@ -142,6 +142,45 @@ class adhoc_query extends datasource {
     }
 
     /**
+     * Reproduce the bound query's ORDER BY as the report's default column sorting.
+     *
+     * Report Builder never carries a view's internal ORDER BY (MySQL drops it and RB re-selects with
+     * no ORDER BY of its own), so without this the query's ordering is lost on publish. Only ORDER BY
+     * terms that map to a default column are honoured — see {@see query::order_by_sorting()} for the
+     * mapping rules — and the ORDER BY order is preserved (multi-column sort).
+     *
+     * @return int[] array [column identifier => SORT_ASC/SORT_DESC]
+     */
+    public function get_default_column_sorting(): array {
+        $reportid = (int) $this->get_report_persistent()->get('id');
+        $queryid  = (int) get_config('local_reportsources', 'queryid_for_report_' . $reportid);
+        if ($queryid <= 0) {
+            return [];
+        }
+        try {
+            $query = query::get($queryid);
+        } catch (\dml_missing_record_exception $e) {
+            return [];
+        }
+
+        // Only columns that are actually default columns may appear here (add_default_columns()
+        // throws otherwise), so intersect the ORDER BY against the default set, keyed by name.
+        $defaults = [];
+        foreach ($this->get_default_columns() as $uid) {
+            $name = substr($uid, strlen(adhoc_view::ENTITY) + 1);
+            $defaults[strtolower($name)] = $uid;
+        }
+
+        $sorting = [];
+        foreach (query::order_by_sorting($query->sql()) as $name => $direction) {
+            if (isset($defaults[$name])) {
+                $sorting[$defaults[$name]] = $direction;
+            }
+        }
+        return $sorting;
+    }
+
+    /**
      * Get the default filters shown on a new report.
      *
      * @return array Up to four default filter identifiers.
