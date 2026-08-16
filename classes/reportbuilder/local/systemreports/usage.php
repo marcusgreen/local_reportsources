@@ -76,7 +76,7 @@ class usage extends system_report {
         // Drill into this source's usage detail (who / trend / recent).
         $this->add_action((new action(
             new moodle_url('/local/reportsources/query_usage.php', ['id' => ':id']),
-            new pix_icon('i/analytics', ''),
+            new pix_icon('i/stats', ''),
             [],
             false,
             new lang_string('usage:detaillabel', 'local_reportsources')

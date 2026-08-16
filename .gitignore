@@ -3,3 +3,8 @@ SESSION-*.md
 
 # Local dev tooling / generated ERD key data, not part of the plugin.
 tools/
+
+# Demo screen recordings, not part of the plugin.
+*.mp4
+*.webm
+video/
