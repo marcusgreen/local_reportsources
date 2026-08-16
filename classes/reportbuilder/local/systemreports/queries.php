@@ -99,6 +99,13 @@ class queries extends system_report {
         $this->add_base_condition_sql($where, $params);
 
         $this->set_downloadable(true, get_string('reportsources', 'local_reportsources'));
+
+        // Delegated click handler for the "Copy embed code" kebab action (see add_report_actions()).
+        // The module self-initialises on import (no exported entry point), so load it the way core does.
+        global $PAGE;
+        if ($PAGE instanceof \moodle_page) {
+            $PAGE->requires->js_amd_inline("require(['core/copy_to_clipboard']);");
+        }
     }
 
     /**
@@ -240,8 +247,23 @@ class queries extends system_report {
                     }
                 }
 
+                // Hidden clipboard target for the "Copy embed code" kebab action. The action link
+                // itself carries no text (RB attr placeholders only match a whole-value :prop, so a
+                // mid-string selector like "#...-:id" can't be built there); instead the action's
+                // callback points data-clipboard-target at this per-row sr-only node. Only published
+                // queries have an RB report id, so drafts emit nothing. The id is the *report* id
+                // (as in /reportbuilder/view.php?id=), NOT the query id in the edit.php URL.
+                $marker = '';
+                if ($row->status === query::STATUS_PUBLISHED && !empty($row->reportid)) {
+                    $marker = html_writer::span(
+                        s('[[reportsource:' . (int) $row->reportid . ']]'),
+                        'sr-only',
+                        ['id' => 'rs-embed-marker-' . (int) $row->id]
+                    );
+                }
+
                 // Keep the action buttons on a single line instead of wrapping in the narrow cell.
-                return $buttons === '' ? '' : html_writer::div($buttons, 'text-nowrap');
+                return ($buttons === '' && $marker === '') ? '' : html_writer::div($buttons . $marker, 'text-nowrap');
             });
 
         $this->add_column($column);
@@ -325,6 +347,32 @@ class queries extends system_report {
         }));
 
         // Publish is an inline button (see add_buttons_column()), paired with Unpublish.
+
+        // Copy the [[reportsource:ID]] embed marker to the clipboard. No visible marker text clutters
+        // the listing (the old dedicated column is gone); the marker lives once per row as an sr-only
+        // node emitted by add_buttons_column(), and this action's data-clipboard-target points at it.
+        // The target selector must be built by the callback: RB's attribute placeholder replacement
+        // only matches a whole value (^:prop), so "#rs-embed-marker-:id" cannot be interpolated as a
+        // static attribute — the callback sets $row->embedtarget and the attr uses the :embedtarget
+        // whole-value placeholder. Shown for published rows only (drafts have no RB report id).
+        $this->add_action((new action(
+            new moodle_url('#'),
+            new pix_icon('t/copy', ''),
+            [
+                'data-action' => 'copytoclipboard',
+                'data-clipboard-target' => ':embedtarget',
+                'data-clipboard-success-message' => new lang_string('embedcodecopied', 'local_reportsources'),
+            ],
+            false,
+            new lang_string('embedcodecopy', 'local_reportsources')
+        ))->add_callback(static function (\stdClass $row): bool {
+            if ($row->status !== query::STATUS_PUBLISHED || empty($row->reportid)) {
+                return false;
+            }
+            // Injected onto the (cloned) row so replace_placeholders() can resolve :embedtarget.
+            $row->embedtarget = '#rs-embed-marker-' . (int) $row->id;
+            return true;
+        }));
 
         // Duplicate the query (any author).
         $this->add_action((new action(

@@ -128,6 +128,35 @@ final class query_test extends \advanced_testcase {
         );
     }
 
+    public function test_from_report_id_resolves_report_to_owning_query(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $id = query::save($this->formdata(['name' => 'Owner']));
+        query::get($id)->publish();
+        $reportid = (int) query::get($id)->reportid();
+
+        $resolved = query::from_report_id($reportid);
+        $this->assertNotNull($resolved);
+        $this->assertSame($id, $resolved->id());
+        $this->assertSame('Owner', $resolved->name());
+    }
+
+    public function test_from_report_id_null_for_unknown_report(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        // No config binding for this report id → no owning query.
+        $this->assertNull(query::from_report_id(987654));
+    }
+
+    public function test_from_report_id_null_for_nonpositive_id(): void {
+        $this->resetAfterTest();
+
+        $this->assertNull(query::from_report_id(0));
+        $this->assertNull(query::from_report_id(-5));
+    }
+
     public function test_unpublish_reverts_to_draft_and_clears_artefacts(): void {
         global $DB;
         $this->resetAfterTest();

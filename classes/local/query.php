@@ -95,6 +95,31 @@ class query {
     }
 
     /**
+     * Load the query that owns a given Report Builder report, or null if none.
+     *
+     * The authoritative report → query binding is the `queryid_for_report_<reportid>` config key
+     * (a query can own several reports — the data report and the single-cell chart report — each
+     * with its own key). This resolves either kind of report back to its query. Used by the inline
+     * embed external function ({@see \local_reportsources\external\get_embed}) and the filter, both
+     * of which key on report id (matching the RB view URL) rather than query id.
+     *
+     * @param int $reportid Report Builder report id.
+     * @return self|null The owning query, or null if the report is unknown / its record is gone.
+     */
+    public static function from_report_id(int $reportid): ?self {
+        global $DB;
+        if ($reportid <= 0) {
+            return null;
+        }
+        $queryid = (int) get_config('local_reportsources', 'queryid_for_report_' . $reportid);
+        if ($queryid <= 0) {
+            return null;
+        }
+        $rec = $DB->get_record(self::TABLE, ['id' => $queryid]);
+        return $rec ? new self($rec) : null;
+    }
+
+    /**
      * Get the query id.
      *
      * @return int

@@ -52,4 +52,13 @@ $functions = [
         'capabilities' => 'local/reportsources:author',
         'loginrequired' => true,
     ],
+    'local_reportsources_get_embed' => [
+        'classname'   => 'local_reportsources\external\get_embed',
+        'methodname'  => 'execute',
+        'description' => 'Hydrate an inline report embed (table or chart) for the current viewer',
+        'type'        => 'read',
+        'ajax'        => true,
+        // No capability: access is enforced per-report by core RB context + audience inside execute().
+        'loginrequired' => true,
+    ],
 ];
