@@ -299,7 +299,7 @@ When you publish a query, the plugin creates a database VIEW from your SQL, read
 
 Only SELECT queries are allowed, and a denylist blocks access to sensitive tables. Editing the SQL of a published query rebuilds the view and report on the next publish.';
 $string['pluginname'] = 'Report sources';
-$string['preview'] = 'Preview';
+$string['preview'] = 'Preview first 5 rows';
 $string['preview_help'] = 'Renders your current SQL as a real Report Builder report, inline and without saving or publishing. Columns are typed and formatted exactly as they would be on publish, so this is a quick way to see what the report will look like. Only the first 5 rows are shown.';
 $string['previewheading'] = 'Preview result';
 $string['previewloading'] = 'Building preview…';
