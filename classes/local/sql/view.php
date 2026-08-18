@@ -227,6 +227,15 @@ class view {
   its )%% (e.g. %%CASE(u.city, upper) with no )%%) is invalid and breaks the SQL.
   Count: for every "%%" you open, emit a matching "%%" to close, and for every
   "(" inside a token emit its ")" before the closing %%.
+  - Table aliases: write plain unprefixed table names (course, user,
+    course_categories) — reportsources rewrites each to its real prefixed name
+    (course -> mdl_course) before the query runs. Because of that rewrite, a plain
+    table name is NOT a valid column qualifier. Therefore give EVERY table you
+    reference by a dotted column an explicit alias, and qualify columns with that
+    alias — e.g. FROM course_categories cat JOIN course c ON c.category = cat.id,
+    then cat.name / c.id. Never reference course.id when the table has no "course"
+    alias: after the rewrite the table is mdl_course, so course.id is a dangling
+    reference and the report fails to build.
   - Dates: Moodle stores dates as Unix-epoch INTEGER columns (name contains one
     of time, date, created, modified, start, end, expir, due, login, logout,
     access, seen, stamp, cron, sync, sent, finish, run). Wrap such a column's
