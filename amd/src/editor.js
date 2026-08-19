@@ -132,7 +132,7 @@ const buildEditor = (textarea, schema, fkMap) => {
         const dotIdx = before.text.indexOf('.');
         const alias = before.text.slice(0, dotIdx).toLowerCase();
         if (schema[alias] !== undefined) {
-            return null; // real table name — built-in source handles it
+            return null; // Real table name — built-in source handles it.
         }
         const aliasMap = parseAliases(context.state.doc.toString());
         const entry = aliasMap[alias];
@@ -368,8 +368,8 @@ const buildEditor = (textarea, schema, fkMap) => {
             link.className = 'btn btn-link p-0 align-baseline';
             link.textContent = label;
             link.addEventListener('click', () => {
-                // rsReplaceContent pushes the rewrite into CodeMirror, clears serverValidated and
-                // hides the banner, so the next submit re-checks the converted SQL.
+                // The rsReplaceContent call pushes the rewrite into CodeMirror, clears serverValidated
+                // and hides the banner, so the next submit re-checks the converted SQL.
                 textarea.rsReplaceContent(rewrite(textarea.value));
             });
             errorBanner.appendChild(link);
@@ -498,6 +498,7 @@ const buildEditor = (textarea, schema, fkMap) => {
                     }
                     textarea.form.requestSubmit(submitter);
                 }
+                return null;
             })
             .catch(() => {
                 serverValidated = true;

@@ -158,7 +158,7 @@ const dateColumnsAlert = async(cols, sqlField) => {
         btn.textContent = col;
         btn.addEventListener('click', () => {
             applyTimestamp(sqlField, col, btn).catch(() => {
-                // getString rejection on the fallback path — nothing actionable, don't leak it.
+                // GetString rejection on the fallback path — nothing actionable, don't leak it.
             });
         });
         div.appendChild(btn);
@@ -226,7 +226,7 @@ const caseColumnsAlert = async(cols, sqlField) => {
         btn.textContent = entry.col;
         btn.addEventListener('click', () => {
             applyCase(sqlField, entry.col, entry.mode, btn).catch(() => {
-                // getString rejection on the fallback path — nothing actionable, don't leak it.
+                // GetString rejection on the fallback path — nothing actionable, don't leak it.
             });
         });
         div.appendChild(btn);
@@ -338,6 +338,40 @@ const prefillAiQuestion = (error, sql) => {
 };
 
 /**
+ * Blank a quoted string/identifier span starting at `i`, honouring doubled-closer escapes.
+ *
+ * @param {string} sql - Source SQL.
+ * @param {string[]} out - Output char array being blanked in place.
+ * @param {number} i - Offset of the opening quote/bracket.
+ * @return {number} Offset just past the closing quote.
+ */
+const blankQuotedSpan = (sql, out, i) => {
+    const n = sql.length;
+    // The closer is the matching bracket for '[', else the same char; both allow a doubled
+    // closer as an escape ('' "" `` ]]).
+    const close = sql[i] === '[' ? ']' : sql[i];
+    out[i] = ' ';
+    i++;
+    while (i < n) {
+        const doubled = sql[i] === close && sql[i + 1] === close;
+        if (doubled) {
+            // Doubled closer is an escape, not the terminator.
+            out[i] = ' ';
+            out[i + 1] = ' ';
+            i += 2;
+            continue;
+        }
+        const terminator = sql[i] === close;
+        out[i] = ' ';
+        i++;
+        if (terminator) {
+            break;
+        }
+    }
+    return i;
+};
+
+/**
  * Length-preserving mask of SQL comments and string literals: every character inside a
  * line/block comment or a '…'/"…" literal is replaced by a space, so keyword and comma
  * scans below can use offsets that still map 1:1 onto the original SQL.
@@ -368,27 +402,7 @@ const maskSql = (sql) => {
         } else if (sql[i] === "'" || sql[i] === '"' || sql[i] === '`' || sql[i] === '[') {
             // Quoted string ('…', "…") or quoted identifier (`…` MySQL, […] MSSQL). Blank the whole
             // span so keywords/commas quoted inside it (e.g. AS `from`) don't fool the region scan.
-            // The closer is the matching bracket for '[', else the same char; both allow a doubled
-            // closer as an escape ('' "" `` ]]).
-            const close = sql[i] === '[' ? ']' : sql[i];
-            out[i] = ' ';
-            i++;
-            while (i < n) {
-                if (sql[i] === close) {
-                    // Doubled closer is an escape, not the terminator.
-                    if (sql[i + 1] === close) {
-                        out[i] = ' ';
-                        out[i + 1] = ' ';
-                        i += 2;
-                        continue;
-                    }
-                    out[i] = ' ';
-                    i++;
-                    break;
-                }
-                out[i] = ' ';
-                i++;
-            }
+            i = blankQuotedSpan(sql, out, i);
         } else {
             i++;
         }

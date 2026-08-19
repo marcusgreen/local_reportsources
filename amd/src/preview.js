@@ -47,6 +47,8 @@ const collectChartArgs = () => {
         const el = document.getElementById(id);
         return el ? el.value : '';
     };
+    // Keys mirror the server fragment/form param names (see lib.php, edit_query_form).
+    /* eslint-disable camelcase */
     return {
         chart_type: type.value,
         chart_xcol: val('id_chart_xcol'),
@@ -54,6 +56,7 @@ const collectChartArgs = () => {
         chart_rowlimit: val('id_chart_rowlimit'),
         chart_labelsize: val('id_chart_labelsize'),
     };
+    /* eslint-enable camelcase */
 };
 
 /**
