@@ -55,8 +55,12 @@ if (!customsql_import::available()) {
 if (optional_param('import', 0, PARAM_BOOL) && confirm_sesskey()) {
     $ids = optional_param_array('report', [], PARAM_INT);
     if (empty($ids)) {
-        redirect($pageurl, get_string('crimport:noneselected', 'local_reportsources'), null,
-            \core\output\notification::NOTIFY_WARNING);
+        redirect(
+            $pageurl,
+            get_string('crimport:noneselected', 'local_reportsources'),
+            null,
+            \core\output\notification::NOTIFY_WARNING
+        );
     }
 
     $result = customsql_import::import($ids);
@@ -111,8 +115,11 @@ if (empty($importable)) {
         ]);
         $notes = $info['notes']
             ? html_writer::alist($info['notes'])
-            : html_writer::tag('span', get_string('crimport:noteclean', 'local_reportsources'),
-                ['class' => 'text-muted']);
+            : html_writer::tag(
+                'span',
+                get_string('crimport:noteclean', 'local_reportsources'),
+                ['class' => 'text-muted']
+            );
         $table->data[] = [
             $checkbox,
             html_writer::label(s($info['name']), 'customsql_report_' . $id),

@@ -126,8 +126,11 @@ class edit_query_form extends moodleform {
             'd-flex align-items-center gap-2'
         );
         $mform->addElement('static', 'querybuttons', '', $querybuttons);
-        $PAGE->requires->js_call_amd('local_reportsources/test', 'init',
-            ['rs-test-btn', 'id_querysql', 'id_courseid', 'rs-test-results']);
+        $PAGE->requires->js_call_amd(
+            'local_reportsources/test',
+            'init',
+            ['rs-test-btn', 'id_querysql', 'id_courseid', 'rs-test-results']
+        );
 
         // Test results and the preview result region are rendered full-width (raw html elements, not
         // static felements) so the Report Builder table is not squeezed by the form's grid column,
@@ -140,8 +143,11 @@ class edit_query_form extends moodleform {
             . \html_writer::div('', '', ['id' => 'rs-preview', 'class' => 'mt-2'])
             . \html_writer::end_tag('details');
         $mform->addElement('html', $previewregion);
-        $PAGE->requires->js_call_amd('local_reportsources/preview', 'init',
-            ['rs-preview-btn', 'id_querysql', 'id_courseid', 'rs-preview', 'rs-preview-details']);
+        $PAGE->requires->js_call_amd(
+            'local_reportsources/preview',
+            'init',
+            ['rs-preview-btn', 'id_querysql', 'id_courseid', 'rs-preview', 'rs-preview-details']
+        );
 
         $this->add_audience_elements($mform);
 
@@ -401,8 +407,12 @@ class edit_query_form extends moodleform {
         $mform->setDefault('chart_labelsize', (int) ($chartmeta['labelsize'] ?? 16));
         $mform->addHelpButton('chart_labelsize', 'chartlabelsize', 'local_reportsources');
 
-        $mform->addElement('advcheckbox', 'chart_showdata', get_string('chartshowdata', 'local_reportsources'),
-            get_string('chartshowdatalabel', 'local_reportsources'));
+        $mform->addElement(
+            'advcheckbox',
+            'chart_showdata',
+            get_string('chartshowdata', 'local_reportsources'),
+            get_string('chartshowdatalabel', 'local_reportsources')
+        );
         $mform->setType('chart_showdata', PARAM_BOOL);
         $mform->setDefault('chart_showdata', !empty($chartmeta['showdata']));
         $mform->addHelpButton('chart_showdata', 'chartshowdata', 'local_reportsources');

@@ -40,7 +40,6 @@ use local_reportsources\local\query;
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class embed_renderer {
-
     /**
      * Render the rows for a query, choosing table or chart from the query's chart config and the
      * requested display mode.
@@ -57,8 +56,12 @@ class embed_renderer {
         $haschart = !empty($chartmeta['type']) && $chartmeta['type'] !== 'none';
 
         if ($rows && ($mode === 'chart' || ($mode === 'auto' && $haschart))) {
-            return self::render_chart($query, $rows, is_array($chartmeta) ? $chartmeta : [],
-                $alt !== '' ? $alt : $query->name());
+            return self::render_chart(
+                $query,
+                $rows,
+                is_array($chartmeta) ? $chartmeta : [],
+                $alt !== '' ? $alt : $query->name()
+            );
         }
         return self::render_table($query, $rows);
     }

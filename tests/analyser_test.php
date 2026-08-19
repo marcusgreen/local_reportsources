@@ -103,7 +103,8 @@ final class analyser_test extends \advanced_testcase {
         $user = $this->getDataGenerator()->create_user(['timecreated' => time(), 'timemodified' => time()]);
 
         $result = analyser::analyse(
-            'SELECT id, timecreated, timemodified FROM {user} WHERE id = ' . (int) $user->id);
+            'SELECT id, timecreated, timemodified FROM {user} WHERE id = ' . (int) $user->id
+        );
         $this->assertTrue($result['ok']);
         $this->assertContainsEquals('timecreated', $result['datecolumns']);
         $this->assertContainsEquals('timemodified', $result['datecolumns']);
@@ -175,7 +176,8 @@ final class analyser_test extends \advanced_testcase {
     public function test_case_column_not_over_suggested(): void {
         $this->resetAfterTest();
         $result = analyser::analyse(
-            "SELECT id, %%CASE(username, upper)%% AS uname FROM {user} WHERE UPPER(email) = 'X'");
+            "SELECT id, %%CASE(username, upper)%% AS uname FROM {user} WHERE UPPER(email) = 'X'"
+        );
         $this->assertTrue($result['ok']);
         $this->assertSame([], $result['casecolumns']);
     }

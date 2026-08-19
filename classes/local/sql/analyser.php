@@ -61,7 +61,9 @@ class analyser {
      *  executed for this exact SQL — the inline preview passes its throwaway view here. When given,
      *  the dry-run gate and the private probe view are skipped: the caller has already proven the SQL
      *  runs, and date-column introspection reuses the supplied view instead of building a second one.
-     * @return array{ok: bool, error: string, rowcount: int, datecolumns: string[], casecolumns: array<array{col: string, mode: string}>, suggestions: string[], warnings: string[], indexinfo: string[]}
+     * @return array{ok: bool, error: string, rowcount: int, datecolumns: string[],
+     *     casecolumns: array<array{col: string, mode: string}>, suggestions: string[],
+     *     warnings: string[], indexinfo: string[]}
      */
     public static function analyse(string $sql, int $courseid = 0, ?string $viewname = null): array {
         $result = [
@@ -599,8 +601,14 @@ class analyser {
             $maskexpr = substr($maskitem, 0, strlen($expr));
 
             // The whole expression must be a single case call (bar an optional leading DISTINCT).
-            if (!preg_match('/^\s*(?:DISTINCT\s+)?(' . self::CASE_FUNCTIONS . ')\s*\(/i',
-                    $maskexpr, $fm, PREG_OFFSET_CAPTURE)) {
+            if (
+                !preg_match(
+                    '/^\s*(?:DISTINCT\s+)?(' . self::CASE_FUNCTIONS . ')\s*\(/i',
+                    $maskexpr,
+                    $fm,
+                    PREG_OFFSET_CAPTURE
+                )
+            ) {
                 continue;
             }
             $open = strpos($maskexpr, '(', (int) $fm[1][1]);

@@ -50,7 +50,9 @@ class test_query extends external_api {
      *
      * @param string $sql
      * @param int $courseid
-     * @return array{ok: bool, error: string, rowcount: int, datecolumns: string[], casecolumns: array<array{col: string, mode: string}>, suggestions: string[], warnings: string[], indexinfo: string[]}
+     * @return array{ok: bool, error: string, rowcount: int, datecolumns: string[],
+     *     casecolumns: array<array{col: string, mode: string}>, suggestions: string[],
+     *     warnings: string[], indexinfo: string[]}
      */
     public static function execute(string $sql, int $courseid = 0): array {
         ['sql' => $sql, 'courseid' => $courseid] =
@@ -76,20 +78,36 @@ class test_query extends external_api {
             'datecolumns' => new external_multiple_structure(
                 new external_value(PARAM_TEXT, 'Date-like output column name'),
                 'Integer columns that look like stored timestamps (click-to-wrap in %%TIMESTAMP()%%)',
-                VALUE_DEFAULT, []),
+                VALUE_DEFAULT,
+                []
+            ),
             'casecolumns' => new external_multiple_structure(
                 new external_single_structure([
                     'col'  => new external_value(PARAM_TEXT, 'Output column name'),
                     'mode' => new external_value(PARAM_ALPHA, 'Case mode: upper or lower'),
                 ]),
                 'Columns using raw UPPER()/LOWER() in SQL (click-to-wrap in %%CASE()%%)',
-                VALUE_DEFAULT, []),
+                VALUE_DEFAULT,
+                []
+            ),
             'suggestions' => new external_multiple_structure(
-                new external_value(PARAM_TEXT, 'Suggestion'), 'Advisory suggestions', VALUE_DEFAULT, []),
+                new external_value(PARAM_TEXT, 'Suggestion'),
+                'Advisory suggestions',
+                VALUE_DEFAULT,
+                []
+            ),
             'warnings'    => new external_multiple_structure(
-                new external_value(PARAM_TEXT, 'Warning'), 'Performance warnings', VALUE_DEFAULT, []),
+                new external_value(PARAM_TEXT, 'Warning'),
+                'Performance warnings',
+                VALUE_DEFAULT,
+                []
+            ),
             'indexinfo'   => new external_multiple_structure(
-                new external_value(PARAM_TEXT, 'Index line'), 'Per-table index / row-count lines', VALUE_DEFAULT, []),
+                new external_value(PARAM_TEXT, 'Index line'),
+                'Per-table index / row-count lines',
+                VALUE_DEFAULT,
+                []
+            ),
         ]);
     }
 }

@@ -186,8 +186,11 @@ foreach ($sources as $source) {
 }
 
 echo $OUTPUT->render_from_template('local_reportsources/samples_list', [
-    'intro'     => get_string($single ? 'samples:introsingle' : 'samples:intro',
-                        'local_reportsources', count($sources)),
+    'intro'     => get_string(
+        $single ? 'samples:introsingle' : 'samples:intro',
+        'local_reportsources',
+        count($sources)
+    ),
     'single'    => $single,
     'actionurl' => (new moodle_url('/local/reportsources/samples.php'))->out(false),
     'cancelurl' => $indexurl->out(false),

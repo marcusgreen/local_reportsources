@@ -159,7 +159,11 @@ class query {
     public function require_can_modify(): void {
         if (!$this->can_modify()) {
             throw new \required_capability_exception(
-                \context_system::instance(), 'local/reportsources:author', 'nopermissions', '');
+                \context_system::instance(),
+                'local/reportsources:author',
+                'nopermissions',
+                ''
+            );
         }
     }
 
@@ -529,19 +533,25 @@ class query {
         ]);
 
         if (!empty($opts['showdata'])) {
-            $head = \html_writer::tag('thead', \html_writer::tag('tr',
+            $head = \html_writer::tag('thead', \html_writer::tag(
+                'tr',
                 \html_writer::tag('th', s($xcol), ['scope' => 'col'])
-                . \html_writer::tag('th', s($ycol), ['scope' => 'col'])));
+                . \html_writer::tag('th', s($ycol), ['scope' => 'col'])
+            ));
             $body = '';
             foreach ($labels as $i => $label) {
                 $value = $values[$i] ?? 0;
-                $body .= \html_writer::tag('tr',
+                $body .= \html_writer::tag(
+                    'tr',
                     \html_writer::tag('td', s((string) $label))
-                    . \html_writer::tag('td', s((string) $value)));
+                    . \html_writer::tag('td', s((string) $value))
+                );
             }
-            $html .= \html_writer::tag('table',
+            $html .= \html_writer::tag(
+                'table',
                 $head . \html_writer::tag('tbody', $body),
-                ['class' => 'local-reportsources-chart-data table table-sm table-striped w-auto mt-2']);
+                ['class' => 'local-reportsources-chart-data table table-sm table-striped w-auto mt-2']
+            );
         }
 
         return $html;
@@ -698,7 +708,11 @@ class query {
             // Admin-created queries are locked to site admins regardless of capability.
             if (is_siteadmin($existing->ownerid) && !is_siteadmin($USER)) {
                 throw new \required_capability_exception(
-                    \context_system::instance(), 'local/reportsources:author', 'nopermissions', '');
+                    \context_system::instance(),
+                    'local/reportsources:author',
+                    'nopermissions',
+                    ''
+                );
             }
             // SQL change while published: drop view + report so they get rebuilt on next publish.
             // A transaction here would be illusory — tear_down() issues DROP VIEW via

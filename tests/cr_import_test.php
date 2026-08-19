@@ -65,6 +65,8 @@ final class cr_import_test extends \advanced_testcase {
     }
 
     /**
+     * Unmappable/unsupported tokens must be rejected as fatal by the converter.
+     *
      * @dataProvider fatal_token_provider
      * @param string $sql
      */

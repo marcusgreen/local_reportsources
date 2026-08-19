@@ -205,18 +205,26 @@ class query extends base {
             ->add_callback([\core_reportbuilder\local\helpers\format::class, 'boolean_as_text']);
 
         // Timestamps.
-        $columns[] = (new column('timemodified', new lang_string('lastmodified', 'local_reportsources'),
-            $this->get_entity_name()))
+        $columns[] = (new column(
+            'timemodified',
+            new lang_string('lastmodified', 'local_reportsources'),
+            $this->get_entity_name()
+        ))
             ->add_joins($this->get_joins())
             ->set_type(column::TYPE_TIMESTAMP)
             ->add_field("{$q}.timemodified")
             ->set_is_sortable(true)
             // Compact date-time, e.g. 15/07/26, 22:17 (%d/%m/%y, %H:%M).
-            ->add_callback([\core_reportbuilder\local\helpers\format::class, 'userdate'],
-                get_string('strftimedatetimeshort', 'langconfig'));
+            ->add_callback(
+                [\core_reportbuilder\local\helpers\format::class, 'userdate'],
+                get_string('strftimedatetimeshort', 'langconfig')
+            );
 
-        $columns[] = (new column('timecreated', new lang_string('timecreated', 'local_reportsources'),
-            $this->get_entity_name()))
+        $columns[] = (new column(
+            'timecreated',
+            new lang_string('timecreated', 'local_reportsources'),
+            $this->get_entity_name()
+        ))
             ->add_joins($this->get_joins())
             ->set_type(column::TYPE_TIMESTAMP)
             ->add_field("{$q}.timecreated")
@@ -227,8 +235,11 @@ class query extends base {
         // subqueries keep this out of any base GROUP BY; a query may own several reports, but every
         // view row carries the owning queryid, so counting on queryid covers them all.
         $viewcount = "(SELECT COUNT(1) FROM {local_reportsources_queryview} qvc WHERE qvc.queryid = {$q}.id)";
-        $columns[] = (new column('viewcount', new lang_string('usage:views', 'local_reportsources'),
-            $this->get_entity_name()))
+        $columns[] = (new column(
+            'viewcount',
+            new lang_string('usage:views', 'local_reportsources'),
+            $this->get_entity_name()
+        ))
             ->add_joins($this->get_joins())
             ->set_type(column::TYPE_INTEGER)
             ->add_field($viewcount, 'viewcount')
@@ -236,16 +247,22 @@ class query extends base {
 
         $uniqueviewers = "(SELECT COUNT(DISTINCT qvu.userid) FROM {local_reportsources_queryview} qvu"
             . " WHERE qvu.queryid = {$q}.id)";
-        $columns[] = (new column('uniqueviewers', new lang_string('usage:uniqueviewers', 'local_reportsources'),
-            $this->get_entity_name()))
+        $columns[] = (new column(
+            'uniqueviewers',
+            new lang_string('usage:uniqueviewers', 'local_reportsources'),
+            $this->get_entity_name()
+        ))
             ->add_joins($this->get_joins())
             ->set_type(column::TYPE_INTEGER)
             ->add_field($uniqueviewers, 'uniqueviewers')
             ->set_is_sortable(true, [$uniqueviewers]);
 
         $lastviewed = "(SELECT MAX(qvm.timeviewed) FROM {local_reportsources_queryview} qvm WHERE qvm.queryid = {$q}.id)";
-        $columns[] = (new column('lastviewed', new lang_string('usage:lastviewed', 'local_reportsources'),
-            $this->get_entity_name()))
+        $columns[] = (new column(
+            'lastviewed',
+            new lang_string('usage:lastviewed', 'local_reportsources'),
+            $this->get_entity_name()
+        ))
             ->add_joins($this->get_joins())
             ->set_type(column::TYPE_TIMESTAMP)
             ->add_field($lastviewed, 'lastviewed')
@@ -272,13 +289,23 @@ class query extends base {
         $filters = [];
 
         // Name (partial text match).
-        $filters[] = (new filter(text::class, 'name', new lang_string('name', 'local_reportsources'),
-            $this->get_entity_name(), "{$q}.name"))
+        $filters[] = (new filter(
+            text::class,
+            'name',
+            new lang_string('name', 'local_reportsources'),
+            $this->get_entity_name(),
+            "{$q}.name"
+        ))
             ->add_joins($this->get_joins());
 
         // Status (fixed option list).
-        $filters[] = (new filter(select::class, 'status', new lang_string('status', 'local_reportsources'),
-            $this->get_entity_name(), "{$q}.status"))
+        $filters[] = (new filter(
+            select::class,
+            'status',
+            new lang_string('status', 'local_reportsources'),
+            $this->get_entity_name(),
+            "{$q}.status"
+        ))
             ->add_joins($this->get_joins())
             ->set_options([
                 query_model::STATUS_DRAFT     => get_string('status_draft', 'local_reportsources'),
@@ -286,49 +313,88 @@ class query extends base {
             ]);
 
         // Owner full name (partial text match).
-        $filters[] = (new filter(text::class, 'owner', new lang_string('owner', 'local_reportsources'),
-            $this->get_entity_name(), $DB->sql_fullname("{$u}.firstname", "{$u}.lastname")))
+        $filters[] = (new filter(
+            text::class,
+            'owner',
+            new lang_string('owner', 'local_reportsources'),
+            $this->get_entity_name(),
+            $DB->sql_fullname("{$u}.firstname", "{$u}.lastname")
+        ))
             ->add_joins($this->get_joins())
             ->add_join($this->owner_join());
 
         // Bound course full name — standard text criteria filter (Contains / Is equal to / …).
         // Site-wide rows have no course row (courseid = 0), so "Is empty" matches them.
         $c = $this->get_table_alias('course');
-        $filters[] = (new filter(text::class, 'course', new lang_string('course'),
-            $this->get_entity_name(), "{$c}.fullname"))
+        $filters[] = (new filter(
+            text::class,
+            'course',
+            new lang_string('course'),
+            $this->get_entity_name(),
+            "{$c}.fullname"
+        ))
             ->add_joins($this->get_joins())
             ->add_join($this->course_join());
 
         // Visible flag.
-        $filters[] = (new filter(boolean_select::class, 'visible', new lang_string('visible', 'local_reportsources'),
-            $this->get_entity_name(), "{$q}.visible"))
+        $filters[] = (new filter(
+            boolean_select::class,
+            'visible',
+            new lang_string('visible', 'local_reportsources'),
+            $this->get_entity_name(),
+            "{$q}.visible"
+        ))
             ->add_joins($this->get_joins());
 
         // Last-modified / created date ranges.
-        $filters[] = (new filter(date::class, 'timemodified', new lang_string('lastmodified', 'local_reportsources'),
-            $this->get_entity_name(), "{$q}.timemodified"))
+        $filters[] = (new filter(
+            date::class,
+            'timemodified',
+            new lang_string('lastmodified', 'local_reportsources'),
+            $this->get_entity_name(),
+            "{$q}.timemodified"
+        ))
             ->add_joins($this->get_joins());
-        $filters[] = (new filter(date::class, 'timecreated', new lang_string('timecreated', 'local_reportsources'),
-            $this->get_entity_name(), "{$q}.timecreated"))
+        $filters[] = (new filter(
+            date::class,
+            'timecreated',
+            new lang_string('timecreated', 'local_reportsources'),
+            $this->get_entity_name(),
+            "{$q}.timecreated"
+        ))
             ->add_joins($this->get_joins());
 
         // Usage filters: view count (number range) and last-viewed (date range), matching the
         // correlated-subquery columns above.
         $viewcount = "(SELECT COUNT(1) FROM {local_reportsources_queryview} qvc WHERE qvc.queryid = {$q}.id)";
-        $filters[] = (new filter(number::class, 'viewcount', new lang_string('usage:views', 'local_reportsources'),
-            $this->get_entity_name(), $viewcount))
+        $filters[] = (new filter(
+            number::class,
+            'viewcount',
+            new lang_string('usage:views', 'local_reportsources'),
+            $this->get_entity_name(),
+            $viewcount
+        ))
             ->add_joins($this->get_joins());
 
         $uniqueviewers = "(SELECT COUNT(DISTINCT qvu.userid) FROM {local_reportsources_queryview} qvu"
             . " WHERE qvu.queryid = {$q}.id)";
-        $filters[] = (new filter(number::class, 'uniqueviewers',
+        $filters[] = (new filter(
+            number::class,
+            'uniqueviewers',
             new lang_string('usage:uniqueviewers', 'local_reportsources'),
-            $this->get_entity_name(), $uniqueviewers))
+            $this->get_entity_name(),
+            $uniqueviewers
+        ))
             ->add_joins($this->get_joins());
 
         $lastviewed = "(SELECT MAX(qvm.timeviewed) FROM {local_reportsources_queryview} qvm WHERE qvm.queryid = {$q}.id)";
-        $filters[] = (new filter(date::class, 'lastviewed', new lang_string('usage:lastviewed', 'local_reportsources'),
-            $this->get_entity_name(), $lastviewed))
+        $filters[] = (new filter(
+            date::class,
+            'lastviewed',
+            new lang_string('usage:lastviewed', 'local_reportsources'),
+            $this->get_entity_name(),
+            $lastviewed
+        ))
             ->add_joins($this->get_joins());
 
         return $filters;

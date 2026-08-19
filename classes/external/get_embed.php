@@ -41,7 +41,6 @@ use local_reportsources\output\embed_renderer;
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class get_embed extends external_api {
-
     /** Row cap for an inline embed (kept modest — an embed is a summary, not the full report). */
     private const ROW_LIMIT = 200;
 
@@ -68,8 +67,10 @@ class get_embed extends external_api {
      */
     public static function execute(int $reportid, string $mode = 'auto', int $pagecourseid = 0): array {
         ['reportid' => $reportid, 'mode' => $mode, 'pagecourseid' => $pagecourseid] =
-            self::validate_parameters(self::execute_parameters(),
-                ['reportid' => $reportid, 'mode' => $mode, 'pagecourseid' => $pagecourseid]);
+            self::validate_parameters(
+                self::execute_parameters(),
+                ['reportid' => $reportid, 'mode' => $mode, 'pagecourseid' => $pagecourseid]
+            );
 
         // Session/login gate only; the real per-report access is core RB's context + audience below.
         self::validate_context(\context_system::instance());

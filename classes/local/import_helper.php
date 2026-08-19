@@ -50,7 +50,7 @@ trait import_helper {
         $notes = [];
 
         // 1. MySQL double-quoted string literals -> single-quoted (portable, and lets RS keep
-        //    case-sensitive output safe). Legacy reports are authored against MySQL where "x" is a string.
+        // case-sensitive output safe). Legacy reports are authored against MySQL where "x" is a string.
         $converted = self::rewrite_double_quotes($sql);
         if ($converted !== $sql) {
             $notes[] = get_string('crimport:notequotes', 'local_reportsources');
@@ -72,7 +72,7 @@ trait import_helper {
         $sql = $dateresult['sql'];
 
         // 4. Literal `?` inside string literals -> CONCAT(..., chr(63), ...). RS treats a bare ? as a
-        //    bound parameter, so links such as view.php?id= must be rebuilt with chr(63).
+        // bound parameter, so links such as view.php?id= must be rebuilt with chr(63).
         $qresult = self::rewrite_questionmarks($sql);
         if ($qresult !== $sql) {
             $notes[] = get_string('crimport:noteqmark', 'local_reportsources');
@@ -167,8 +167,10 @@ trait import_helper {
         // Detect any MySQL-only date function we could not map to a portable token.
         $masked = self::mask_strings($sql);
         $remaining = [];
-        foreach (['DATE_FORMAT', 'FROM_UNIXTIME', 'UNIX_TIMESTAMP', 'DATEDIFF',
-                  'DATE_ADD', 'DATE_SUB', 'STR_TO_DATE'] as $fn) {
+        foreach (
+            ['DATE_FORMAT', 'FROM_UNIXTIME', 'UNIX_TIMESTAMP', 'DATEDIFF',
+                  'DATE_ADD', 'DATE_SUB', 'STR_TO_DATE'] as $fn
+        ) {
             if (preg_match('/\b' . $fn . '\s*\(/i', $masked)) {
                 $remaining[] = $fn;
             }
@@ -178,8 +180,11 @@ trait import_helper {
             // MySQL/MariaDB runs these natively; the live dry-run is the real gate. Keep them, but warn
             // the imported report is now tied to this DB family. Any other family cannot run them.
             if ($DB->get_dbfamily() === 'mysql') {
-                $notes[] = get_string('crimport:notenativedate', 'local_reportsources',
-                    implode(', ', array_unique($remaining)));
+                $notes[] = get_string(
+                    'crimport:notenativedate',
+                    'local_reportsources',
+                    implode(', ', array_unique($remaining))
+                );
             } else {
                 return ['sql' => $sql, 'fatal' =>
                     get_string('crimport:reasondatefn', 'local_reportsources', $remaining[0])];
@@ -250,8 +255,12 @@ trait import_helper {
      *        call is left untouched (the rewrite would change the value's type inside that function).
      * @return string
      */
-    private static function replace_calls(string $sql, string $name, callable $callback,
-            bool $skipfunctionargs = false): string {
+    private static function replace_calls(
+        string $sql,
+        string $name,
+        callable $callback,
+        bool $skipfunctionargs = false
+    ): string {
         $out = '';
         $offset = 0;
         $len = strlen($sql);
@@ -266,8 +275,10 @@ trait import_helper {
             $matchstart = $m[0][1];
             // Skip a match that sits inside a string literal, or (when requested) one that is an
             // argument to another function call.
-            if (self::in_string($sql, $matchstart)
-                    || ($skipfunctionargs && self::is_function_argument($sql, $matchstart))) {
+            if (
+                self::in_string($sql, $matchstart)
+                    || ($skipfunctionargs && self::is_function_argument($sql, $matchstart))
+            ) {
                 $out .= substr($sql, $offset, $matchstart + 1 - $offset);
                 $offset = $matchstart + 1;
                 continue;
