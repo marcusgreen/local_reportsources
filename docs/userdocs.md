@@ -29,11 +29,13 @@ Everything starts from the **Saved report views** list (*Site admin → Reports 
 13. [Emailing reports on a schedule](#emailing-reports-on-a-schedule)
 14. [Managing report views (list page)](#managing-report-views-list-page)
 15. [Export and import](#export-and-import)
-16. [Validation and error messages](#validation-and-error-messages)
-17. [Admin settings](#admin-settings)
-18. [Database privilege check](#database-privilege-check)
-19. [Troubleshooting](#troubleshooting)
-20. [How this compares to other SQL report plugins](#how-this-compares-to-other-sql-report-plugins)
+16. [Importing from other SQL report plugins](#importing-from-other-sql-report-plugins)
+17. [Sample report views](#sample-report-views)
+18. [Validation and error messages](#validation-and-error-messages)
+19. [Admin settings](#admin-settings)
+20. [Database privilege check](#database-privilege-check)
+21. [Troubleshooting](#troubleshooting)
+22. [How this compares to other SQL report plugins](#how-this-compares-to-other-sql-report-plugins)
 
 ---
 
@@ -562,7 +564,7 @@ The chosen column is hidden from all output (its value is always the viewer's ow
 | **Value column (Y axis)** | Column whose values are plotted — must be numeric |
 | **Chart row limit** | Max rows to plot. Keep small (≤ 200) for a readable chart |
 
-Once configured, a **View chart** link appears for the published view. From the chart page you can **Export CSV**, **Download PNG**, and **Print**.
+Once configured, a **View chart** link appears for the published view. The chart is rendered as its own **Report Builder report** — a single-cell report holding the graph — so it is a first-class report object you can **schedule**, **embed**, and open at `/reportbuilder/view.php`. Clicking **View chart** opens that report; the underlying data is scoped per viewer exactly like the table report (including any [per-user filter](#per-user-filter)). A **CSV export** of the chart's data is still available. *(On sites where a view has not been re-published since chart reports were introduced, **View chart** falls back to a legacy page with **Download PNG** and **Print** buttons — re-publish the view to switch it to the Report Builder chart report.)*
 
 **Example** — enrolments per course: `SELECT c.fullname AS course, COUNT(ue.id) AS enrolments FROM course c JOIN enrol e ON e.courseid = c.id JOIN user_enrolments ue ON ue.enrolid = e.id GROUP BY c.fullname`. Set chart type **Bar**, label column **course**, value column **enrolments**.
 
@@ -601,6 +603,7 @@ A published report can be **emailed automatically** on a recurring basis — dai
 | An audience is required | Recipients come from audiences. A report published as **Nobody** / hidden has no audience, so there is no one to email — give it an audience first. |
 | Per-user filter + "View as" | If the report uses a [per-user filter](#per-user-filter), set **View report as → Recipient** so each person receives only their own rows. "View as a fixed user" would send that one user's rows to everyone. |
 | Re-publishing resets audiences | Re-publishing the view (or editing its SQL) rebuilds the report's audiences. A schedule that targeted an old audience may lose its recipients — re-check the schedule after re-publishing. |
+| Scheduling a **chart** report | For a view with a [chart](#charts) configured, **Schedule emails** targets the **chart** report, so the emailed report *is* the graph. Tabular export formats (CSV / Excel / PDF) strip the chart image to an empty cell — pick an **HTML** format so the chart survives the email. Views without a chart schedule the data table as usual. |
 
 ---
 
@@ -627,6 +630,34 @@ Notes on import:
 
 - Views whose SQL fails validation are **skipped** and reported.
 - A view bound to a course id that does not exist on the target site is imported as **site-wide**; edit each such draft and set its **Course scope** before publishing.
+
+---
+
+## Importing from other SQL report plugins
+
+If you already have SQL reports in **Configurable reports** (`block_configurable_reports`) or **Ad-hoc database queries** (`report_customsql`), you can migrate them into Report Sources drafts. Two admin pages, both linked from **Site admin → Local plugins → Report sources**:
+
+- **Import from Configurable Reports** (`import_cr.php`) — lists the SQL reports stored in the Configurable Reports block.
+- **Import from Ad-hoc Database Queries** (`import_customsql.php`) — lists the queries stored in `report_customsql`.
+
+Each page shows every source report, translates its SQL automatically, and marks each as **importable** or **rejected**:
+
+- **Importable** reports translate cleanly (double-quotes → single-quotes, MySQL date functions → the portable `%%TIMESTAMP%%` / `%%EPOCH%%` / `%%NOW%%` [tokens](#placeholders), escape sequences fixed) and pass validation. Tick the ones you want and import — each is created as a **draft owned by you**, ready to review and publish.
+- **Rejected** reports use features that cannot be converted automatically — interactive `:param` placeholders, `%%USERID%%` / `%%FILTER_*%%` tokens, or (on PostgreSQL) MySQL-only date functions with no portable equivalent. Each rejection states its reason so you can port the SQL by hand into a new report view.
+
+> Imported drafts always land **site-wide** or carry the source's own course scope, and with no audience. Set the [course scope](#the-edit-form-field-by-field) and [audience](#who-can-view-the-report-audiences) before publishing, exactly as for any other draft.
+
+---
+
+## Sample report views
+
+The plugin ships a set of ready-made sample report views you can load and adapt. They use only the portable [tokens](#placeholders), so they import and publish on both MySQL/MariaDB and PostgreSQL.
+
+- **Browse and import** — the *Site admin → Reports → Report sources → Load sample report sources* page is a bulk picker: tick the samples you want and import them at once; a sample whose name already exists is disabled to avoid duplicates. The **Load sample report source** button on the Report sources list page is the one-at-a-time version (imported with a `Sample:` name prefix so it never collides). Either way each lands as a **draft owned by you** that you publish before use.
+- **Post-install** — a notification after install links straight to the same picker.
+- **CLI** — `php local/reportsources/cli/import.php` bulk-imports a JSON file of report views (defaults to `reportsources.json` in the current directory).
+
+Samples are a starting point: import one, open it in the editor, adjust the SQL to your site, and publish.
 
 ---
 
@@ -746,7 +777,7 @@ Two long-standing plugins build reports from SQL: **Ad-hoc database queries** (`
 - `report_customsql` is excellent for **scheduled CSV emails** of a fixed query and is very lightweight.
 - `block_configurable_reports` bundles authoring *and* display in one block; Report Sources splits these into `local_reportsources` (author) + `block_reportsources` (display).
 
-> Report Sources does not import reports from either plugin. The SQL itself is usually portable — paste it into a new report view (bare table names are auto-braced) and re-validate.
+> Report Sources **can import** the SQL reports from both plugins — see [Importing from other SQL report plugins](#importing-from-other-sql-report-plugins). Each import lands as a fresh draft you review and publish; reports using features that cannot be translated automatically are rejected with a reason so you can port them by hand.
 
 ---
 
