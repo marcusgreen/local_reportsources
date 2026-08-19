@@ -510,7 +510,7 @@ RULES;
      * rejects anything that isn't `\w+` with "Complex columns must have an alias"). Detecting it here
      * lets callers surface a clear "add an AS alias" message instead of a raw coding_exception.
      *
-     * @param array<string, object> $columns Column map as returned by {@see self::columns()}.
+     * @param array $columns Column map as returned by {@see self::columns()}.
      * @return string|null Offending column name, or null when every name is a valid identifier.
      */
     public static function first_unaliased_column(array $columns): ?string {

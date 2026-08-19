@@ -156,7 +156,7 @@ final class usagestats_test extends \advanced_testcase {
      *
      * @param int $queryid
      * @param int $reportid
-     * @param int $userid
+     * @param int|string $userid
      * @param int $timeviewed
      */
     private function insert_view(int $queryid, int $reportid, int|string $userid, int $timeviewed): void {

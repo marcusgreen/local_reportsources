@@ -163,6 +163,9 @@ class adhoc_view extends base {
     /**
      * Render an arbitrary column name as a {@see lang_string}. Routed through the language
      * entry `adhocheader = '{$a}'` so we don't need a language entry per column name.
+     *
+     * @param string $name Column name to render as the header.
+     * @return lang_string
      */
     private static function raw_title(string $name): lang_string {
         return new lang_string('reportsourceheader', 'local_reportsources', $name);

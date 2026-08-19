@@ -455,11 +455,11 @@ class query {
      * Report Builder display callback that formats table cells), the case is applied here to the
      * labels so a pie/bar chart matches the data report; pass the mode as $xcase.
      *
-     * @param array<int, array<string, mixed>> $rows Rows as associative arrays.
+     * @param array $rows Rows as associative arrays.
      * @param string $xcol Label (x) column name.
      * @param string $ycol Value (y) column name.
      * @param string $xcase Optional %%CASE()%% mode for the x column (upper|lower|title|sentence).
-     * @return array{0: string[], 1: float[]} [labels, values]
+     * @return array [labels, values]
      */
     public static function chart_series(array $rows, string $xcol, string $ycol, string $xcase = ''): array {
         $labels = [];
@@ -511,7 +511,7 @@ class query {
      * @param float[] $values Numeric values, index-aligned with $labels.
      * @param string $xcol Label (x) column name — the first data-table header.
      * @param string $ycol Value (y) column name — the second data-table header.
-     * @param array{labelsize?:int,showdata?:bool,title?:string,alt?:string} $opts Display options.
+     * @param array $opts Display options (labelsize, showdata, title, alt).
      * @return string HTML.
      */
     public static function chart_figure_html(
@@ -1379,9 +1379,9 @@ class query {
      * transform applied at display time (the stored value stays the original text so sort/filter
      * act on it); recover the mode from the saved SQL the same way.
      *
-     * @param array<string, object> $columns Column map from {@see view::columns()} (has `meta_type`).
+     * @param array $columns Column map from {@see view::columns()} (has meta_type).
      * @param string $sql Raw saved SQL (before placeholder resolution), for timestamp-token recovery.
-     * @return array<string, array{type:string,label:string,dateformat?:string,textcase?:string}>
+     * @return array Column meta keyed by column name (type, label, dateformat?, textcase?).
      */
     public static function build_columnsmeta(array $columns, string $sql): array {
         $tsformats = view::timestamp_columns($sql);

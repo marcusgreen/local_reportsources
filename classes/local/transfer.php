@@ -133,9 +133,9 @@ class transfer {
      * demotion reported back. The query lands as a draft, so the owner can re-scope it via the edit
      * form before publishing — no report exists yet, so demotion cannot over-expose data.
      *
-     * @param array<int, array<string, mixed>> $sources Parsed sources (e.g. from {@see parse()}).
+     * @param array $sources Parsed sources (e.g. from {@see parse()}).
      * @param int[] $selected Indexes into $sources to actually import.
-     * @return array{imported:int,skipped:array<int,string>,demoted:array<string,int>} Count imported,
+     * @return array Count imported,
      *         name=>reason of skips, and name=>original courseid of sources demoted to site-wide.
      */
     public static function import(array $sources, array $selected): array {

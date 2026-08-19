@@ -62,7 +62,7 @@ class query_naming {
 
     /**
      * Whether an AI question is a "fix this SQL error" style prompt rather than a real description
-     * of the wanted data. Such prompts (e.g. the one {@see editor.es6.js} pre-fills on a validation
+     * of the wanted data. Such prompts (e.g. the one editor.es6.js pre-fills on a validation
      * failure) make for useless query names, so callers derive the name/description from the
      * generated SQL instead.
      *

@@ -48,7 +48,7 @@ final class chart_svg {
      * @param string[] $labels Category labels (x axis / slice names).
      * @param float[] $values Numeric values, index-aligned with $labels.
      * @param string $title Optional title drawn top-centre.
-     * @param array{width?:int,height?:int,axiscolor?:string,textcolor?:string,palette?:string[]} $opts
+     * @param array $opts Display options (width, height, axiscolor, textcolor, palette).
      * @return string SVG document markup.
      */
     public static function render(

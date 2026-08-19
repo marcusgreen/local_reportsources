@@ -45,7 +45,7 @@ class embed_renderer {
      * requested display mode.
      *
      * @param query $query The bound query (drives chart config + display transforms).
-     * @param array<int, array<string, mixed>> $rows Rows already scoped for the current viewer.
+     * @param array $rows Rows already scoped for the current viewer.
      * @param string $mode auto|table|chart. auto renders the chart when the query has one configured.
      * @param string $alt Accessible chart image alt text (defaults to the query name).
      * @return string HTML.
@@ -72,7 +72,7 @@ class embed_renderer {
      * display-only; the stored value is raw).
      *
      * @param query $query The bound query (for column display metadata).
-     * @param array<int, array<string, mixed>> $rows
+     * @param array $rows
      * @return string
      */
     public static function render_table(query $query, array $rows): string {
@@ -117,8 +117,8 @@ class embed_renderer {
      * chart config. Falls back to a table when the chart has no x/y columns set.
      *
      * @param query $query The bound query (for %%CASE%% label transforms).
-     * @param array<int, array<string, mixed>> $rows
-     * @param array<string, mixed> $chartmeta Decoded chartmeta.
+     * @param array $rows
+     * @param array $chartmeta Decoded chartmeta.
      * @param string $alt Accessible alt text for the chart image.
      * @return string
      */

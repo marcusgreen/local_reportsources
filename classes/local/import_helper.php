@@ -250,7 +250,7 @@ trait import_helper {
      *
      * @param string $sql
      * @param string $name Function name (case-insensitive).
-     * @param callable(array<int,string>):?string $callback
+     * @param callable $callback Receives the parsed argument list, returns replacement or null.
      * @param bool $skipfunctionargs When true, a call that is itself an argument to another function
      *        call is left untouched (the rewrite would change the value's type inside that function).
      * @return string
