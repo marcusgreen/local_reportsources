@@ -89,8 +89,8 @@ class schema {
             $xmlfiles[] = $corefile;
         }
 
-        foreach (\core_component::get_plugin_types() as $type => $unused) {
-            foreach (\core_component::get_plugin_list($type) as $plugin => $plugindir) {
+        foreach (array_keys(\core_component::get_plugin_types()) as $type) {
+            foreach (\core_component::get_plugin_list($type) as $plugindir) {
                 $xmlfile = $plugindir . '/db/install.xml';
                 if (file_exists($xmlfile)) {
                     $xmlfiles[] = $xmlfile;

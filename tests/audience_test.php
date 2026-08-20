@@ -127,7 +127,7 @@ final class audience_test extends \advanced_testcase {
         $this->resetAfterTest();
 
         $course = $this->getDataGenerator()->create_course();
-        [$join, $where, $params] = $this->courserole_instance((int) $course->id, [3])->get_sql('u');
+        [$join, $where] = $this->courserole_instance((int) $course->id, [3])->get_sql('u');
 
         $this->assertNotEmpty($join);
         $this->assertStringContainsString('role_assignments', $join);
@@ -153,7 +153,7 @@ final class audience_test extends \advanced_testcase {
         $this->resetAfterTest();
 
         $course = $this->getDataGenerator()->create_course();
-        [$join, $where, $params] = $this->courserole_instance((int) $course->id, [])->get_sql('u');
+        [$join, $where] = $this->courserole_instance((int) $course->id, [])->get_sql('u');
 
         $this->assertSame('', $join);
         $this->assertSame('1 = 0', $where);
@@ -199,7 +199,6 @@ final class audience_test extends \advanced_testcase {
     }
 
     public function test_course_deleted_detaches_additional_reports(): void {
-        global $DB;
         $this->resetAfterTest();
         $this->setAdminUser();
 

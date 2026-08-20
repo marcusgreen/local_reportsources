@@ -243,7 +243,6 @@ final class query_test extends \advanced_testcase {
     }
 
     public function test_teacher_course_ids_returns_only_taught_courses(): void {
-        global $DB;
         $this->resetAfterTest();
 
         $gen = $this->getDataGenerator();
@@ -411,7 +410,6 @@ final class query_test extends \advanced_testcase {
      * @return \stdClass The created user.
      */
     private function privileged_nonadmin(): \stdClass {
-        global $DB;
         $gen  = $this->getDataGenerator();
         $user = $gen->create_user();
         $syscontext = \context_system::instance();
