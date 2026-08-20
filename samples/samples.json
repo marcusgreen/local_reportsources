@@ -233,6 +233,19 @@
             }
         },
         {
+            "name": "Activity completion per student",
+            "description": "Per-student activity (module) completion state across all courses, from {course_modules_completion}. Shows course, activity type, the completion state as a label, and the date it was recorded. Only completed rows (completionstate > 0). Outputs a courseid column, so set a per-course filter (\"Restrict to the course the block is on\") to scope it to one course. Cross-DB via %%TIMESTAMP.",
+            "querysql": "SELECT\r\n    c.id AS courseid,\r\n    c.shortname AS course,\r\n    u.firstname,\r\n    u.lastname,\r\n    m.name AS activitytype,\r\n    cm.instance AS activityid,\r\n    CASE cmc.completionstate\r\n        WHEN 1 THEN 'Complete'\r\n        WHEN 2 THEN 'Complete (pass)'\r\n        WHEN 3 THEN 'Complete (fail)'\r\n        ELSE 'Incomplete'\r\n    END AS completionstate,\r\n    %%TIMESTAMP(cmc.timemodified, dd/mm/yyyy)%% AS completedon\r\nFROM {course_modules_completion} cmc\r\nJOIN {course_modules} cm ON cm.id = cmc.coursemoduleid\r\nJOIN {modules} m ON m.id = cm.module\r\nJOIN {course} c ON c.id = cm.course\r\nJOIN {user} u ON u.id = cmc.userid\r\nWHERE cmc.completionstate > 0\r\nORDER BY c.shortname, u.lastname, u.firstname\r\nLIMIT 200",
+            "courseid": 0,
+            "visible": 1,
+            "chartmeta": {
+                "type": "none",
+                "xcol": "",
+                "ycol": "",
+                "rowlimit": 200
+            }
+        },
+        {
             "name": "Log actions per teaching/learning role",
             "description": "Counts log events grouped by role (editing teacher, teacher, student) and action, over the standard log store. Demonstrates %%CONTEXT_COURSE%% and selecting roles by shortname rather than hard-coded role ids. Reads the Moodle 5 logstore_standard_log (the old mdl_log table is gone).",
             "querysql": "SELECT r.shortname, l.action, COUNT(l.userid) AS counter\r\nFROM {logstore_standard_log} l\r\nJOIN {context} ctx ON ctx.instanceid = l.courseid AND ctx.contextlevel = %%CONTEXT_COURSE%%\r\nJOIN {role_assignments} ra ON l.userid = ra.userid AND ra.contextid = ctx.id\r\nJOIN {role} r ON ra.roleid = r.id\r\nWHERE r.shortname IN ('editingteacher', 'teacher', 'student')\r\nGROUP BY r.shortname, l.action\r\nORDER BY counter DESC\r\nLIMIT 200",
