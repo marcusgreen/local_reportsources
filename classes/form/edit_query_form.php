@@ -280,20 +280,21 @@ class edit_query_form extends moodleform {
                     $mform->setDefault('focusfilter', 0);
                 }
                 $mform->addElement('header', 'chartheader', get_string('chartsettings', 'local_reportsources'));
+                // "See the option below" is appended only for approvers — the checkbox it points to is
+                // added just below, and only when they can publish.
+                $canpublish = !empty($this->_customdata['canpublish']);
+                $note = get_string('chartpublishrequired', 'local_reportsources')
+                    . ($canpublish ? ' ' . get_string('chartpublishrequiredsee', 'local_reportsources') : '');
                 $mform->addElement(
                     'static',
                     'chart_unpublished_note',
                     '',
-                    \html_writer::div(
-                        get_string('chartpublishrequired', 'local_reportsources'),
-                        'alert alert-warning',
-                        ['role' => 'alert']
-                    )
+                    \html_writer::div($note, 'alert alert-warning', ['role' => 'alert'])
                 );
                 // Approvers get a one-tick path: publish now and reopen here with the chart section
                 // unlocked (edit.php reads focuschart on the Save & publish redirect). Authors without
                 // approve can't publish, so the option is pointless for them.
-                if (!empty($this->_customdata['canpublish'])) {
+                if ($canpublish) {
                     $mform->addElement(
                         'advcheckbox',
                         'focuschart',
