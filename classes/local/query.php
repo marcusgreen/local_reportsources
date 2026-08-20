@@ -422,7 +422,12 @@ class query {
             }
             $wheres[] = "{$pagecoursecolumn} = :rs_pc";
             $params['rs_pc'] = $pagecourseid;
-            // The course column stays visible: the same block may move between course pages.
+            // On a single course page every row is that course, so hide the now-constant column.
+            // Only reached when $pagecourseid > 0 (a real course page); chart.php and the RB report
+            // viewer pass 0, so there the column stays visible because rows span many courses.
+            if (count($meta) > 1) {
+                unset($meta[$pagecoursecolumn]);
+            }
         }
 
         $select = $wheres ? implode(' AND ', $wheres) : '';
