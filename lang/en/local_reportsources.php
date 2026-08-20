@@ -396,13 +396,13 @@ $string['tourdesc'] = 'A short guided tour of the report sources list page.';
 $string['tourname'] = 'Report sources tour';
 $string['tourstep1content'] = 'Start here to create a report source. Write a SQL <em>SELECT</em> query, then publish it to build a fully configurable Report Builder report — no PHP required.';
 $string['tourstep1title'] = 'Create a report source';
-$string['tourstep2content'] = 'Every report source you have saved is listed here, with its owner and status.';
+$string['tourstep2content'] = 'Every report source you have saved is listed here, with its owner and status. Sort or filter any column to find one quickly.';
 $string['tourstep2title'] = 'Your report sources';
 $string['tourstep3content'] = 'The status shows whether a report source is still a <strong>Draft</strong> or has been <strong>Published</strong> as a live report.';
 $string['tourstep3title'] = 'Draft or published';
-$string['tourstep4content'] = 'Open the live Report Builder report to view, filter, sort and export its data.';
-$string['tourstep4title'] = 'Open the report';
-$string['tourstep5content'] = 'This menu holds the rest of the actions: edit in Report Builder, schedule emails, duplicate, publish and delete.';
+$string['tourstep4content'] = 'Edit your query here, or publish a draft to build its live Report Builder report. Unpublishing takes a live report back offline.';
+$string['tourstep4title'] = 'Edit and publish';
+$string['tourstep5content'] = 'This menu holds the rest of the actions: edit in Report Builder, view the chart, schedule email delivery, copy the embed code, duplicate and delete.';
 $string['tourstep5title'] = 'More actions';
 $string['unpublish'] = 'Unpublish';
 

@@ -130,5 +130,15 @@ function xmldb_local_reportsources_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026080300, 'local', 'reportsources');
     }
 
+    if ($oldversion < 2026082001) {
+        // The bundled user tour was previously imported at install time only, so sites installed
+        // before it shipped never received it. Import it now if none exists for the index page.
+        // tour::install() is idempotent (skips when a tour already targets the page), so an admin's
+        // existing or edited tour is left untouched.
+        \local_reportsources\local\tour::install();
+
+        upgrade_plugin_savepoint(true, 2026082001, 'local', 'reportsources');
+    }
+
     return true;
 }

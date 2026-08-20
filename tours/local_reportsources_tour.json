@@ -7,7 +7,7 @@
   "endtourlabel": "",
   "configdata": "{\"placement\":\"top\",\"orphan\":\"0\",\"backdrop\":\"1\",\"reflex\":\"0\",\"filtervalues\":{\"category\":[],\"course\":[],\"courseformat\":[],\"role\":[],\"theme\":[],\"cssselector\":[]}}",
   "displaystepnumbers": true,
-  "version": "2026061500",
+  "version": "2026082000",
   "steps": [
     {
       "title": "tourstep1title,local_reportsources",
@@ -23,7 +23,7 @@
       "content": "tourstep2content,local_reportsources",
       "contentformat": "1",
       "targettype": "0",
-      "targetvalue": "#rs-tour-table",
+      "targetvalue": ".reportbuilder-report",
       "sortorder": "1",
       "configdata": "{\"placement\":\"top\"}"
     },
@@ -32,7 +32,7 @@
       "content": "tourstep3content,local_reportsources",
       "contentformat": "1",
       "targettype": "0",
-      "targetvalue": "#rs-tour-table .badge",
+      "targetvalue": ".reportbuilder-report .badge",
       "sortorder": "2",
       "configdata": "{\"placement\":\"left\"}"
     },
@@ -41,7 +41,7 @@
       "content": "tourstep4content,local_reportsources",
       "contentformat": "1",
       "targettype": "0",
-      "targetvalue": "#rs-tour-table .btn-primary",
+      "targetvalue": ".reportbuilder-report .rs-actions-col",
       "sortorder": "3",
       "configdata": "{\"placement\":\"left\"}"
     },
@@ -50,7 +50,7 @@
       "content": "tourstep5content,local_reportsources",
       "contentformat": "1",
       "targettype": "0",
-      "targetvalue": "#rs-tour-table .action-menu",
+      "targetvalue": ".reportbuilder-report .action-menu",
       "sortorder": "4",
       "configdata": "{\"placement\":\"left\"}"
     }
