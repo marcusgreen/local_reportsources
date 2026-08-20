@@ -63,6 +63,7 @@ final class chart_svg {
         $axiscolor = (string) ($opts['axiscolor'] ?? '#888888');
         $textcolor = (string) ($opts['textcolor'] ?? '#444444');
         $labelsize = max(8, min(48, (int) ($opts['labelsize'] ?? 16)));
+        $datalabels = !empty($opts['datalabels']);
         $palette   = !empty($opts['palette']) && is_array($opts['palette']) ? $opts['palette'] : self::PALETTE;
 
         // Normalise the two arrays to the same length and drop non-finite values.
@@ -109,7 +110,8 @@ final class chart_svg {
                     $axiscolor,
                     $textcolor,
                     $palette,
-                    $labelsize
+                    $labelsize,
+                    $datalabels
                 ),
             };
         }
@@ -138,6 +140,7 @@ final class chart_svg {
      * @param string $textcolor
      * @param string[] $palette
      * @param int $labelsize Category-label font size in px.
+     * @param bool $datalabels Draw each value as a number on/above its bar or point.
      * @return string
      */
     private static function render_cartesian(
@@ -150,7 +153,8 @@ final class chart_svg {
         string $axiscolor,
         string $textcolor,
         array $palette,
-        int $labelsize
+        int $labelsize,
+        bool $datalabels = false
     ): string {
         $left   = 56;
         $right  = 16;
@@ -173,9 +177,9 @@ final class chart_svg {
         $x0     = $left;
         $ybot   = $top + $ploth;
 
-        // Value range: always include zero so bars have a baseline.
-        $ymax = max(0.0, ...$values);
-        $ymin = min(0.0, ...$values);
+        // Value range: always include zero so bars have a baseline, rounded out to "nice" bounds so
+        // the horizontal gridlines land on round numbers.
+        [$ymin, $ymax, $step] = self::nice_ticks(min(0.0, ...$values), max(0.0, ...$values), 5);
         if ($ymax === $ymin) {
             $ymax = $ymin + 1.0;
         }
@@ -194,16 +198,20 @@ final class chart_svg {
 
         $svg = '';
 
-        // Axis frame: left (y) and baseline at value 0.
+        // Horizontal gridlines at each nice y-value, drawn faint across the whole plot so any bar or
+        // point can be read off without tracing back to the axis; each carries its value label at the
+        // left. The value-0 baseline and the left axis are drawn solid on top.
+        $steps = (int) round(($ymax - $ymin) / $step);
+        for ($k = 0; $k <= $steps; $k++) {
+            $t  = $ymin + $k * $step;
+            $ty = $y($t);
+            $svg .= self::line($x0, $ty, $x0 + $plotw, $ty, $axiscolor, 1, 0.18);
+            $svg .= self::text($x0 - 8, $ty + 4, self::num($t), $textcolor, 11, 'end');
+        }
+
+        // Axis frame: left (y) and a solid baseline at value 0.
         $svg .= self::line($x0, $top, $x0, $ybot, $axiscolor, 1);
         $svg .= self::line($x0, $zeroy, $x0 + $plotw, $zeroy, $axiscolor, 1);
-
-        // Y ticks: min, zero, max.
-        foreach (array_unique([$ymin, 0.0, $ymax]) as $tick) {
-            $ty = $y((float) $tick);
-            $svg .= self::line($x0 - 4, $ty, $x0, $ty, $axiscolor, 1);
-            $svg .= self::text($x0 - 8, $ty + 4, self::num((float) $tick), $textcolor, 11, 'end');
-        }
 
         if ($kind === 'line') {
             $points = [];
@@ -220,6 +228,9 @@ final class chart_svg {
                 $px = $x0 + ($i + 0.5) * $band;
                 $svg .= '<circle cx="' . self::coord($px) . '" cy="' . self::coord($y($values[$i]))
                     . '" r="3" fill="' . self::esc($palette[0]) . '"/>';
+                if ($datalabels) {
+                    $svg .= self::text($px, $y($values[$i]) - 7, self::num($values[$i]), $textcolor, 10, 'middle');
+                }
                 $svg .= self::xlabel($px, $ybot, $labels[$i], $textcolor, $labelsize);
             }
         } else {
@@ -229,10 +240,18 @@ final class chart_svg {
                 $vy  = $y($values[$i]);
                 $bt  = min($vy, $zeroy);
                 $bh  = abs($vy - $zeroy);
-                $fill = $palette[$i % count($palette)];
+                // Single data series: every bar shares one fill colour. Cycling the palette per bar
+                // would imply each bar is a distinct category — that categorical use of the palette
+                // is reserved for pie/doughnut slices.
+                $fill = $palette[0];
                 $svg .= '<rect x="' . self::coord($bx) . '" y="' . self::coord($bt) . '" width="'
                     . self::coord($bw) . '" height="' . self::coord(max(0.0, $bh)) . '" fill="'
                     . self::esc($fill) . '"/>';
+                // Value label above the bar top — gated on a readable bar count so a long series is
+                // not swamped with overlapping numbers.
+                if ($datalabels && $n <= $maxlabels * 2) {
+                    $svg .= self::text($bx + $bw / 2, $bt - 3, self::num($values[$i]), $textcolor, 10, 'middle');
+                }
                 if ($i % $labelstep === 0) {
                     // Bar categories get larger labels than the line chart's thinned markers, and
                     // are shown in full (the bottom margin above is sized to fit them).
@@ -467,11 +486,48 @@ final class chart_svg {
      * @param float $y2
      * @param string $color
      * @param float $w Stroke width.
+     * @param float $opacity Stroke opacity (0-1); emitted only when < 1 (e.g. faint gridlines).
      * @return string
      */
-    private static function line(float $x1, float $y1, float $x2, float $y2, string $color, float $w): string {
+    private static function line(
+        float $x1,
+        float $y1,
+        float $x2,
+        float $y2,
+        string $color,
+        float $w,
+        float $opacity = 1.0
+    ): string {
+        $op = $opacity < 1.0 ? ' stroke-opacity="' . self::coord($opacity) . '"' : '';
         return '<line x1="' . self::coord($x1) . '" y1="' . self::coord($y1) . '" x2="' . self::coord($x2)
-            . '" y2="' . self::coord($y2) . '" stroke="' . self::esc($color) . '" stroke-width="' . $w . '"/>';
+            . '" y2="' . self::coord($y2) . '" stroke="' . self::esc($color) . '" stroke-width="' . $w . '"' . $op . '/>';
+    }
+
+    /**
+     * Compute "nice" axis bounds and a round tick step for a value range.
+     *
+     * Rounds the min down and the max up to multiples of a 1/2/5×10ⁿ step near span/$target, so the
+     * gridlines land on human-readable numbers (10, 20, 50, …) instead of raw data extremes. The
+     * caller passes a range already widened to include zero, so the returned bounds still bracket
+     * zero (the bar/line baseline).
+     *
+     * @param float $min Range minimum (≤ 0 in practice).
+     * @param float $max Range maximum (≥ 0 in practice).
+     * @param int $target Desired approximate tick count.
+     * @return array{0: float, 1: float, 2: float} [niceMin, niceMax, step]
+     */
+    private static function nice_ticks(float $min, float $max, int $target): array {
+        $span = $max - $min;
+        if ($span <= 0) {
+            return [$min, $min + 1.0, 1.0];
+        }
+        $raw  = $span / max(1, $target);
+        $mag  = 10 ** floor(log10($raw));
+        $norm = $raw / $mag;
+        $step = ($norm < 1.5 ? 1 : ($norm < 3 ? 2 : ($norm < 7 ? 5 : 10))) * $mag;
+        $nicemin = floor($min / $step) * $step;
+        $nicemax = ceil($max / $step) * $step;
+        return [$nicemin, $nicemax, $step];
     }
 
     /**

@@ -139,9 +139,10 @@ class embed_renderer {
         // Shared server-side SVG chart renderer: no JavaScript, no Chart.js; the <img> holds a base64
         // data URI and cannot execute script.
         return query::chart_figure_html($type, $labels, $values, $xcol, $ycol, [
-            'labelsize' => $labelsize,
-            'showdata'  => !empty($chartmeta['showdata']),
-            'alt'       => $alt,
+            'labelsize'  => $labelsize,
+            'datalabels' => !empty($chartmeta['datalabels']),
+            'showdata'   => !empty($chartmeta['showdata']),
+            'alt'        => $alt,
         ]);
     }
 

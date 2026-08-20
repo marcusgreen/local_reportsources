@@ -516,7 +516,7 @@ class query {
      * @param float[] $values Numeric values, index-aligned with $labels.
      * @param string $xcol Label (x) column name — the first data-table header.
      * @param string $ycol Value (y) column name — the second data-table header.
-     * @param array $opts Display options (labelsize, showdata, title, alt).
+     * @param array $opts Display options (labelsize, datalabels, showdata, title, alt).
      * @return string HTML.
      */
     public static function chart_figure_html(
@@ -531,7 +531,10 @@ class query {
         $title = (string) ($opts['title'] ?? '');
         $alt = (string) ($opts['alt'] ?? '');
 
-        $svg = chart_svg::render($type, $labels, $values, $title, ['labelsize' => $labelsize]);
+        $svg = chart_svg::render($type, $labels, $values, $title, [
+            'labelsize'  => $labelsize,
+            'datalabels' => !empty($opts['datalabels']),
+        ]);
         $html = \html_writer::img('data:image/svg+xml;base64,' . base64_encode($svg), $alt, [
             'class' => 'local-reportsources-chart img-fluid',
             'style' => 'max-width:100%;height:auto;',
@@ -703,6 +706,7 @@ class query {
                 'ycol'     => clean_param((string) ($data->chart_ycol ?? ''), PARAM_ALPHANUMEXT),
                 'rowlimit' => max(1, min(5000, (int) ($data->chart_rowlimit ?? 200))),
                 'labelsize' => max(11, min(48, (int) ($data->chart_labelsize ?? 16))),
+                'datalabels' => !empty($data->chart_datalabels),
                 'showdata' => !empty($data->chart_showdata),
             ]);
         }

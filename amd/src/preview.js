@@ -47,6 +47,11 @@ const collectChartArgs = () => {
         const el = document.getElementById(id);
         return el ? el.value : '';
     };
+    // A checkbox's .value is always "1"; read .checked and send 1/0 so the server sees the real state.
+    const checked = (id) => {
+        const el = document.getElementById(id);
+        return el && el.checked ? 1 : 0;
+    };
     // Keys mirror the server fragment/form param names (see lib.php, edit_query_form).
     /* eslint-disable camelcase */
     return {
@@ -55,6 +60,7 @@ const collectChartArgs = () => {
         chart_ycol: val('id_chart_ycol'),
         chart_rowlimit: val('id_chart_rowlimit'),
         chart_labelsize: val('id_chart_labelsize'),
+        chart_datalabels: checked('id_chart_datalabels'),
     };
     /* eslint-enable camelcase */
 };

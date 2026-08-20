@@ -143,6 +143,68 @@ final class chart_svg_test extends \advanced_testcase {
     }
 
     /**
+     * The datalabels option prints each value as text on a bar / line chart, and only when enabled.
+     *
+     * @return void
+     */
+    public function test_data_labels_option(): void {
+        $labels = ['a', 'b', 'c'];
+        $values = [12.0, 34.0, 56.0];
+        foreach (['bar', 'line'] as $type) {
+            $off = chart_svg::render($type, $labels, $values, '', ['datalabels' => false]);
+            $on  = chart_svg::render($type, $labels, $values, '', ['datalabels' => true]);
+            $this->assert_valid_svg($on);
+            // A distinctive value string appears as a drawn label only when the option is on.
+            $this->assertStringContainsString('>56<', $on, "$type should print value labels when enabled");
+            $this->assertStringNotContainsString('>56<', $off, "$type should not print value labels when disabled");
+        }
+    }
+
+    /**
+     * A long bar/line series suppresses value labels (too many to draw without overlap) while still
+     * rendering valid SVG.
+     *
+     * @return void
+     */
+    public function test_data_labels_suppressed_when_many_points(): void {
+        $labels = [];
+        $values = [];
+        for ($i = 0; $i < 100; $i++) {
+            $labels[] = 'p' . $i;
+            $values[] = 900.0 + $i; // Distinctive 3-digit values.
+        }
+        $svg = chart_svg::render('bar', $labels, $values, '', ['datalabels' => true]);
+        $this->assert_valid_svg($svg);
+        $this->assertStringNotContainsString('>999<', $svg, 'value labels should be suppressed for a long series');
+    }
+
+    /**
+     * A single-series bar chart uses one fill colour for every bar (no per-bar palette cycling).
+     *
+     * @return void
+     */
+    public function test_bars_share_one_colour(): void {
+        $svg = chart_svg::render('bar', ['a', 'b', 'c', 'd'], [1.0, 2.0, 3.0, 4.0]);
+        $this->assert_valid_svg($svg);
+        // Every <rect> bar fill is the first palette colour; the second palette colour is not used.
+        $this->assertGreaterThanOrEqual(4, substr_count($svg, 'fill="#1f77b4"'));
+        $this->assertStringNotContainsString('#ff7f0e', $svg);
+    }
+
+    /**
+     * A bar/line chart draws faint horizontal gridlines (stroke-opacity) at round y-values.
+     *
+     * @return void
+     */
+    public function test_gridlines_present(): void {
+        $svg = chart_svg::render('bar', ['a', 'b'], [0.0, 100.0]);
+        $this->assert_valid_svg($svg);
+        $this->assertStringContainsString('stroke-opacity', $svg);
+        // Nice bounds round the max out to 100, so that tick label is drawn.
+        $this->assertStringContainsString('>100<', $svg);
+    }
+
+    /**
      * chart_series extracts labels (string) and values (float) from row arrays.
      *
      * @return void

@@ -70,6 +70,9 @@ You can refine the audience further on the Audiences tab in Report Builder, but 
 $string['bulkactions'] = 'Bulk actions';
 $string['chartbar'] = 'Bar chart';
 $string['chartcolumn'] = 'Chart';
+$string['chartdatalabels'] = 'Show value labels';
+$string['chartdatalabels_help'] = 'Draws each plotted value as a number on top of its bar or beside its line point, so exact figures can be read straight off the chart. Applies to bar and line charts only (pie / doughnut show values in the legend). Suppressed automatically when a series has too many points to label without overlap. Off by default.';
+$string['chartdatalabelslabel'] = 'Print each value on the bar / line chart';
 $string['chartdoughnut'] = 'Doughnut chart';
 $string['chartdownloadpng'] = 'Download PNG';
 $string['chartexportcsv'] = 'Export CSV';

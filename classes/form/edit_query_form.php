@@ -409,6 +409,17 @@ class edit_query_form extends moodleform {
 
         $mform->addElement(
             'advcheckbox',
+            'chart_datalabels',
+            get_string('chartdatalabels', 'local_reportsources'),
+            get_string('chartdatalabelslabel', 'local_reportsources')
+        );
+        $mform->setType('chart_datalabels', PARAM_BOOL);
+        $mform->setDefault('chart_datalabels', !empty($chartmeta['datalabels']));
+        $mform->addHelpButton('chart_datalabels', 'chartdatalabels', 'local_reportsources');
+        $mform->disabledIf('chart_datalabels', 'chart_type', 'in', ['none', 'pie', 'doughnut']);
+
+        $mform->addElement(
+            'advcheckbox',
             'chart_showdata',
             get_string('chartshowdata', 'local_reportsources'),
             get_string('chartshowdatalabel', 'local_reportsources')

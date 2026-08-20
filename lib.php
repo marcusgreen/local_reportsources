@@ -269,6 +269,7 @@ function local_reportsources_preview_chart(array $args, string $viewname, array 
     }
     $rowlimit = max(1, min(5000, (int) ($args['chart_rowlimit'] ?? 200)));
     $labelsize = max(11, min(48, (int) ($args['chart_labelsize'] ?? 16)));
+    $datalabels = !empty($args['chart_datalabels']);
 
     // Read straight from the preview view. A raw recordset (not get_records) preserves every row and
     // its order — a grouped chart query has no unique id column to key on.
@@ -288,7 +289,10 @@ function local_reportsources_preview_chart(array $args, string $viewname, array 
     $xcase = (string) ($meta[$xcol]['textcase'] ?? '');
     [$labels, $values] = \local_reportsources\local\query::chart_series($rows, $xcol, $ycol, $xcase);
 
-    $svg = \local_reportsources\local\chart_svg::render($type, $labels, $values, '', ['labelsize' => $labelsize]);
+    $svg = \local_reportsources\local\chart_svg::render($type, $labels, $values, '', [
+        'labelsize'  => $labelsize,
+        'datalabels' => $datalabels,
+    ]);
     $datauri = 'data:image/svg+xml;base64,' . base64_encode($svg);
     $img = \html_writer::img($datauri, get_string('chartcolumn', 'local_reportsources'), [
         'class' => 'local-reportsources-chart img-fluid',

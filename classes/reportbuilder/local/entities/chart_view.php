@@ -136,10 +136,11 @@ class chart_view extends base {
         // Delegate to the shared renderer so the chart report, the block, and any future surface all
         // draw the chart identically (image + optional data table). See query::chart_figure_html().
         return query::chart_figure_html($type, $labels, $values, $xcol, $ycol, [
-            'labelsize' => $labelsize,
-            'showdata'  => !empty($chartmeta['showdata']),
-            'title'     => $title,
-            'alt'       => $title,
+            'labelsize'  => $labelsize,
+            'datalabels' => !empty($chartmeta['datalabels']),
+            'showdata'   => !empty($chartmeta['showdata']),
+            'title'      => $title,
+            'alt'        => $title,
         ]);
     }
 }
