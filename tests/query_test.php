@@ -378,9 +378,11 @@ final class query_test extends \advanced_testcase {
 
         // Passing the page's course id limits rows to that course only.
         $rows = query::get($id)->fetch_rows_for_viewer(0, (int) $oncourse->id);
-        $ids  = array_map(static fn($r): int => (int) $r['courseid'], $rows);
-        $this->assertSame([(int) $oncourse->id], $ids);
-        $this->assertNotContains((int) $other->id, $ids);
+        $this->assertCount(1, $rows);
+        // Once scoped to a single course the filter column is a constant, so it is hidden from output.
+        $this->assertArrayNotHasKey('courseid', $rows[0]);
+        $this->assertSame($oncourse->shortname, $rows[0]['shortname']);
+        $this->assertNotSame($other->shortname, $rows[0]['shortname']);
     }
 
     public function test_fetch_rows_for_viewer_page_course_zero_is_unfiltered(): void {
