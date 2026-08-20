@@ -25,7 +25,6 @@
 defined('MOODLE_INTERNAL') || die();
 
 $string['actions'] = 'Actions';
-$string['actionsfor'] = 'Actions for {$a}';
 $string['addnew'] = 'New report source';
 $string['ai:copied'] = 'Copied';
 $string['ai:copy'] = 'Copy';
@@ -194,7 +193,6 @@ $string['deleteselecthelp'] = 'Tick the report sources to delete. Deleting drops
 $string['description'] = 'Description';
 $string['duplicate'] = 'Duplicate';
 $string['edit'] = 'Edit';
-$string['editfor'] = 'Edit: {$a}';
 $string['editreport'] = 'Edit in report builder';
 $string['embedcodecopied'] = 'Embed code copied';
 $string['embedcodecopy'] = 'Copy embed code';
@@ -293,7 +291,6 @@ For the Moodle database schema see <a href="https://www.examulator.com/er/output
 
 For sample queries and inspiration see <a href="https://docs.moodle.org/502/en/ad-hoc_contributed_reports" target="_blank">Moodle ad-hoc contributed reports</a>.';
 $string['reportsource'] = 'Report source';
-$string['reportsourcecount'] = 'Showing {$a} report source(s).';
 $string['reportsourceheader'] = '{$a}';
 $string['reportsources'] = 'Report sources';
 $string['reportsources:approve'] = 'Approve and publish report sources';
@@ -313,7 +310,6 @@ $string['repository:unconfigured'] = 'No shared repository is configured. Set on
 $string['roledescription'] = 'Create, edit and publish report sources (local_reportsources) site-wide. NOTE: authoring allows arbitrary SQL SELECT against the database, so this role grants effectively site-wide data read. Assign only to trusted report builders.';
 $string['rolename'] = 'Report author';
 $string['runreport'] = 'Open report';
-$string['runreportfor'] = 'Open report: {$a}';
 $string['samples:coldesc'] = 'Description';
 $string['samples:colname'] = 'Name';
 $string['samples:colselect'] = 'Import';
@@ -386,7 +382,6 @@ $string['tsfmtyyyy'] = 'Year, 4 digits (2026)';
 
 // Date format for report-view times: compact numeric, e.g. "25/07/26, 17:20".
 $string['strftimeviewdate'] = '%d/%m/%y, %H:%M';
-$string['status_disabled'] = 'Disabled';
 $string['status_draft'] = 'Draft';
 $string['status_published'] = 'Published';
 
@@ -410,7 +405,6 @@ $string['tourstep4title'] = 'Open the report';
 $string['tourstep5content'] = 'This menu holds the rest of the actions: edit in Report Builder, schedule emails, duplicate, publish and delete.';
 $string['tourstep5title'] = 'More actions';
 $string['unpublish'] = 'Unpublish';
-$string['unpublishfor'] = 'Unpublish: {$a}';
 
 
 
